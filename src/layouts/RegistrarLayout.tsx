@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  BookOpen,
   LogOut,
   Menu,
   X,
   Bell,
-  GraduationCap,
+  FileText,
   ChevronRight,
   Sparkles,
   HelpCircle,
   Users,
+  ClipboardList,
+  FolderOpen,
+  Printer,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,12 +28,14 @@ interface UserData {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
-  { name: "My Classes", href: "/teacher/classes", icon: BookOpen },
-  { name: "My Advisory", href: "/teacher/advisory", icon: Users },
+  { name: "Dashboard", href: "/registrar", icon: LayoutDashboard },
+  { name: "Student Records", href: "/registrar/students", icon: Users },
+  { name: "Enrollment", href: "/registrar/enrollment", icon: ClipboardList },
+  { name: "School Forms", href: "/registrar/forms", icon: FolderOpen },
+  { name: "Print Center", href: "/registrar/print", icon: Printer },
 ];
 
-export default function TeacherLayout() {
+export default function RegistrarLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserData | null>(null);
@@ -47,7 +51,7 @@ export default function TeacherLayout() {
     }
 
     const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== "TEACHER") {
+    if (parsedUser.role !== "REGISTRAR") {
       navigate("/login");
       return;
     }
@@ -64,7 +68,7 @@ export default function TeacherLayout() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-emerald-50/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/20">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -81,7 +85,7 @@ export default function TeacherLayout() {
         )}
       >
         {/* Logo Header */}
-        <div className="h-20 flex items-center justify-between px-6 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 relative overflow-hidden flex-shrink-0">
+        <div className="h-20 flex items-center justify-between px-6 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 relative overflow-hidden flex-shrink-0">
           {/* Subtle pattern overlay */}
           <div className="absolute inset-0 opacity-10" style={{
             backgroundImage: `radial-gradient(circle at 20% 50%, white 1px, transparent 1px)`,
@@ -90,11 +94,11 @@ export default function TeacherLayout() {
           
           <div className="relative flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-lg">
-              <GraduationCap className="w-6 h-6 text-white" />
+              <FileText className="w-6 h-6 text-white" />
             </div>
             <div className="text-white">
               <span className="font-bold text-xl tracking-tight block">SMART</span>
-              <span className="text-[11px] text-emerald-100 font-medium -mt-0.5 block">Academic Portal</span>
+              <span className="text-[11px] text-blue-100 font-medium -mt-0.5 block">Registrar Portal</span>
             </div>
           </div>
           <button
@@ -112,44 +116,44 @@ export default function TeacherLayout() {
             <p className="px-3 py-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
               Navigation
             </p>
-            <div className="space-y-1.5 mt-1">
-              {navigation.map((item) => {
-                const isActive = location.pathname === item.href || 
-                  (item.href !== "/teacher" && location.pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "group flex items-center gap-3.5 px-4 py-3 rounded-xl text-[15px] font-medium transition-all duration-200 relative overflow-hidden",
-                      isActive
-                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25"
-                        : "hover:bg-gray-100/80"
-                    )}
-                    style={{
-                      color: isActive ? undefined : '#000000'
-                    }}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    {/* Active indicator glow */}
-                    {isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0" />
-                    )}
-                    <div className={cn(
-                      "p-2 rounded-lg transition-all duration-200 relative z-10",
-                      isActive 
-                        ? "bg-white/20 shadow-sm" 
-                        : "bg-gray-100 group-hover:bg-emerald-100"
-                    )}
-                    style={{
-                      color: isActive ? undefined : '#000000'
-                    }}>
-                      <item.icon className="w-[18px] h-[18px]" />
-                    </div>
-                    <span className="flex-1 relative z-10">{item.name}</span>
-                    {isActive && (
-                      <ChevronRight className="w-4 h-4 relative z-10 animate-pulse" />
-                    )}
+          <div className="space-y-1.5 mt-1">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.href || 
+                (item.href !== "/registrar" && location.pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    "group flex items-center gap-3.5 px-4 py-3 rounded-xl text-[15px] font-medium transition-all duration-200 relative overflow-hidden",
+                    isActive
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+                      : "hover:bg-gray-100/80"
+                  )}
+                  style={{
+                    color: isActive ? undefined : '#000000'
+                  }}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  {/* Active indicator glow */}
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0" />
+                  )}
+                  <div className={cn(
+                    "p-2 rounded-lg transition-all duration-200 relative z-10",
+                    isActive 
+                      ? "bg-white/20 shadow-sm" 
+                      : "bg-gray-100 group-hover:bg-blue-100"
+                  )}
+                  style={{
+                    color: isActive ? undefined : '#000000'
+                  }}>
+                    <item.icon className="w-[18px] h-[18px]" />
+                  </div>
+                  <span className="flex-1 relative z-10">{item.name}</span>
+                  {isActive && (
+                    <ChevronRight className="w-4 h-4 relative z-10 animate-pulse" />
+                  )}
                 </Link>
               );
             })}
@@ -157,10 +161,10 @@ export default function TeacherLayout() {
 
           {/* User Profile Card - Below Navigation */}
           <div className="mt-6 pt-6 border-t border-gray-100">
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-emerald-50/80 to-teal-50/60 border border-emerald-100/60 shadow-sm">
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-blue-50/80 to-indigo-50/60 border border-blue-100/60 shadow-sm">
               <div className="flex items-center gap-3.5 mb-3">
-                <Avatar className="w-12 h-12 border-2 border-white shadow-md ring-2 ring-emerald-100">
-                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-semibold text-lg">
+                <Avatar className="w-12 h-12 border-2 border-white shadow-md ring-2 ring-blue-100">
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold text-lg">
                     {user.firstName ? user.firstName.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -168,9 +172,9 @@ export default function TeacherLayout() {
                   <p className="font-semibold text-gray-900 truncate text-[15px]">
                     {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username}
                   </p>
-                  <Badge variant="secondary" className="mt-1 bg-emerald-100/80 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                  <Badge variant="secondary" className="mt-1 bg-blue-100/80 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">
                     <Sparkles className="w-3 h-3 mr-1" />
-                    Teacher
+                    Registrar
                   </Badge>
                 </div>
               </div>
@@ -186,24 +190,24 @@ export default function TeacherLayout() {
 
           {/* Help Section */}
           <div className="p-5 mt-5 mb-5">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 border border-gray-100 relative overflow-hidden">
-              {/* Decorative element */}
-              <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-100 rounded-full opacity-50 blur-xl" />
-              
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <HelpCircle className="w-5 h-5 text-emerald-600" />
-                  <p className="font-semibold text-gray-800 text-sm">Need Assistance?</p>
-                </div>
-                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                  Contact your school administrator for support and guidance.
-                </p>
-                <button className="w-full py-2.5 px-4 rounded-xl bg-white border border-gray-200 text-gray-700 text-xs font-semibold hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all duration-200 shadow-sm">
-                  View Documentation
-                </button>
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 border border-gray-100 relative overflow-hidden">
+            {/* Decorative element */}
+            <div className="absolute -right-4 -top-4 w-20 h-20 bg-blue-100 rounded-full opacity-50 blur-xl" />
+            
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <HelpCircle className="w-5 h-5 text-blue-600" />
+                <p className="font-semibold text-gray-800 text-sm">Need Assistance?</p>
               </div>
+              <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                Contact your school administrator for support and guidance.
+              </p>
+              <button className="w-full py-2.5 px-4 rounded-xl bg-white border border-gray-200 text-gray-700 text-xs font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200 shadow-sm">
+                View Documentation
+              </button>
             </div>
           </div>
+        </div>
         </nav>
         </div>
       </aside>
@@ -223,12 +227,12 @@ export default function TeacherLayout() {
               
               {/* Breadcrumb with modern style */}
               <div className="hidden sm:flex items-center gap-2 text-sm">
-                <span className="text-gray-400 font-medium">Teacher Portal</span>
+                <span className="text-gray-400 font-medium">Registrar Portal</span>
                 <ChevronRight className="w-4 h-4 text-gray-300" />
                 <span className="text-gray-800 font-semibold bg-gray-100 px-3 py-1 rounded-lg">
                   {navigation.find(nav => 
                     location.pathname === nav.href || 
-                    (nav.href !== "/teacher" && location.pathname.startsWith(nav.href))
+                    (nav.href !== "/registrar" && location.pathname.startsWith(nav.href))
                   )?.name || "Dashboard"}
                 </span>
               </div>
@@ -247,7 +251,7 @@ export default function TeacherLayout() {
               {/* Notifications */}
               <button className="p-2.5 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors relative group">
                 <Bell className="w-5 h-5 group-hover:text-gray-700 transition-colors" />
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
               </button>
             </div>
           </div>
@@ -263,7 +267,7 @@ export default function TeacherLayout() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
             <p>© 2026 SMART Grading System. All rights reserved.</p>
             <p className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
               Department of Education • Philippines
             </p>
           </div>

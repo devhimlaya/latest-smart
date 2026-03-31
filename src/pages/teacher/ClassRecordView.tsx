@@ -18,8 +18,6 @@ import {
   TrendingDown,
   Target,
   FileSpreadsheet,
-  User,
-  Printer,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -399,199 +397,7 @@ export default function ClassRecordView() {
     setTimeout(() => printWindow.print(), 250);
   };
 
-  // Print SF9 - Individual Student Report Card
-  const printSF9 = (student: ClassRecord) => {
-    if (!classAssignment) return;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // Get all quarters data for this student
-    const getQuarterGrade = (q: string) => student.grades.find(g => g.quarter === q);
-    const q1 = getQuarterGrade('Q1');
-    const q2 = getQuarterGrade('Q2');
-    const q3 = getQuarterGrade('Q3');
-    const q4 = getQuarterGrade('Q4');
-
-    const quarterGrades = [q1?.quarterlyGrade, q2?.quarterlyGrade, q3?.quarterlyGrade, q4?.quarterlyGrade].filter(g => g !== undefined && g !== null) as number[];
-    const finalGrade = quarterGrades.length > 0 ? Math.round(quarterGrades.reduce((a, b) => a + b, 0) / quarterGrades.length) : null;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>SF9 - Report Card - ${student.student.lastName}, ${student.student.firstName}</title>
-        <style>
-          @page { size: portrait; margin: 0.75in; }
-          body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 25px; max-width: 800px; margin: 0 auto; }
-          .header { display: flex; align-items: center; justify-content: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; gap: 20px; }
-          .header-logo { width: 80px; height: 80px; }
-          .header-text { text-align: center; flex-grow: 1; }
-          .header-text p { margin: 4px 0; font-size: 11px; }
-          .header-text h1 { margin: 10px 0 6px 0; font-size: 16px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-          .header-text h2 { margin: 6px 0; font-size: 13px; font-weight: normal; }
-          .republic { font-size: 11px; font-weight: normal; }
-          .deped { font-size: 12px; font-weight: bold; }
-          .student-info { background: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 30px; }
-          .student-info h3 { margin: 0 0 15px 0; font-size: 15px; border-bottom: 1px solid #999; padding-bottom: 10px; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-          .info-item { display: flex; margin-bottom: 5px; }
-          .info-label { font-weight: bold; width: 110px; font-size: 12px; }
-          table { width: 100%; border-collapse: collapse; margin: 30px 0; }
-          th, td { border: 1px solid #000; padding: 14px 10px; text-align: center; font-size: 12px; }
-          th { background-color: #e8e8e8; font-weight: bold; }
-          .subject-name { text-align: left !important; font-weight: 500; padding-left: 15px !important; }
-          .grade-cell { font-weight: bold; font-size: 15px; }
-          .passed { color: #16a34a; }
-          .failed { color: #dc2626; }
-          .remarks-section { margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 5px; }
-          .remarks-section h4 { margin: 0 0 12px 0; font-size: 14px; }
-          .signature-section { margin-top: 50px; display: flex; justify-content: space-between; }
-          .signature-box { width: 200px; text-align: center; }
-          .signature-line { border-top: 1px solid #000; margin-top: 55px; padding-top: 8px; font-size: 11px; }
-          .legend { margin-top: 30px; font-size: 11px; padding: 15px; background: #fafafa; border-radius: 5px; }
-          .legend h3 { margin: 0 0 12px 0; font-size: 13px; }
-          .legend table { font-size: 11px; margin-top: 10px; }
-          .legend th, .legend td { padding: 8px; }
-          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <img src="/DepEd.png" alt="DepEd Logo" class="header-logo" />
-          <div class="header-text">
-            <p class="republic">Republic of the Philippines</p>
-            <p class="deped">Department of Education</p>
-            <p style="font-size: 9px; margin-top: 6px;">Region _____ Division _____ District _____</p>
-            <h1>School Form 9 (SF9)</h1>
-            <h2>Learner's Progress Report Card</h2>
-            <p style="font-weight: bold; margin-top: 6px;">${classAssignment.subject.name}</p>
-          </div>
-          <div style="width: 70px;"></div>
-        </div>
-
-        <div class="student-info">
-          <h3>Learner's Information</h3>
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">Name:</span>
-              <span>${student.student.lastName}, ${student.student.firstName}${student.student.middleName ? ' ' + student.student.middleName : ''}${student.student.suffix ? ' ' + student.student.suffix : ''}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">LRN:</span>
-              <span style="font-family: monospace;">${student.student.lrn}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Grade Level:</span>
-              <span>${gradeLevelLabels[classAssignment.section.gradeLevel]}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Section:</span>
-              <span>${classAssignment.section.name}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">School Year:</span>
-              <span>${classAssignment.section.schoolYear}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Date:</span>
-              <span>${new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th rowspan="2" style="width: 200px;">Learning Areas</th>
-              <th colspan="4">Quarterly Grades</th>
-              <th rowspan="2" style="width: 60px;">Final Grade</th>
-              <th rowspan="2" style="width: 80px;">Remarks</th>
-            </tr>
-            <tr>
-              <th style="width: 50px;">Q1</th>
-              <th style="width: 50px;">Q2</th>
-              <th style="width: 50px;">Q3</th>
-              <th style="width: 50px;">Q4</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="subject-name">${classAssignment.subject.name}</td>
-              <td class="grade-cell">${q1?.quarterlyGrade || '-'}</td>
-              <td class="grade-cell">${q2?.quarterlyGrade || '-'}</td>
-              <td class="grade-cell">${q3?.quarterlyGrade || '-'}</td>
-              <td class="grade-cell">${q4?.quarterlyGrade || '-'}</td>
-              <td class="grade-cell ${finalGrade && finalGrade >= 75 ? 'passed' : finalGrade ? 'failed' : ''}">${finalGrade || '-'}</td>
-              <td class="${finalGrade && finalGrade >= 75 ? 'passed' : finalGrade ? 'failed' : ''}">${finalGrade ? (finalGrade >= 75 ? 'Passed' : 'Failed') : '-'}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="remarks-section">
-          <h4>Grading Scale</h4>
-          <table class="legend">
-            <tr>
-              <th>Descriptor</th>
-              <th>Grading Scale</th>
-              <th>Remarks</th>
-            </tr>
-            <tr>
-              <td>Outstanding</td>
-              <td>90 - 100</td>
-              <td>Passed</td>
-            </tr>
-            <tr>
-              <td>Very Satisfactory</td>
-              <td>85 - 89</td>
-              <td>Passed</td>
-            </tr>
-            <tr>
-              <td>Satisfactory</td>
-              <td>80 - 84</td>
-              <td>Passed</td>
-            </tr>
-            <tr>
-              <td>Fairly Satisfactory</td>
-              <td>75 - 79</td>
-              <td>Passed</td>
-            </tr>
-            <tr>
-              <td>Did Not Meet Expectations</td>
-              <td>Below 75</td>
-              <td>Failed</td>
-            </tr>
-          </table>
-        </div>
-
-        <div class="signature-section">
-          <div class="signature-box">
-            <div class="signature-line">Class Adviser</div>
-          </div>
-          <div class="signature-box">
-            <div class="signature-line">Parent/Guardian</div>
-          </div>
-          <div class="signature-box">
-            <div class="signature-line">School Principal</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 250);
-  };
-
-  // Print All SF9 - Opens each student's SF9 in sequence
-  const printAllSF9 = () => {
-    classRecord.forEach((student, index) => {
-      setTimeout(() => {
-        printSF9(student);
-      }, index * 500); // Stagger by 500ms to avoid browser blocking
-    });
-  };
 
   if (loading) {
     return (
@@ -751,7 +557,9 @@ export default function ClassRecordView() {
             <Label className="text-gray-600 font-semibold">Quarter:</Label>
             <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
               <SelectTrigger className="w-40 bg-white border-gray-200 focus:ring-emerald-500 rounded-xl h-11 font-medium">
-                <SelectValue />
+                <SelectValue>
+                  {selectedQuarter === "Q1" ? "1st Quarter" : selectedQuarter === "Q2" ? "2nd Quarter" : selectedQuarter === "Q3" ? "3rd Quarter" : "4th Quarter"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 {quarters.map((q) => (
@@ -769,14 +577,6 @@ export default function ClassRecordView() {
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Print SF8
-              </Button>
-              <Button
-                onClick={printAllSF9}
-                variant="outline"
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-medium"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Print All SF9
               </Button>
             </div>
           </div>
@@ -869,15 +669,6 @@ export default function ClassRecordView() {
                             ) : (
                               <Plus className="w-4 h-4" />
                             )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => printSF9(record)}
-                            className="h-8 w-8 p-0 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all"
-                            title="Print SF9"
-                          >
-                            <Printer className="w-4 h-4" />
                           </Button>
                           {grade && (
                             <Button

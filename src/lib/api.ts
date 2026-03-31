@@ -212,4 +212,143 @@ export const gradesApi = {
     }),
 };
 
+// Advisory API
+export interface AdvisoryStudent {
+  id: string;
+  lrn: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  suffix?: string;
+  gender?: string;
+  birthDate?: string;
+  address?: string;
+  guardianName?: string;
+  guardianContact?: string;
+  rank?: number;
+}
+
+export interface AdvisorySubject {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  teacher: string;
+}
+
+export interface AdvisoryData {
+  hasAdvisory: boolean;
+  message?: string;
+  teacher: {
+    id: string;
+    name: string;
+    employeeId: string;
+  };
+  section?: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    schoolYear: string;
+  };
+  students?: AdvisoryStudent[];
+  stats?: {
+    totalStudents: number;
+    maleCount: number;
+    femaleCount: number;
+  };
+  subjects?: AdvisorySubject[];
+}
+
+export interface QuarterGrade {
+  writtenWorkPS: number | null;
+  perfTaskPS: number | null;
+  quarterlyAssessPS: number | null;
+  initialGrade: number | null;
+  quarterlyGrade: number | null;
+}
+
+export interface SubjectGrade {
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  subjectType: string;
+  teacher: string;
+  grades: {
+    Q1: QuarterGrade | null;
+    Q2: QuarterGrade | null;
+    Q3: QuarterGrade | null;
+    Q4: QuarterGrade | null;
+  };
+  finalGrade: number | null;
+  remarks: string | null;
+}
+
+export interface StudentGradeProfile {
+  student: {
+    id: string;
+    lrn: string;
+    firstName: string;
+    middleName?: string;
+    lastName: string;
+    suffix?: string;
+    gender?: string;
+    birthDate?: string;
+    address?: string;
+    guardianName?: string;
+    guardianContact?: string;
+  };
+  enrollment: {
+    sectionName: string;
+    gradeLevel: string;
+    schoolYear: string;
+    status: string;
+  };
+  subjectGrades: SubjectGrade[];
+  summary: {
+    generalAverage: number | null;
+    honors: string | null;
+    promotionStatus: string | null;
+    totalSubjects: number;
+    completedSubjects: number;
+  };
+}
+
+export interface AdvisorySummary {
+  hasAdvisory: boolean;
+  section?: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    schoolYear: string;
+  };
+  rankings?: {
+    studentId: string;
+    name: string;
+    lrn: string;
+    gender?: string;
+    average: number | null;
+    gradedSubjects: number;
+    totalSubjects: number;
+    rank: number | null;
+    honors: string | null;
+  }[];
+  stats?: {
+    totalStudents: number;
+    gradedStudents: number;
+    withHonors: number;
+    passingRate: number;
+  };
+}
+
+export const advisoryApi = {
+  getMyAdvisory: () => api.get<AdvisoryData>("/advisory/my-advisory"),
+
+  getStudentGrades: (studentId: string, schoolYear?: string) =>
+    api.get<StudentGradeProfile>(`/advisory/student/${studentId}/grades`, {
+      params: schoolYear ? { schoolYear } : {},
+    }),
+
+  getAdvisorySummary: () => api.get<AdvisorySummary>("/advisory/summary"),
+};
+
 export default api;

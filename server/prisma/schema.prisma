@@ -56,6 +56,7 @@ model Teacher {
   employeeId       String            @unique
   specialization   String?
   classAssignments ClassAssignment[]
+  advisorySections Section[]         @relation("SectionAdviser")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -83,7 +84,8 @@ model Section {
   name        String       // e.g., "Einstein", "Newton"
   gradeLevel  GradeLevel
   schoolYear  String       // e.g., "2025-2026"
-  adviser     String?      // Teacher name or ID
+  adviserId   String?      // Reference to Teacher
+  adviser     Teacher?     @relation("SectionAdviser", fields: [adviserId], references: [id])
   enrollments Enrollment[]
   classAssignments ClassAssignment[]
   createdAt   DateTime     @default(now())

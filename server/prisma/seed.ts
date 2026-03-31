@@ -145,14 +145,21 @@ async function main() {
   const english8 = await prisma.subject.findUnique({ where: { code: "ENG8" } });
   const english9 = await prisma.subject.findUnique({ where: { code: "ENG9" } });
   const english10 = await prisma.subject.findUnique({ where: { code: "ENG10" } });
+  const math7 = await prisma.subject.findUnique({ where: { code: "MATH7" } });
+  const science7 = await prisma.subject.findUnique({ where: { code: "SCI7" } });
+  const filipino7 = await prisma.subject.findUnique({ where: { code: "FIL7" } });
+  const ap7 = await prisma.subject.findUnique({ where: { code: "AP7" } });
+  const mapeh7 = await prisma.subject.findUnique({ where: { code: "MAPEH7" } });
+  const tle7 = await prisma.subject.findUnique({ where: { code: "TLE7" } });
+  const esp7 = await prisma.subject.findUnique({ where: { code: "ESP7" } });
 
   // Create Sections
   const sections = [
-    { name: "Einstein", gradeLevel: GradeLevel.GRADE_7 },
-    { name: "Newton", gradeLevel: GradeLevel.GRADE_7 },
-    { name: "Galileo", gradeLevel: GradeLevel.GRADE_8 },
-    { name: "Darwin", gradeLevel: GradeLevel.GRADE_9 },
-    { name: "Curie", gradeLevel: GradeLevel.GRADE_10 },
+    { name: "Einstein", gradeLevel: GradeLevel.GRADE_7, isAdvisory: true },
+    { name: "Newton", gradeLevel: GradeLevel.GRADE_7, isAdvisory: false },
+    { name: "Galileo", gradeLevel: GradeLevel.GRADE_8, isAdvisory: false },
+    { name: "Darwin", gradeLevel: GradeLevel.GRADE_9, isAdvisory: false },
+    { name: "Curie", gradeLevel: GradeLevel.GRADE_10, isAdvisory: false },
   ];
 
   const schoolYear = "2025-2026";
@@ -171,7 +178,7 @@ async function main() {
         name: section.name,
         gradeLevel: section.gradeLevel,
         schoolYear,
-        adviser: "Jayrelle B. Sy, Ph.D",
+        adviserId: section.isAdvisory ? teacher.id : undefined,
       },
     });
   }
@@ -193,9 +200,20 @@ async function main() {
     where: { name: "Curie", gradeLevel: GradeLevel.GRADE_10 },
   });
 
-  // Create Class Assignments for Ms. Jay (teaches English to multiple sections)
+  // Create Class Assignments for Ms. Jay
+  // Grade 7 Einstein (advisory): teaches all 8 DepEd JHS subjects
+  // Other sections: teaches English only (her specialization)
   const classAssignments = [
+    // Einstein (Grade 7 Advisory) - all 8 DepEd subjects
     { subjectId: english7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: math7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: science7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: filipino7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: ap7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: esp7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: mapeh7!.id, sectionId: sectionEinstein!.id },
+    { subjectId: tle7!.id, sectionId: sectionEinstein!.id },
+    // Other sections - English only
     { subjectId: english7!.id, sectionId: sectionNewton!.id },
     { subjectId: english8!.id, sectionId: sectionGalileo!.id },
     { subjectId: english9!.id, sectionId: sectionDarwin!.id },

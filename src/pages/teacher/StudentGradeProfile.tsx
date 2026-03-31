@@ -1,0 +1,448 @@
+import { useEffect, useState, useCallback } from "react";
+import { Link, useParams, useLocation } from "react-router-dom";
+import {
+  ArrowLeft,
+  User,
+  GraduationCap,
+  Calendar,
+  Award,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Phone,
+  MapPin,
+  Medal,
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { advisoryApi, type StudentGradeProfile } from "@/lib/api";
+
+const gradeLevelLabels: Record<string, string> = {
+  GRADE_7: "Grade 7",
+  GRADE_8: "Grade 8",
+  GRADE_9: "Grade 9",
+  GRADE_10: "Grade 10",
+};
+
+// DepEd mastery level helper
+function getMasteryLevel(grade: number | null): { label: string; color: string; bgColor: string } {
+  if (grade === null) return { label: "Not Graded", color: "text-gray-500", bgColor: "bg-gray-100" };
+  if (grade >= 90) return { label: "Outstanding", color: "text-emerald-700", bgColor: "bg-emerald-100" };
+  if (grade >= 85) return { label: "Very Satisfactory", color: "text-blue-700", bgColor: "bg-blue-100" };
+  if (grade >= 80) return { label: "Satisfactory", color: "text-amber-700", bgColor: "bg-amber-100" };
+  if (grade >= 75) return { label: "Fairly Satisfactory", color: "text-orange-700", bgColor: "bg-orange-100" };
+  return { label: "Did Not Meet", color: "text-red-700", bgColor: "bg-red-100" };
+}
+
+// Format date helper
+function formatDate(dateString?: string): string {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export default function StudentGradeProfilePage() {
+  const { studentId } = useParams<{ studentId: string }>();
+  const location = useLocation();
+  const [data, setData] = useState<StudentGradeProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStudentGrades = useCallback(async () => {
+    if (!studentId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await advisoryApi.getStudentGrades(studentId);
+      setData(res.data);
+    } catch (err) {
+      setError("Failed to load student grades");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId]);
+
+  // Re-fetch when studentId changes OR when navigating to the page (location.key changes)
+  useEffect(() => {
+    fetchStudentGrades();
+  }, [fetchStudentGrades, location.key]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center shadow-lg shadow-purple-100 animate-pulse">
+            <div className="w-10 h-10 border-[3px] border-purple-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-gray-500 font-medium">Loading student profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-100 to-rose-100 flex items-center justify-center shadow-lg">
+            <span className="text-4xl">😕</span>
+          </div>
+          <h3 className="font-semibold text-gray-900 text-lg mb-2">Something went wrong</h3>
+          <p className="text-gray-500 mb-6">{error || "Failed to load student data"}</p>
+          <Link to="/teacher/advisory">
+            <Button variant="outline" className="rounded-xl">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Advisory
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { student, enrollment, subjectGrades, summary } = data;
+  const fullName = `${student.lastName}, ${student.firstName} ${student.middleName ? `${student.middleName.charAt(0)}.` : ""} ${student.suffix || ""}`.trim();
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header with Back Button */}
+      <div className="flex items-center gap-4">
+        <Link to="/teacher/advisory">
+          <Button variant="outline" size="icon" className="rounded-xl border-gray-300 hover:bg-gray-100">
+            <ArrowLeft className="w-5 h-5 text-gray-900" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>Student Grade Profile</h1>
+          <p style={{ color: '#4b5563' }}>Complete academic record</p>
+        </div>
+      </div>
+
+      {/* Student Info Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Info */}
+        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-5">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                {student.lastName.charAt(0)}
+              </div>
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-900">{fullName}</CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className="bg-purple-100 text-purple-700">
+                    LRN: {student.lrn}
+                  </Badge>
+                  <Badge className={`${
+                    student.gender?.toLowerCase() === "male"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-pink-100 text-pink-700"
+                  }`}>
+                    {student.gender || "N/A"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <GraduationCap className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Grade & Section</p>
+                    <p className="font-semibold text-gray-900">
+                      {gradeLevelLabels[enrollment.gradeLevel] || enrollment.gradeLevel} - {enrollment.sectionName}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Calendar className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">School Year</p>
+                    <p className="font-semibold text-gray-900">{enrollment.schoolYear}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Calendar className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Birth Date</p>
+                    <p className="font-semibold text-gray-900">{formatDate(student.birthDate)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <MapPin className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Address</p>
+                    <p className="font-semibold text-gray-900">{student.address || "N/A"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <User className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Guardian</p>
+                    <p className="font-semibold text-gray-900">{student.guardianName || "N/A"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Phone className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Contact Number</p>
+                    <p className="font-semibold text-gray-900">{student.guardianContact || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Summary Card */}
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-600 overflow-hidden rounded-2xl text-white">
+          <CardContent className="p-6 h-full flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
+                <Award className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-lg">Academic Summary</h3>
+            </div>
+            
+            <div className="space-y-4 flex-1">
+              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
+                <p className="text-purple-100 text-sm mb-1">General Average</p>
+                <p className="text-4xl font-bold">
+                  {summary.generalAverage !== null ? summary.generalAverage.toFixed(2) : "N/A"}
+                </p>
+                {summary.generalAverage !== null && (
+                  <Badge className={`mt-2 ${getMasteryLevel(summary.generalAverage).bgColor} ${getMasteryLevel(summary.generalAverage).color}`}>
+                    {getMasteryLevel(summary.generalAverage).label}
+                  </Badge>
+                )}
+              </div>
+              
+              {summary.honors && (
+                <div className="p-4 rounded-xl bg-yellow-400/20 backdrop-blur-sm border border-yellow-400/30">
+                  <div className="flex items-center gap-2">
+                    <Medal className="w-5 h-5 text-yellow-300" />
+                    <p className="font-bold text-yellow-100">{summary.honors}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
+                <p className="text-purple-100 text-sm mb-1">Status</p>
+                <Badge className={`${
+                  summary.promotionStatus === "PROMOTED" ? "bg-emerald-400/30 text-emerald-100" :
+                  summary.promotionStatus === "CONDITIONALLY PROMOTED" ? "bg-amber-400/30 text-amber-100" :
+                  summary.promotionStatus === "RETAINED" ? "bg-red-400/30 text-red-100" :
+                  "bg-gray-400/30 text-gray-100"
+                }`}>
+                  {summary.promotionStatus || "Pending"}
+                </Badge>
+              </div>
+              
+              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
+                <p className="text-purple-100 text-sm mb-1">Progress</p>
+                <p className="text-lg font-semibold">
+                  {summary.completedSubjects} / {summary.totalSubjects} Subjects Graded
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Grades Table */}
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-lg">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-gray-900">Subject Grades</CardTitle>
+                <CardDescription className="text-gray-500 text-sm">
+                  Quarterly grades and final rating per subject
+                </CardDescription>
+              </div>
+            </div>
+            <Badge className="bg-purple-100 text-purple-700">
+              S.Y. {enrollment.schoolYear}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/80">
+                  <TableHead className="font-bold text-gray-700 min-w-[200px]">Subject</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center">Q1</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center">Q2</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center">Q3</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center">Q4</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center bg-purple-50">Final Grade</TableHead>
+                  <TableHead className="font-bold text-gray-700 text-center">Remarks</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {subjectGrades.map((subject) => (
+                  <TableRow key={subject.subjectId} className="hover:bg-purple-50/30">
+                    <TableCell>
+                      <div>
+                        <p className="font-semibold text-gray-900">{subject.subjectName}</p>
+                        <p className="text-xs text-gray-500">{subject.teacher}</p>
+                      </div>
+                    </TableCell>
+                    {(["Q1", "Q2", "Q3", "Q4"] as const).map((quarter) => {
+                      const grade = subject.grades[quarter]?.quarterlyGrade;
+                      return (
+                        <TableCell key={quarter} className="text-center">
+                          {grade !== null && grade !== undefined ? (
+                            <span className={`font-semibold ${grade >= 75 ? "text-gray-900" : "text-red-600"}`}>
+                              {grade}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-center bg-purple-50/50">
+                      {subject.finalGrade !== null ? (
+                        <span className={`text-lg font-bold ${subject.finalGrade >= 75 ? "text-purple-700" : "text-red-600"}`}>
+                          {subject.finalGrade}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {subject.remarks ? (
+                        <Badge className={`${
+                          subject.remarks === "PASSED" 
+                            ? "bg-emerald-100 text-emerald-700" 
+                            : "bg-red-100 text-red-700"
+                        }`}>
+                          {subject.remarks === "PASSED" ? (
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                          ) : (
+                            <XCircle className="w-3 h-3 mr-1" />
+                          )}
+                          {subject.remarks}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-gray-100 text-gray-500">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                
+                {/* General Average Row */}
+                <TableRow className="bg-gradient-to-r from-purple-100/80 to-violet-100/80 border-t-2 border-purple-200">
+                  <TableCell colSpan={5} className="font-bold text-purple-900 text-right pr-8">
+                    General Average:
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="text-2xl font-bold text-purple-700">
+                      {summary.generalAverage !== null ? summary.generalAverage.toFixed(2) : "N/A"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {summary.promotionStatus && (
+                      <Badge className={`${
+                        summary.promotionStatus === "PROMOTED" ? "bg-emerald-500 text-white" :
+                        summary.promotionStatus === "CONDITIONALLY PROMOTED" ? "bg-amber-500 text-white" :
+                        "bg-red-500 text-white"
+                      }`}>
+                        {summary.promotionStatus}
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DepEd Grading Legend */}
+      <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <CardHeader className="border-b border-gray-100 px-6 py-4">
+          <CardTitle className="text-sm font-bold text-gray-700">DepEd Grading Scale</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { label: "Outstanding", range: "90-100", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              { label: "Very Satisfactory", range: "85-89", color: "bg-blue-100 text-blue-700 border-blue-200" },
+              { label: "Satisfactory", range: "80-84", color: "bg-amber-100 text-amber-700 border-amber-200" },
+              { label: "Fairly Satisfactory", range: "75-79", color: "bg-orange-100 text-orange-700 border-orange-200" },
+              { label: "Did Not Meet Expectations", range: "Below 75", color: "bg-red-100 text-red-700 border-red-200" },
+            ].map((level) => (
+              <div key={level.label} className={`p-3 rounded-xl border ${level.color}`}>
+                <p className="font-semibold text-sm">{level.label}</p>
+                <p className="text-xs opacity-80">{level.range}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <h4 className="font-bold text-gray-700 text-sm mb-3">Academic Honors (Based on General Average):</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { label: "With Highest Honors", range: "98-100", icon: "🏆" },
+                { label: "With High Honors", range: "95-97", icon: "🥇" },
+                { label: "With Honors", range: "90-94", icon: "🥈" },
+              ].map((honor) => (
+                <div key={honor.label} className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200">
+                  <span className="text-2xl">{honor.icon}</span>
+                  <div>
+                    <p className="font-semibold text-amber-800 text-sm">{honor.label}</p>
+                    <p className="text-xs text-amber-600">{honor.range}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

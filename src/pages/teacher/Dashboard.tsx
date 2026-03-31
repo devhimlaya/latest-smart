@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   Users,
   BookOpen,
-  GraduationCap,
   TrendingUp,
   ChevronRight,
   Award,
@@ -17,6 +16,7 @@ import {
   Star,
   Medal,
   Filter,
+  Calendar,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -262,7 +262,9 @@ export default function TeacherDashboard() {
                 }}
               >
                 <SelectTrigger className="w-36 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Grade Level" />
+                  <SelectValue placeholder="Grade Level">
+                    {selectedGradeLevel === "all" ? "All Grades" : gradeLevelLabels[selectedGradeLevel] || selectedGradeLevel}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="all" className="rounded-lg">All Grades</SelectItem>
@@ -275,7 +277,11 @@ export default function TeacherDashboard() {
               </Select>
               <Select value={selectedSection} onValueChange={(val) => val && setSelectedSection(val)}>
                 <SelectTrigger className="w-40 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Section" />
+                  <SelectValue placeholder="Section">
+                    {selectedSection === "all" 
+                      ? "All Sections" 
+                      : filteredSections.find(s => s.id === selectedSection)?.name || selectedSection}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="all" className="rounded-lg">All Sections</SelectItem>
@@ -292,23 +298,24 @@ export default function TeacherDashboard() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="h-80">
+        <CardContent className="p-4 sm:p-6">
+          <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <BarChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fill: '#6b7280', fontSize: 12 }}
-                  angle={-20}
+                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                  angle={-45}
                   textAnchor="end"
                   height={80}
                   interval={0}
                 />
                 <YAxis 
-                  tick={{ fill: '#6b7280', fontSize: 12 }}
-                  label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', fill: '#6b7280', fontSize: 13 }}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', fill: '#6b7280', fontSize: 11, dx: -5 }}
                   allowDecimals={false}
+                  width={50}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -337,11 +344,11 @@ export default function TeacherDashboard() {
           </div>
           
           {/* Legend */}
-          <div className="flex flex-wrap justify-center gap-4 mt-4 pt-4 border-t border-gray-100">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 pt-4 border-t border-gray-100">
             {chartData.map((item) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded" style={{ backgroundColor: item.fill }} />
-                <span className="text-sm text-gray-600">
+              <div key={item.name} className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded" style={{ backgroundColor: item.fill }} />
+                <span className="text-xs sm:text-sm text-gray-600">
                   {item.name} <span className="text-gray-400">({item.range})</span>
                 </span>
               </div>
@@ -355,8 +362,8 @@ export default function TeacherDashboard() {
         {[
           { label: "Total Classes", value: data.stats.totalClasses, icon: BookOpen, color: "blue", gradient: "from-blue-500 to-indigo-600" },
           { label: "Students", value: data.stats.totalStudents, icon: Users, color: "emerald", gradient: "from-emerald-500 to-teal-600" },
-          { label: "Subjects", value: data.stats.subjects.length, icon: GraduationCap, color: "purple", gradient: "from-purple-500 to-violet-600" },
-          { label: "Current\nQuarter", value: "Q1", icon: Award, color: "amber", gradient: "from-amber-500 to-orange-600" },
+          { label: "Academic Year", value: "2025-2026", icon: Calendar, color: "purple", gradient: "from-purple-500 to-violet-600" },
+          { label: "Current Quarter", value: "Q1", icon: Award, color: "amber", gradient: "from-amber-500 to-orange-600" },
         ].map((stat, index) => (
           <Card 
             key={stat.label} 
@@ -365,12 +372,12 @@ export default function TeacherDashboard() {
           >
             <CardContent className="p-6 h-full flex flex-col">
               <div className="flex items-start justify-between flex-1">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider whitespace-pre-line leading-tight h-10 flex items-center">{stat.label}</p>
-                  <p className="text-4xl font-bold text-gray-900 mt-2 tracking-tight">{stat.value}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-3 tracking-tight">{stat.value}</p>
                 </div>
-                <div className={`p-3.5 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 flex-shrink-0`}>
-                  <stat.icon className="w-6 h-6" />
+                <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 flex-shrink-0 ml-2`}>
+                  <stat.icon className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-gray-100">
@@ -510,8 +517,15 @@ export default function TeacherDashboard() {
                 </div>
               </div>
               <Select value={selectedHonorsClass} onValueChange={(val) => val && setSelectedHonorsClass(val)}>
-                <SelectTrigger className="w-48 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Select Class" />
+                <SelectTrigger className="w-52 bg-white border-gray-200 rounded-xl">
+                  <SelectValue placeholder="Select Class">
+                    {selectedHonorsClass === "all" 
+                      ? "All Classes" 
+                      : (() => {
+                          const cs = stats?.classStats.find(c => c.id === selectedHonorsClass);
+                          return cs ? `${gradeLevelLabels[cs.gradeLevel as keyof typeof gradeLevelLabels] || cs.gradeLevel} - ${cs.sectionName}` : selectedHonorsClass;
+                        })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="all" className="rounded-lg">All Classes</SelectItem>
@@ -674,27 +688,29 @@ export default function TeacherDashboard() {
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {stats.summary.studentsAtRisk.slice(0, 6).map((student, index) => (
-                <div key={`${student.id}-${index}`} className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                      <span className="text-red-600 font-bold text-sm">{student.name.charAt(0)}</span>
+            <div className="max-h-[280px] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {stats.summary.studentsAtRisk.map((student, index) => (
+                  <div key={`${student.id}-${index}`} className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                        <span className="text-red-600 font-bold text-sm">{student.name.charAt(0)}</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
+                        <p className="text-xs text-gray-500"><span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span></p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
-                      <p className="text-xs text-gray-500"><span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span></p>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-red-600">{student.grade}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-red-600">{student.grade}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             {stats.summary.studentsAtRiskCount > 6 && (
               <p className="text-center text-sm text-gray-400 mt-4">
-                Showing 6 of {stats.summary.studentsAtRiskCount} students at risk
+                Scroll to see all {stats.summary.studentsAtRiskCount} students at risk
               </p>
             )}
           </CardContent>

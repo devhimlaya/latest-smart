@@ -8,6 +8,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth";
 import gradesRoutes from "./routes/grades";
+import advisoryRoutes from "./routes/advisory";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/grades", gradesRoutes);
+app.use("/api/advisory", advisoryRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
