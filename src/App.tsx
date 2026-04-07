@@ -11,7 +11,6 @@ import RegistrarDashboard from './pages/registrar/Dashboard'
 import StudentRecords from './pages/registrar/StudentRecords'
 import Enrollment from './pages/registrar/Enrollment'
 import SchoolForms from './pages/registrar/SchoolForms'
-import PrintCenter from './pages/registrar/PrintCenter'
 import AdminLayout from './layouts/AdminLayout'
 import AdminDashboard from './pages/admin/Dashboard'
 import UserManagement from './pages/admin/UserManagement'
@@ -41,7 +40,6 @@ function App() {
         <Route path="students" element={<StudentRecords />} />
         <Route path="enrollment" element={<Enrollment />} />
         <Route path="forms" element={<SchoolForms />} />
-        <Route path="print" element={<PrintCenter />} />
       </Route>
 
       {/* Admin routes */}

@@ -46,7 +46,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   gradesApi,
@@ -460,8 +459,8 @@ export default function ClassRecordView() {
       )}
 
       {/* Header Card - Premium Glass Design */}
-      <Card className="border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl">
-        <div className={`bg-gradient-to-r ${gradientClass} p-8 lg:p-10 text-white relative overflow-hidden`}>
+      <Card className={`border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl bg-gradient-to-r ${gradientClass}`}>
+        <div className="p-8 lg:p-10 text-white relative overflow-hidden">
           {/* Background decorations */}
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
@@ -505,12 +504,12 @@ export default function ClassRecordView() {
               { icon: ClipboardList, label: "Performance", value: classAssignment.subject.perfTaskWeight },
               { icon: Award, label: "Quarterly Assess", value: classAssignment.subject.quarterlyAssessWeight },
             ].map((item) => (
-              <div key={item.label} className="text-center p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
-                <div className="flex items-center justify-center gap-2 text-white/70 text-sm mb-2">
+              <div key={item.label} className="text-center p-4 lg:p-6 rounded-2xl bg-white/20 backdrop-blur-md shadow-lg">
+                <div className="flex items-center justify-center gap-2 text-white/80 text-sm mb-2">
                   <item.icon className="w-4 h-4" />
                   <span className="font-medium">{item.label}</span>
                 </div>
-                <p className="text-3xl font-bold">{item.value}%</p>
+                <p className="text-3xl lg:text-4xl font-bold text-white">{item.value}%</p>
               </div>
             ))}
           </div>
@@ -541,65 +540,76 @@ export default function ClassRecordView() {
         </div>
       )}
 
-      {/* Main Content Card - Modern Table Design */}
-      <Card className="border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl">
-        <CardHeader className="bg-gradient-to-r from-gray-50 via-slate-50 to-gray-50 border-b border-gray-100 flex flex-row items-center justify-between py-6 px-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
-              <Users className="w-6 h-6 text-white" />
+      {/* Student Grades Header & Table Header - Combined Sticky */}
+      <div className="sticky top-16 z-20 rounded-t-3xl overflow-hidden bg-white">
+        {/* Student Grades Section */}
+        <div className="bg-white border-b border-gray-100 py-4 lg:py-6 px-4 lg:px-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl lg:rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                <Users className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg lg:text-xl font-bold" style={{ color: '#111827' }}>Student Grades</h2>
+                <p className="text-xs lg:text-sm text-gray-500 mt-0.5">{classRecord.length} students enrolled</p>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-xl font-bold text-gray-900">Student Grades</CardTitle>
-              <p className="text-sm text-gray-500 mt-0.5">{classRecord.length} students enrolled</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Label className="text-gray-600 font-semibold">Quarter:</Label>
-            <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
-              <SelectTrigger className="w-40 bg-white border-gray-200 focus:ring-emerald-500 rounded-xl h-11 font-medium">
-                <SelectValue>
-                  {selectedQuarter === "Q1" ? "1st Quarter" : selectedQuarter === "Q2" ? "2nd Quarter" : selectedQuarter === "Q3" ? "3rd Quarter" : "4th Quarter"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {quarters.map((q) => (
-                  <SelectItem key={q} value={q} className="rounded-lg">
-                    {q === "Q1" ? "1st Quarter" : q === "Q2" ? "2nd Quarter" : q === "Q3" ? "3rd Quarter" : "4th Quarter"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2 ml-4">
+            <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Label className="text-gray-600 font-semibold text-sm">Quarter:</Label>
+                <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
+                  <SelectTrigger className="w-36 lg:w-40 bg-white border-gray-200 focus:ring-emerald-500 rounded-xl h-10 lg:h-11 font-medium shadow-sm">
+                    <SelectValue>
+                      {selectedQuarter === "Q1" ? "1st Quarter" : selectedQuarter === "Q2" ? "2nd Quarter" : selectedQuarter === "Q3" ? "3rd Quarter" : "4th Quarter"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {quarters.map((q) => (
+                      <SelectItem key={q} value={q} className="rounded-lg">
+                        {q === "Q1" ? "1st Quarter" : q === "Q2" ? "2nd Quarter" : q === "Q3" ? "3rd Quarter" : "4th Quarter"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
                 onClick={printSF8}
                 variant="outline"
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-medium"
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Print SF8
+                <span className="hidden sm:inline">Print SF8</span>
+                <span className="sm:hidden">SF8</span>
               </Button>
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
-          <ScrollArea className="h-[550px]">
-            <Table>
-              <TableHeader className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
-                <TableRow className="hover:bg-gray-50 border-b-2 border-gray-100">
-                  <TableHead className="w-14 text-center font-bold text-gray-700 py-5">#</TableHead>
-                  <TableHead className="w-32 font-bold text-gray-700">LRN</TableHead>
-                  <TableHead className="font-bold text-gray-700">Student Name</TableHead>
-                  <TableHead className="text-center w-20 font-bold text-gray-700">WW%</TableHead>
-                  <TableHead className="text-center w-20 font-bold text-gray-700">PT%</TableHead>
-                  <TableHead className="text-center w-20 font-bold text-gray-700">QA%</TableHead>
-                  <TableHead className="text-center w-24 font-bold text-gray-700">Initial</TableHead>
-                  <TableHead className="text-center w-24 font-bold text-gray-700">Grade</TableHead>
-                  <TableHead className="w-36 font-bold text-gray-700">Remarks</TableHead>
-                  <TableHead className="text-right w-28 font-bold text-gray-700">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+        {/* Table Column Headers */}
+        <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="w-14 text-center font-bold py-3 px-2" style={{ color: '#374151' }}>#</th>
+                <th className="w-32 font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>LRN</th>
+                <th className="font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>Student Name</th>
+                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>WW%</th>
+                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>PT%</th>
+                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>QA%</th>
+                <th className="text-center w-24 font-bold py-3 px-2" style={{ color: '#374151' }}>Initial</th>
+                <th className="text-center w-24 font-bold py-3 px-2" style={{ color: '#374151' }}>Grade</th>
+                <th className="w-36 font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>Remarks</th>
+                <th className="text-right w-28 font-bold py-3 px-2" style={{ color: '#374151' }}>Actions</th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+
+      {/* Grades Table Data */}
+      <div className="border-none overflow-visible rounded-b-3xl bg-white">
+        <Table>
+          <TableBody>
                 {classRecord.map((record, index) => {
                   const grade = record.grades.find((g) => g.quarter === selectedQuarter);
                   return (
@@ -607,13 +617,13 @@ export default function ClassRecordView() {
                       key={record.student.id}
                       className={`transition-all duration-200 hover:bg-gray-50/80 ${getGradeBgColor(grade?.quarterlyGrade ?? null)} border-b border-gray-50`}
                     >
-                      <TableCell className="text-center text-gray-500 font-semibold py-5">
+                      <TableCell className="text-center text-gray-500 font-semibold py-3">
                         {index + 1}
                       </TableCell>
-                      <TableCell className="font-mono text-sm text-gray-600 tracking-wide">
+                      <TableCell className="font-mono text-sm text-gray-600 tracking-wide py-3">
                         {record.student.lrn}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         <div className="font-semibold text-gray-900">
                           {record.student.lastName}, {record.student.firstName}
                           {record.student.middleName && (
@@ -626,22 +636,22 @@ export default function ClassRecordView() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className="text-center font-semibold py-3">
                         {grade?.writtenWorkPS?.toFixed(1) || <span className="text-gray-300">—</span>}
                       </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className="text-center font-semibold py-3">
                         {grade?.perfTaskPS?.toFixed(1) || <span className="text-gray-300">—</span>}
                       </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className="text-center font-semibold py-3">
                         {grade?.quarterlyAssessPS?.toFixed(1) || <span className="text-gray-300">—</span>}
                       </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className="text-center font-semibold py-3">
                         {grade?.initialGrade?.toFixed(2) || <span className="text-gray-300">—</span>}
                       </TableCell>
-                      <TableCell className={`text-center text-xl ${getGradeColor(grade?.quarterlyGrade ?? null)}`}>
+                      <TableCell className={`text-center text-xl py-3 ${getGradeColor(grade?.quarterlyGrade ?? null)}`}>
                         {grade?.quarterlyGrade || <span className="text-gray-300 text-base">—</span>}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         <Badge
                           variant="secondary"
                           className={`text-xs font-semibold px-3 py-1 rounded-lg ${
@@ -655,7 +665,7 @@ export default function ClassRecordView() {
                           {getGradeRemarks(grade?.quarterlyGrade ?? null)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-3">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
@@ -688,9 +698,7 @@ export default function ClassRecordView() {
                 })}
               </TableBody>
             </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Grade Input Dialog - Tab-Based Responsive Design */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -718,7 +726,7 @@ export default function ClassRecordView() {
 
           {/* Tab Content */}
           <Tabs defaultValue="quiz" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="shrink-0 mx-4 sm:mx-6 mt-4 bg-gray-100 p-1 rounded-xl h-auto grid grid-cols-3 gap-1">
+            <TabsList className="sticky top-0 z-10 shrink-0 mx-4 sm:mx-6 mt-4 mb-4 bg-white border-b border-gray-200 p-1 rounded-xl h-auto grid grid-cols-3 gap-1">
               <TabsTrigger 
                 value="quiz" 
                 className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-sm font-semibold transition-all data-[active]:bg-blue-500 data-[active]:text-white data-[active]:shadow-md"
@@ -754,8 +762,8 @@ export default function ClassRecordView() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">Written Work</h3>
-                    <p className="text-sm text-blue-600 font-medium">Weight: {classAssignment.subject.writtenWorkWeight}%</p>
+                    <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Written Work</h3>
+                    <p className="text-sm text-blue-600 font-medium" style={{ color: '#2563eb' }}>Weight: {classAssignment.subject.writtenWorkWeight}%</p>
                   </div>
                   <Button
                     onClick={addWrittenWork}
@@ -773,45 +781,61 @@ export default function ClassRecordView() {
                     <p className="text-sm">No quizzes added yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {writtenWorkScores.map((item, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 sm:gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100"
+                        className="p-3 bg-blue-50 rounded-xl border border-blue-100"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {index + 1}
-                        </div>
-                        <span className="text-gray-700 font-medium text-sm flex-1 min-w-0 truncate">Quiz {index + 1}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {index + 1}
+                          </div>
                           <Input
-                            type="number"
-                            value={item.score || ""}
-                            onChange={(e) => updateWrittenWork(index, "score", e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="0"
-                            className="w-14 sm:w-16 text-center bg-white border-2 border-blue-200 rounded-lg h-9 text-base font-bold focus:border-blue-400"
-                            min={0}
+                            type="text"
+                            value={item.description || ""}
+                            onChange={(e) => updateWrittenWork(index, "description", e.target.value)}
+                            placeholder={`Quiz ${index + 1}`}
+                            className="flex-1 bg-white border-2 border-blue-200 rounded-lg h-9 text-sm font-medium focus:border-blue-400"
                           />
-                          <span className="text-gray-400 font-bold">/</span>
-                          <Input
-                            type="number"
-                            value={item.maxScore || ""}
-                            onChange={(e) => updateWrittenWork(index, "maxScore", e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="100"
-                            className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
-                            min={1}
-                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
+                            onClick={() => removeWrittenWork(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
-                          onClick={() => removeWrittenWork(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-2 pl-10">
+                          <Input
+                            type="date"
+                            value={item.date || ""}
+                            onChange={(e) => updateWrittenWork(index, "date", e.target.value)}
+                            className="flex-1 bg-white border-2 border-gray-200 rounded-lg h-9 text-sm focus:border-blue-400"
+                          />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Input
+                              type="number"
+                              value={item.score || ""}
+                              onChange={(e) => updateWrittenWork(index, "score", e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="0"
+                              className="w-14 sm:w-16 text-center bg-white border-2 border-blue-200 rounded-lg h-9 text-base font-bold focus:border-blue-400"
+                              min={0}
+                            />
+                            <span className="text-gray-400 font-bold">/</span>
+                            <Input
+                              type="number"
+                              value={item.maxScore || ""}
+                              onChange={(e) => updateWrittenWork(index, "maxScore", e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="100"
+                              className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
+                              min={1}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -824,8 +848,8 @@ export default function ClassRecordView() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">Performance Tasks</h3>
-                    <p className="text-sm text-purple-600 font-medium">Weight: {classAssignment.subject.perfTaskWeight}%</p>
+                    <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Performance Tasks</h3>
+                    <p className="text-sm text-purple-600 font-medium" style={{ color: '#9333ea' }}>Weight: {classAssignment.subject.perfTaskWeight}%</p>
                   </div>
                   <Button
                     onClick={addPerfTask}
@@ -843,45 +867,61 @@ export default function ClassRecordView() {
                     <p className="text-sm">No tasks added yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {perfTaskScores.map((item, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 sm:gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100"
+                        className="p-3 bg-purple-50 rounded-xl border border-purple-100"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {index + 1}
-                        </div>
-                        <span className="text-gray-700 font-medium text-sm flex-1 min-w-0 truncate">Task {index + 1}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {index + 1}
+                          </div>
                           <Input
-                            type="number"
-                            value={item.score || ""}
-                            onChange={(e) => updatePerfTask(index, "score", e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="0"
-                            className="w-14 sm:w-16 text-center bg-white border-2 border-purple-200 rounded-lg h-9 text-base font-bold focus:border-purple-400"
-                            min={0}
+                            type="text"
+                            value={item.description || ""}
+                            onChange={(e) => updatePerfTask(index, "description", e.target.value)}
+                            placeholder={`Task ${index + 1}`}
+                            className="flex-1 bg-white border-2 border-purple-200 rounded-lg h-9 text-sm font-medium focus:border-purple-400"
                           />
-                          <span className="text-gray-400 font-bold">/</span>
-                          <Input
-                            type="number"
-                            value={item.maxScore || ""}
-                            onChange={(e) => updatePerfTask(index, "maxScore", e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="100"
-                            className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
-                            min={1}
-                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
+                            onClick={() => removePerfTask(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
-                          onClick={() => removePerfTask(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-2 pl-10">
+                          <Input
+                            type="date"
+                            value={item.date || ""}
+                            onChange={(e) => updatePerfTask(index, "date", e.target.value)}
+                            className="flex-1 bg-white border-2 border-gray-200 rounded-lg h-9 text-sm focus:border-purple-400"
+                          />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Input
+                              type="number"
+                              value={item.score || ""}
+                              onChange={(e) => updatePerfTask(index, "score", e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="0"
+                              className="w-14 sm:w-16 text-center bg-white border-2 border-purple-200 rounded-lg h-9 text-base font-bold focus:border-purple-400"
+                              min={0}
+                            />
+                            <span className="text-gray-400 font-bold">/</span>
+                            <Input
+                              type="number"
+                              value={item.maxScore || ""}
+                              onChange={(e) => updatePerfTask(index, "maxScore", e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="100"
+                              className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
+                              min={1}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -893,8 +933,8 @@ export default function ClassRecordView() {
             <TabsContent value="qa" className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
               <div className="space-y-4">
                 <div className="mb-4">
-                  <h3 className="text-base font-bold text-gray-900">Quarterly Assessment</h3>
-                  <p className="text-sm text-amber-600 font-medium">Weight: {classAssignment.subject.quarterlyAssessWeight}%</p>
+                  <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Quarterly Assessment</h3>
+                  <p className="text-sm text-amber-600 font-medium" style={{ color: '#d97706' }}>Weight: {classAssignment.subject.quarterlyAssessWeight}%</p>
                 </div>
                 
                 <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">

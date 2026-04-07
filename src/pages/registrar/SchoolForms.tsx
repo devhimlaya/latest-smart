@@ -1,24 +1,46 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import {
   FolderOpen,
   FileText,
-  ClipboardList,
-  Calendar,
-  BarChart3,
-  GraduationCap,
-  Users,
-  Download,
+  BookOpen,
   Printer,
   Eye,
   Search,
-  BookOpen,
-  FileCheck,
+  Users,
+  ArrowLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { registrarApi, type Section } from "@/lib/api";
+
+// Student type for the forms page
+interface FormStudent {
+  id: string;
+  lrn: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  suffix?: string;
+  gender?: string;
+}
 
 interface SchoolForm {
   id: string;
@@ -26,88 +48,16 @@ interface SchoolForm {
   fullName: string;
   description: string;
   icon: React.ElementType;
-  category: string;
-  recordCount: number;
-  lastUpdated: string;
   color: string;
 }
 
 const schoolForms: SchoolForm[] = [
   {
-    id: "SF1",
-    name: "School Register",
-    fullName: "School Form 1 - School Register",
-    description: "Contains basic information of all learners enrolled in a school during a school year including LRN, name, birth date, gender, etc.",
-    icon: ClipboardList,
-    category: "Registration",
-    recordCount: 850,
-    lastUpdated: "Mar 30, 2026",
-    color: "blue",
-  },
-  {
-    id: "SF2",
-    name: "Daily Attendance",
-    fullName: "School Form 2 - Daily Attendance Report of Learners",
-    description: "Daily record of attendance for each class/section including present, absent, and tardy counts.",
-    icon: Calendar,
-    category: "Attendance",
-    recordCount: 24,
-    lastUpdated: "Mar 30, 2026",
-    color: "emerald",
-  },
-  {
-    id: "SF4",
-    name: "Monthly Report",
-    fullName: "School Form 4 - Monthly Learner Movement and Attendance",
-    description: "Monthly summary of learner movement including enrollment, dropouts, transfers and attendance summary.",
-    icon: BarChart3,
-    category: "Reports",
-    recordCount: 8,
-    lastUpdated: "Mar 28, 2026",
-    color: "purple",
-  },
-  {
-    id: "SF5",
-    name: "Report on Promotion",
-    fullName: "School Form 5 - Report on Promotion and Level of Proficiency",
-    description: "End of year report showing learners' promotion status and level of proficiency per subject.",
-    icon: GraduationCap,
-    category: "Academic",
-    recordCount: 850,
-    lastUpdated: "Jun 15, 2025",
-    color: "amber",
-  },
-  {
-    id: "SF6",
-    name: "Summarized Report",
-    fullName: "School Form 6 - Summarized Report on Promotion and Level of Proficiency",
-    description: "School-wide summary of promotion statistics and proficiency levels per grade level.",
-    icon: FileCheck,
-    category: "Reports",
-    recordCount: 4,
-    lastUpdated: "Jun 16, 2025",
-    color: "indigo",
-  },
-  {
-    id: "SF7",
-    name: "School Personnel",
-    fullName: "School Form 7 - School Personnel Assignment List",
-    description: "Record of all school personnel including teachers, administrative staff, and their assignments.",
-    icon: Users,
-    category: "Personnel",
-    recordCount: 45,
-    lastUpdated: "Mar 25, 2026",
-    color: "teal",
-  },
-  {
     id: "SF8",
-    name: "Class Record",
-    fullName: "School Form 8 - Learner Basic Health and Nutrition Report",
-    description: "Health and nutrition profile of learners including BMI, nutritional status, and health conditions.",
+    name: "Health & Nutrition",
+    fullName: "School Form 8 - School Health and Nutrition Form",
+    description: "Records student health information, immunizations, medical history, and nutritional status.",
     icon: BookOpen,
-    category: "Health",
-    recordCount: 850,
-    lastUpdated: "Mar 20, 2026",
     color: "rose",
   },
   {
@@ -116,156 +66,922 @@ const schoolForms: SchoolForm[] = [
     fullName: "School Form 9 - Learner's Progress Report Card",
     description: "Individual learner's quarterly grades and progress report to be given to parents/guardians.",
     icon: FileText,
-    category: "Academic",
-    recordCount: 850,
-    lastUpdated: "Mar 30, 2026",
     color: "blue",
   },
   {
     id: "SF10",
     name: "Permanent Record",
     fullName: "School Form 10 - Learner's Permanent Academic Record",
-    description: "Cumulative record of learner's academic history including grades, attendance, and awards from all school years.",
+    description: "Cumulative record of learner's academic history including grades from all school years.",
     icon: FolderOpen,
-    category: "Academic",
-    recordCount: 850,
-    lastUpdated: "Mar 30, 2026",
     color: "violet",
   },
 ];
 
-const categories = ["All", "Registration", "Attendance", "Academic", "Reports", "Personnel", "Health"];
+// Helper function to format grade level for display
+const formatGradeLevel = (gradeLevel: string) => {
+  if (gradeLevel.startsWith("GRADE_")) {
+    return gradeLevel.replace("GRADE_", "");
+  }
+  return gradeLevel;
+};
+
+type ViewMode = "list" | "sf8" | "sf9" | "sf10";
 
 export default function SchoolForms() {
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [_loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [schoolYear, setSchoolYear] = useState("2025-2026");
+  const [sections, setSections] = useState<Section[]>([]);
+  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [students, setStudents] = useState<FormStudent[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  
+  // Form data states
+  const [sf8Data, setSf8Data] = useState<any>(null);
+  const [sf9Data, setSf9Data] = useState<any>(null);
+  const [sf10Data, setSf10Data] = useState<any>(null);
 
-  const filteredForms = schoolForms.filter((form) => {
-    const matchesSearch = form.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      form.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      form.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || form.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  // Load sections on mount
+  useEffect(() => {
+    const loadSections = async () => {
+      setError(null);
+      try {
+        const response = await registrarApi.getSections({ schoolYear });
+        setSections(response.data || []);
+      } catch (error: any) {
+        console.error("Error loading sections:", error);
+        if (error.response?.status === 403) {
+          setError("Access denied. Please log in as Registrar.");
+        } else if (error.response?.status === 401) {
+          setError("Session expired. Please log in again.");
+        } else {
+          setError("Failed to load sections. Please check server connection.");
+        }
+        setSections([]);
+      }
+    };
+    loadSections();
+  }, [schoolYear]);
+
+  // Load students when section changes
+  useEffect(() => {
+    const loadStudents = async () => {
+      if (!selectedSection) {
+        setStudents([]);
+        return;
+      }
+      try {
+        const response = await registrarApi.getStudents({ sectionId: selectedSection, schoolYear });
+        const studentsData = response.data.students || response.data;
+        setStudents(Array.isArray(studentsData) ? studentsData : []);
+      } catch (error) {
+        console.error("Error loading students:", error);
+        setStudents([]);
+      }
+    };
+    loadStudents();
+  }, [selectedSection, schoolYear]);
+
+  const handleViewSF8 = async () => {
+    if (!selectedSection) return;
+    setLoading(true);
+    try {
+      const response = await registrarApi.getSF8(selectedSection, schoolYear);
+      setSf8Data(response.data);
+      setViewMode("sf8");
+    } catch (error) {
+      console.error("Error loading SF8:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewSF9 = async (studentId?: string) => {
+    const id = studentId || selectedStudent;
+    if (!id) return;
+    setLoading(true);
+    try {
+      const response = await registrarApi.getSF9(id, schoolYear);
+      setSf9Data(response.data);
+      setViewMode("sf9");
+    } catch (error) {
+      console.error("Error loading SF9:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewSF10 = async (studentId?: string) => {
+    const id = studentId || selectedStudent;
+    if (!id) return;
+    setLoading(true);
+    try {
+      const response = await registrarApi.getSF10(id);
+      setSf10Data(response.data);
+      setViewMode("sf10");
+    } catch (error) {
+      console.error("Error loading SF10:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setViewMode("list");
+    setSf8Data(null);
+    setSf9Data(null);
+    setSf10Data(null);
+  };
+
+  const filteredStudents = students.filter((student) => {
+    const fullName = `${student.firstName} ${student.middleName || ""} ${student.lastName}`.toLowerCase();
+    return fullName.includes(searchQuery.toLowerCase()) || student.lrn.includes(searchQuery);
   });
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+  // Form List View
+  if (viewMode === "list") {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: '#111827' }}>
+          <h1 className="text-3xl font-bold text-gray-900">
             DepEd School Forms
           </h1>
-          <p style={{ color: '#6b7280' }} className="mt-1">
-            Access and manage official Department of Education forms
+          <p className="text-gray-600 mt-1">
+            Generate and view official Department of Education forms
           </p>
         </div>
-      </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search forms..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 rounded-xl border-gray-200"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-xl ${selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-            >
-              {category}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Forms Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredForms.map((form) => (
-          <Card 
-            key={form.id} 
-            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 bg-white overflow-hidden rounded-2xl cursor-pointer"
-          >
-            <CardHeader className={`border-b border-gray-100 bg-gradient-to-r from-${form.color}-50 to-${form.color}-50/50 px-6 py-4`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-xl bg-gradient-to-br from-${form.color}-500 to-${form.color}-600 text-white shadow-lg group-hover:scale-110 transition-transform`}>
-                    <form.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <Badge className={`bg-${form.color}-100 text-${form.color}-700 font-bold text-sm`}>
-                      {form.id}
-                    </Badge>
-                    <CardTitle className="text-base font-bold text-gray-900 mt-1">{form.name}</CardTitle>
-                  </div>
+        {/* Error Display */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-red-600" />
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{form.description}</p>
-              
-              <div className="flex items-center justify-between text-sm mb-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-500">
-                    <span className="font-semibold text-gray-900">{form.recordCount}</span> records
-                  </span>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  {form.category}
-                </Badge>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <span className="text-xs text-gray-400">Updated: {form.lastUpdated}</span>
-                <div className="flex items-center gap-2">
-                  <Link to={`/registrar/forms/${form.id.toLowerCase()}`}>
-                    <Button variant="ghost" size="sm" className="h-8 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600">
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Button>
-                  </Link>
-                  <Link to={`/registrar/print/${form.id.toLowerCase()}`}>
-                    <Button variant="ghost" size="sm" className="h-8 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600">
-                      <Printer className="w-4 h-4 mr-1" />
-                      Print
-                    </Button>
-                  </Link>
+                <div>
+                  <p className="font-semibold text-gray-900">Error Loading Data</p>
+                  <p className="text-sm text-gray-600">{error}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        )}
 
-      {/* Quick Reference Card */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 overflow-hidden rounded-2xl text-white">
-        <CardContent className="p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <h3 className="text-2xl font-bold mb-2">DepEd Forms Quick Reference</h3>
-              <p className="text-blue-100 max-w-xl">
-                All school forms follow the Department of Education Order No. 58, s. 2017 guidelines. 
-                Ensure all forms are properly filled out and submitted within the prescribed deadlines.
-              </p>
+        {/* Filters */}
+        <Card className="border-0 shadow-lg rounded-2xl">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">School Year</label>
+                <Select value={schoolYear} onValueChange={(v: string | null) => v && setSchoolYear(v)}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025-2026">2025-2026</SelectItem>
+                    <SelectItem value="2024-2025">2024-2025</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                <Select value={selectedSection} onValueChange={(v: string | null) => v && setSelectedSection(v)}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue>
+                      {(() => {
+                        const section = sections.find(s => s.id === selectedSection);
+                        return section ? `Grade ${formatGradeLevel(section.gradeLevel)} - ${section.name}` : "Select section";
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sections.map((section) => (
+                      <SelectItem key={section.id} value={section.id}>
+                        Grade {formatGradeLevel(section.gradeLevel)} - {section.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Student (for SF9/SF10)</label>
+                <Select value={selectedStudent} onValueChange={(v: string | null) => v && setSelectedStudent(v)}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue>
+                      {(() => {
+                        const student = students.find(s => s.id === selectedStudent);
+                        return student 
+                          ? `${student.lastName}, ${student.firstName}${student.middleName ? ' ' + student.middleName : ''}`
+                          : "Select student";
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {students.map((student) => (
+                      <SelectItem key={student.id} value={student.id}>
+                        {student.lastName}, {student.firstName} {student.middleName || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button className="bg-white text-blue-600 hover:bg-blue-50 font-semibold rounded-xl px-6">
-                <Download className="w-4 h-4 mr-2" />
-                Download Guidelines
-              </Button>
+          </CardContent>
+        </Card>
+
+        {/* Forms Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {schoolForms.map((form) => {
+            const colorClasses: Record<string, { bg: string; badge: string; icon: string }> = {
+              rose: { bg: "from-rose-50 to-rose-50/50", badge: "bg-rose-100 text-rose-700", icon: "from-rose-500 to-rose-600" },
+              blue: { bg: "from-blue-50 to-blue-50/50", badge: "bg-blue-100 text-blue-700", icon: "from-blue-500 to-blue-600" },
+              violet: { bg: "from-violet-50 to-violet-50/50", badge: "bg-violet-100 text-violet-700", icon: "from-violet-500 to-violet-600" },
+            };
+            const colors = colorClasses[form.color];
+
+            return (
+              <Card 
+                key={form.id} 
+                className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden rounded-2xl"
+              >
+                <CardHeader className={`border-b border-gray-100 bg-gradient-to-r ${colors.bg} px-6 py-4`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colors.icon} text-white shadow-lg group-hover:scale-110 transition-transform`}>
+                      <form.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <Badge className={`${colors.badge} font-bold text-sm`}>
+                        {form.id}
+                      </Badge>
+                      <CardTitle className="text-base font-bold text-gray-900 mt-1">{form.name}</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-sm text-gray-600 mb-6">{form.description}</p>
+                  
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        if (form.id === "SF8") handleViewSF8();
+                        else if (form.id === "SF9") handleViewSF9();
+                        else if (form.id === "SF10") handleViewSF10();
+                      }}
+                      disabled={
+                        (form.id === "SF8" && !selectedSection) ||
+                        ((form.id === "SF9" || form.id === "SF10") && !selectedStudent)
+                      }
+                      className="rounded-xl bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Form
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Student List for Quick Access */}
+        {selectedSection && students.length > 0 && (
+          <Card className="border-0 shadow-lg rounded-2xl">
+            <CardHeader className="border-b pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  Students in Selected Section
+                </CardTitle>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search students..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 rounded-xl"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>LRN</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell className="font-mono text-sm">{student.lrn}</TableCell>
+                      <TableCell className="font-medium">
+                        {student.lastName}, {student.firstName} {student.middleName || ""} {student.suffix || ""}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={student.gender === "Male" ? "text-blue-600" : "text-pink-600"}>
+                          {student.gender}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewSF9(student.id)}
+                            className="h-8 rounded-lg hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            SF9
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewSF10(student.id)}
+                            className="h-8 rounded-lg hover:bg-violet-50 hover:text-violet-600"
+                          >
+                            SF10
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // SF8 View - Health and Nutrition Form
+  if (viewMode === "sf8" && sf8Data) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={handleBack} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
+
+        <Card className="border-0 shadow-lg rounded-2xl">
+          <CardContent className="p-12">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="w-10 h-10 text-rose-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">SF8 - School Health and Nutrition Form</h2>
+              <p className="text-gray-600 mb-6">
+                This form is currently not available. The SF8 health and nutrition records will be implemented in a future update.
+              </p>
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-left max-w-md mx-auto">
+                <p className="font-medium text-rose-900 mb-2">What is SF8?</p>
+                <p className="text-rose-700">
+                  SF8 (School Form 8) is the School Health and Nutrition Form that records student health information, 
+                  immunizations, medical history, nutritional status, and health-related interventions.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // SF9 View - Report Card (DepEd Official Format)
+  if (viewMode === "sf9" && sf9Data) {
+    const handlePrint = () => {
+      window.print();
+    };
+
+    return (
+      <div className="space-y-6 animate-fade-in max-w-[900px] mx-auto">
+        {/* Action Buttons - Hidden when printing */}
+        <div className="flex items-center justify-between print-hide">
+          <Button variant="ghost" onClick={handleBack} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+              <Printer className="w-4 h-4 mr-2" />
+              Print Form
+            </Button>
+          </div>
+        </div>
+
+        {/* SF9 Form - Official DepEd Format */}
+        <div className="bg-white border-2 border-gray-400 shadow-xl print-form p-8">
+          {/* Header with DepEd Logo */}
+          <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-400">
+            <div className="w-20">
+              <img src="/DepEd.png" alt="DepEd Logo" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="flex-1 text-center">
+              <p className="text-xs text-gray-700 mb-1">SF 9 - JHS</p>
+              <h2 className="font-bold text-base text-gray-900">Republic of the Philippines</h2>
+              <h3 className="font-bold text-sm text-gray-900">Department of Education</h3>
+              <p className="text-sm text-gray-800 mt-1">Region _____________</p>
+              <p className="text-sm text-gray-800">Division of _____________</p>
+              <p className="text-sm text-gray-800 mt-1">District: _____________</p>
+              <p className="text-sm text-gray-800">School: _____________</p>
+            </div>
+            <div className="w-20">
+              <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Title */}
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-bold text-gray-900 uppercase">Learner's Progress Report Card</h1>
+          </div>
+
+          {/* Student Information */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-6 text-sm">
+            <div>
+              <span className="font-bold text-gray-900">Name: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[200px]">{sf9Data.student.name}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-900">LRN: </span>
+              <span className="border-b border-gray-400 text-gray-900 font-mono inline-block min-w-[150px]">{sf9Data.student.lrn}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-900">Age: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[80px]">____</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-900">Sex: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[80px]">{sf9Data.student.gender || "____"}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-900">Grade: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[80px]">{formatGradeLevel(sf9Data.student.gradeLevel)}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-900">Section: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[120px]">{sf9Data.student.section}</span>
+            </div>
+            <div className="col-span-2">
+              <span className="font-bold text-gray-900">School Year: </span>
+              <span className="border-b border-gray-400 text-gray-900 inline-block min-w-[120px]">{sf9Data.student.schoolYear}</span>
+            </div>
+          </div>
+
+          {/* Dear Parent Message */}
+          <div className="bg-gray-100 p-4 rounded mb-6 text-sm border border-gray-400">
+            <p className="font-bold text-gray-900 mb-2">Dear Parent,</p>
+            <p className="text-gray-800 text-justify leading-relaxed">
+              This report card shows the ability and progress your child has made in different learning areas as well as his/her core values. 
+              The school welcomes you should you desire to know more about your child's progress.
+            </p>
+          </div>
+
+          {/* Report on Learning Progress and Achievement */}
+          <div className="mb-6">
+            <h3 className="font-bold text-sm mb-2 bg-gray-200 p-2 text-gray-900 border border-gray-400">REPORT ON LEARNING PROGRESS AND ACHIEVEMENT</h3>
+            <table className="w-full border-2 border-gray-600 text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-600 bg-gray-100">
+                  <th rowSpan={2} className="border-r border-gray-600 p-2 text-left text-gray-900 w-44">Learning Areas</th>
+                  <th colSpan={4} className="border-r border-gray-600 p-2 text-gray-900">Quarter</th>
+                  <th rowSpan={2} className="border-r border-gray-600 p-2 text-gray-900 w-16">Final<br/>Rating</th>
+                  <th rowSpan={2} className="p-2 text-gray-900 w-20">Remarks</th>
+                </tr>
+                <tr className="border-b-2 border-gray-600 bg-gray-100">
+                  <th className="border-r border-gray-600 p-2 w-12 text-gray-900">1</th>
+                  <th className="border-r border-gray-600 p-2 w-12 text-gray-900">2</th>
+                  <th className="border-r border-gray-600 p-2 w-12 text-gray-900">3</th>
+                  <th className="border-r border-gray-600 p-2 w-12 text-gray-900">4</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sf9Data.subjectGrades.map((sg: any, index: number) => (
+                  <tr key={index} className="border-b border-gray-600">
+                    <td className="border-r border-gray-600 p-2 font-medium text-gray-900">{sg.subjectName}</td>
+                    <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q1 ?? 0) < 75 && sg.Q1 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {sg.Q1 ?? ''}
+                    </td>
+                    <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q2 ?? 0) < 75 && sg.Q2 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {sg.Q2 ?? ''}
+                    </td>
+                    <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q3 ?? 0) < 75 && sg.Q3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {sg.Q3 ?? ''}
+                    </td>
+                    <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q4 ?? 0) < 75 && sg.Q4 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {sg.Q4 ?? ''}
+                    </td>
+                    <td className={`border-r border-gray-600 p-2 text-center font-bold ${(sg.final ?? 0) < 75 && sg.final ? 'text-red-600' : 'text-gray-900'}`}>
+                      {sg.final ?? ''}
+                    </td>
+                    <td className="p-2 text-center text-sm text-gray-900">
+                      {sg.remarks || ''}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-200 font-bold border-t-2 border-gray-600">
+                  <td colSpan={5} className="border-r border-gray-600 p-2 text-right text-gray-900">General Average</td>
+                  <td className="border-r border-gray-600 p-2 text-center text-lg text-gray-900">
+                    {sf9Data.generalAverage?.toFixed(2) ?? ''}
+                  </td>
+                  <td className="p-2 text-center">
+                    {sf9Data.honors && <span className="text-amber-700 text-xs">{sf9Data.honors}</span>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Grading Scale */}
+            <div className="mt-4 text-xs">
+              <table className="border border-gray-600">
+                <thead>
+                  <tr className="bg-gray-200">
+                    <th className="border border-gray-600 p-1.5 text-gray-900">Descriptors</th>
+                    <th className="border border-gray-600 p-1.5 text-gray-900">Grading Scale</th>
+                    <th className="border border-gray-600 p-1.5 text-gray-900">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td className="border border-gray-600 p-1.5 text-gray-900">Outstanding</td><td className="border border-gray-600 p-1.5 text-center text-gray-900">90-100</td><td className="border border-gray-600 p-1.5 text-gray-900">Passed</td></tr>
+                  <tr><td className="border border-gray-600 p-1.5 text-gray-900">Very Satisfactory</td><td className="border border-gray-600 p-1.5 text-center text-gray-900">85-89</td><td className="border border-gray-600 p-1.5 text-gray-900">Passed</td></tr>
+                  <tr><td className="border border-gray-600 p-1.5 text-gray-900">Satisfactory</td><td className="border border-gray-600 p-1.5 text-center text-gray-900">80-84</td><td className="border border-gray-600 p-1.5 text-gray-900">Passed</td></tr>
+                  <tr><td className="border border-gray-600 p-1.5 text-gray-900">Fairly Satisfactory</td><td className="border border-gray-600 p-1.5 text-center text-gray-900">75-79</td><td className="border border-gray-600 p-1.5 text-gray-900">Passed</td></tr>
+                  <tr><td className="border border-gray-600 p-1.5 text-gray-900">Did Not Meet Expectations</td><td className="border border-gray-600 p-1.5 text-center text-gray-900">Below 75</td><td className="border border-gray-600 p-1.5 text-gray-900">Failed</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Report on Learner's Observed Values */}
+          <div className="mb-6">
+            <h3 className="font-bold text-sm mb-2 bg-gray-200 p-2 text-gray-900 border border-gray-400">REPORT ON LEARNER'S OBSERVED VALUES</h3>
+            <table className="w-full border-2 border-gray-600 text-xs">
+              <thead>
+                <tr className="border-b-2 border-gray-600 bg-gray-100">
+                  <th className="border-r border-gray-600 p-2 text-gray-900 w-24">Core Values</th>
+                  <th className="border-r border-gray-600 p-2 text-gray-900">Behavior Statements</th>
+                  <th className="border-r border-gray-600 p-1.5 w-8 text-gray-900">1</th>
+                  <th className="border-r border-gray-600 p-1.5 w-8 text-gray-900">2</th>
+                  <th className="border-r border-gray-600 p-1.5 w-8 text-gray-900">3</th>
+                  <th className="p-1.5 w-8 text-gray-900">4</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { value: '1. Maka-Diyos', behaviors: ["Expresses one's spiritual beliefs while respecting others.", "Shows adherence to ethical principles by upholding truth."] },
+                  { value: '2. Makatao', behaviors: ["Is sensitive to individual, social, and cultural differences.", "Demonstrates contributions towards solidarity."] },
+                  { value: '3. Maka-Kalikasan', behaviors: ["Cares for environment and utilizes resources wisely."] },
+                  { value: '4. Maka-Bansa', behaviors: ["Demonstrates pride in being a Filipino.", "Demonstrates appropriate behavior in school and community."] }
+                ].map((cv, i) => (
+                  <React.Fragment key={i}>
+                    {cv.behaviors.map((b, j) => (
+                      <tr key={`${i}-${j}`} className="border-b border-gray-600">
+                        {j === 0 && <td rowSpan={cv.behaviors.length} className="border-r border-gray-600 p-2 font-bold text-gray-900 align-top">{cv.value}</td>}
+                        <td className="border-r border-gray-600 p-2 text-gray-800">{b}</td>
+                        <td className="border-r border-gray-600 p-2"></td>
+                        <td className="border-r border-gray-600 p-2"></td>
+                        <td className="border-r border-gray-600 p-2"></td>
+                        <td className="p-2"></td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-2 text-xs text-gray-800">
+              <strong>Marking:</strong> AO - Always Observed | SO - Sometimes Observed | RO - Rarely Observed | NO - Not Observed
+            </div>
+          </div>
+
+          {/* Attendance Record */}
+          <div className="mb-6">
+            <h3 className="font-bold text-sm mb-2 bg-gray-200 p-2 text-gray-900 border border-gray-400">ATTENDANCE RECORD</h3>
+            <table className="w-full border-2 border-gray-600 text-xs">
+              <thead>
+                <tr className="border-b border-gray-600 bg-gray-100">
+                  <th className="border-r border-gray-600 p-1.5 text-gray-900"></th>
+                  {['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'Total'].map(m => (
+                    <th key={m} className="border-r border-gray-600 p-1 text-gray-900 text-center">{m}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {['School Days', 'Days Present', 'Days Absent'].map(row => (
+                  <tr key={row} className="border-b border-gray-600">
+                    <td className="border-r border-gray-600 p-1.5 font-medium text-gray-900">{row}</td>
+                    {Array(12).fill('').map((_, i) => (
+                      <td key={i} className="border-r border-gray-600 p-1.5 text-center"></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Parent/Guardian Signature */}
+          <div className="mb-6 border-2 border-gray-600 p-4">
+            <h3 className="font-bold text-sm mb-3 text-gray-900">PARENT / GUARDIAN'S SIGNATURE</h3>
+            <div className="grid grid-cols-4 gap-4 text-xs">
+              {['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].map(q => (
+                <div key={q}>
+                  <p className="text-gray-900 mb-6">{q}</p>
+                  <div className="border-b border-gray-600"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer Signatures */}
+          <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t-2 border-gray-400">
+            <div className="text-center">
+              <div className="border-b border-gray-600 mx-8 mb-1 h-8"></div>
+              <p className="text-sm text-gray-900 font-medium">Class Adviser</p>
+            </div>
+            <div className="text-center">
+              <div className="border-b border-gray-600 mx-8 mb-1 h-8"></div>
+              <p className="text-sm text-gray-900 font-medium">School Principal</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // SF10 View - Permanent Record (DepEd Official Format)
+  if (viewMode === "sf10" && sf10Data) {
+    const handlePrint = () => {
+      window.print();
+    };
+
+    return (
+      <div className="space-y-6 animate-fade-in max-w-[900px] mx-auto">
+        {/* Action Buttons - Hidden when printing */}
+        <div className="flex items-center justify-between print-hide">
+          <Button variant="ghost" onClick={handleBack} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+              <Printer className="w-4 h-4 mr-2" />
+              Print Form
+            </Button>
+          </div>
+        </div>
+
+        {/* SF10 Form - Official DepEd Format */}
+        <div className="bg-white border-2 border-gray-400 shadow-xl print-form p-8">
+          {/* Header with DepEd Logo */}
+          <div className="flex items-start justify-between mb-4 pb-4 border-b-2 border-gray-400">
+            <div className="w-20">
+              <img src="/DepEd.png" alt="DepEd Logo" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="flex-1 text-center">
+              <h2 className="font-bold text-base text-gray-900">Republic of the Philippines</h2>
+              <h3 className="font-bold text-sm text-gray-900">Department of Education</h3>
+            </div>
+            <div className="w-20">
+              <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="text-center mb-4">
+            <h1 className="text-xl font-bold text-gray-900">Learner Permanent Record for Junior High School (SF10-JHS)</h1>
+            <p className="text-xs text-gray-700 mt-1">(Formerly Form 137)</p>
+          </div>
+
+          {/* Student's Personal Information */}
+          <div className="mb-6 border-2 border-gray-600">
+            <div className="bg-gray-200 p-2 border-b-2 border-gray-600">
+              <h3 className="font-bold text-sm text-gray-900">LEARNER'S PERSONAL INFORMATION</h3>
+            </div>
+            <div className="p-4 text-xs">
+              <div className="grid grid-cols-4 gap-4 mb-3">
+                <div>
+                  <label className="font-bold text-gray-900">LAST NAME:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(',')[0] || ''}</div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-900">FIRST NAME:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(',')[1]?.split(' ')[0] || ''}</div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-900">NAME EXTN. (Jr/III):</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900"></div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-900">MIDDLE NAME:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(' ').slice(2).join(' ') || ''}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-3">
+                <div>
+                  <label className="font-bold text-gray-900">Learner Reference Number (LRN):</label>
+                  <div className="border-b border-gray-600 mt-1 font-mono text-gray-900">{sf10Data.student.lrn}</div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-900">Date of Birth (MM/DD/YYYY):</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.birthDate || ''}</div>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-900">Sex:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.gender}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Eligibility for JHS Enrolment */}
+          <div className="mb-6 border-2 border-gray-600">
+            <div className="bg-gray-200 p-2 border-b-2 border-gray-600">
+              <h3 className="font-bold text-sm text-gray-900">ELIGIBILITY FOR JHS ENROLMENT</h3>
+            </div>
+            <div className="p-4 text-xs grid grid-cols-3 gap-4">
+              <div className="text-gray-900">
+                <label>☐ Grade 6 Completion Certificate</label>
+              </div>
+              <div className="text-gray-900">
+                <label>☐ Elementary SF10</label>
+              </div>
+              <div className="text-gray-900">
+                <label>☐ PEPT Passer</label>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Records */}
+          {sf10Data.schoolRecords.map((record: any, recordIndex: number) => (
+            <div key={recordIndex} className="mb-6 border-2 border-gray-600">
+              {/* School Entry Record Header */}
+              <div className="bg-blue-100 p-3 border-b-2 border-gray-600">
+                <div className="grid grid-cols-2 gap-8 text-xs">
+                  <div>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div>
+                        <label className="font-bold text-gray-900">School:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-900">District:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-900">Division:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-bold text-gray-900">Classified as Grade:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">{formatGradeLevel(record.gradeLevel)}</div>
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-900">Section:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">{record.section}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="font-bold text-gray-900">School ID:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-900">Region:</label>
+                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-900">School Year:</label>
+                      <div className="border-b border-gray-600 mt-1 text-gray-900">{record.schoolYear}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Learning Areas / Grades Table */}
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b-2 border-gray-600">
+                    <th rowSpan={2} className="border-r border-gray-600 p-2 w-48 bg-gray-200 text-gray-900">
+                      Learning Areas
+                    </th>
+                    <th colSpan={4} className="border-r border-gray-600 p-2 bg-gray-200 text-gray-900">
+                      Quarterly Rating
+                    </th>
+                    <th rowSpan={2} className="border-r border-gray-600 p-2 w-20 bg-gray-200 text-gray-900">
+                      Final<br/>Rating
+                    </th>
+                    <th rowSpan={2} className="p-2 w-24 bg-gray-200 text-gray-900">
+                      Remarks
+                    </th>
+                  </tr>
+                  <tr className="border-b-2 border-gray-600">
+                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">1</th>
+                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">2</th>
+                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">3</th>
+                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">4</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Core Subjects */}
+                  {record.subjectGrades.map((sg: any, idx: number) => (
+                    <tr key={idx} className="border-b border-gray-600">
+                      <td className="border-r border-gray-600 p-2 font-medium text-gray-900">{sg.subjectName}</td>
+                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q1 ?? 0) < 75 && sg.Q1 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {sg.Q1 ?? ''}
+                      </td>
+                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q2 ?? 0) < 75 && sg.Q2 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {sg.Q2 ?? ''}
+                      </td>
+                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q3 ?? 0) < 75 && sg.Q3 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {sg.Q3 ?? ''}
+                      </td>
+                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q4 ?? 0) < 75 && sg.Q4 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {sg.Q4 ?? ''}
+                      </td>
+                      <td className={`border-r border-gray-600 p-2 text-center font-bold ${(sg.final ?? 0) < 75 && sg.final ? 'text-red-600' : 'text-gray-900'}`}>
+                        {sg.final ?? ''}
+                      </td>
+                      <td className="p-2 text-center text-xs text-gray-900">{sg.remarks || ''}</td>
+                    </tr>
+                  ))}
+
+                  {/* General Average */}
+                  <tr className="border-t-2 border-gray-600 bg-gray-200 font-bold">
+                    <td colSpan={5} className="border-r border-gray-600 p-2 text-right text-gray-900">General Average</td>
+                    <td className="border-r border-gray-600 p-2 text-center text-base text-gray-900">
+                      {record.generalAverage?.toFixed(2) ?? ''}
+                    </td>
+                    <td className="p-2 text-center">
+                      {record.honors && <span className="text-amber-700 text-xs">{record.honors}</span>}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Status and Signatures */}
+              <div className="border-t-2 border-gray-600 p-4 bg-white">
+                <div className="grid grid-cols-2 gap-8 text-xs mb-4">
+                  <div>
+                    <div className="flex items-center gap-4 mb-2">
+                      <label className="font-bold text-gray-900">Status:</label>
+                      <div className="flex gap-4 text-gray-900">
+                        <label>☐ Promoted to Grade _____</label>
+                        <label>☐ Retained</label>
+                      </div>
+                    </div>
+                    {record.honors && (
+                      <div className="bg-amber-50 border border-amber-400 p-2 rounded">
+                        <span className="font-bold text-gray-900">Award: </span>
+                        <span className="text-amber-700 font-semibold">{record.honors}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mt-6">
+                  <div className="text-center">
+                    <div className="border-b border-gray-600 mt-8 mx-12"></div>
+                    <p className="mt-1 text-xs text-gray-900">Name of Adviser/Teacher</p>
+                    <p className="mt-1 text-xs font-bold text-gray-900">Signature</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="border-b border-gray-600 mt-8 mx-12"></div>
+                    <p className="mt-1 text-xs text-gray-900">Name of Principal</p>
+                    <p className="mt-1 text-xs font-bold text-gray-900">Signature</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Footer Note */}
+          <div className="mt-6 text-xs text-gray-700 text-center italic">
+            <p>This is an official DepEd document. Any erasure or alteration shall render this document invalid.</p>
+            <p className="mt-1">SFIO 2017</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading or fallback
+  return (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-gray-500">Loading...</p>
     </div>
   );
 }

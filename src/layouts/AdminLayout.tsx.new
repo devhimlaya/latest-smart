@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate, Outlet, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  BookOpen,
   LogOut,
   Menu,
   X,
-  GraduationCap,
   Users,
+  Settings,
+  Shield,
+  Activity,
+  Sliders,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -22,12 +24,14 @@ interface UserData {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
-  { name: "Class Records", href: "/teacher/classes", icon: BookOpen },
-  { name: "My Advisory", href: "/teacher/advisory", icon: Users },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "User Management", href: "/admin/users", icon: Users },
+  { name: "Audit Logs", href: "/admin/logs", icon: Activity },
+  { name: "Grading Config", href: "/admin/grading", icon: Sliders },
+  { name: "System Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export default function TeacherLayout() {
+export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserData | null>(null);
@@ -43,7 +47,7 @@ export default function TeacherLayout() {
     }
 
     const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== "TEACHER") {
+    if (parsedUser.role !== "ADMIN") {
       navigate("/login");
       return;
     }
@@ -58,22 +62,23 @@ export default function TeacherLayout() {
   };
 
   const getCurrentPageTitle = () => {
-    // Check for specific record view routes
-    if (location.pathname.startsWith("/teacher/records/")) {
-      return "Class Record";
-    }
-    if (location.pathname.startsWith("/teacher/advisory/student/")) {
-      return "Student Profile";
-    }
-    
     const currentNav = navigation.find(nav => 
       location.pathname === nav.href || 
-      (nav.href !== "/teacher" && location.pathname.startsWith(nav.href))
+      (nav.href !== "/admin" && location.pathname.startsWith(nav.href))
     );
     return currentNav?.name || "Dashboard";
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const userEmail = user.email || `${user.username}@school.edu.ph`;
   const userDisplayName = user.firstName && user.lastName 
@@ -81,7 +86,7 @@ export default function TeacherLayout() {
     : user.username;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-100">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -93,22 +98,23 @@ export default function TeacherLayout() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200 transform transition-transform duration-300 ease-out lg:translate-x-0 flex flex-col",
+          "fixed inset-y-0 left-0 z-50 w-[260px] bg-[#1a1f2e] transform transition-transform duration-300 ease-out lg:translate-x-0 flex flex-col",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo Header */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-violet-500 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="font-bold text-slate-900 text-lg block">SMART</span>
+              <span className="font-semibold text-white text-sm block">SMART</span>
+              <span className="text-[11px] text-slate-400 block">Admin Panel</span>
             </div>
           </div>
           <button
-            className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+            className="lg:hidden p-2 rounded-lg hover:bg-white/10 text-slate-400 transition-colors"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="w-5 h-5" />
@@ -116,36 +122,20 @@ export default function TeacherLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4">
+        <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-1">
             {navigation.map((item) => {
-              // Special handling for nested routes
-              let isActive = location.pathname === item.href;
-              
-              if (!isActive && item.href !== "/teacher") {
-                // Check if current path starts with the nav item's path
-                isActive = location.pathname.startsWith(item.href + '/') || location.pathname === item.href;
-                
-                // Special case: Class Records should be active when viewing individual records
-                if (item.href === "/teacher/classes" && location.pathname.startsWith("/teacher/records/")) {
-                  isActive = true;
-                }
-                
-                // Special case: My Advisory should be active when viewing student profiles
-                if (item.href === "/teacher/advisory" && location.pathname.startsWith("/teacher/advisory/")) {
-                  isActive = true;
-                }
-              }
-              
+              const isActive = location.pathname === item.href || 
+                (item.href !== "/admin" && location.pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 no-underline !outline-none",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                     isActive
-                      ? "bg-emerald-500 text-white shadow-md hover:bg-emerald-600"
-                      : "text-slate-600 hover:bg-emerald-100 hover:text-emerald-700"
+                      ? "bg-violet-500/20 text-violet-400"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white"
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -158,20 +148,20 @@ export default function TeacherLayout() {
         </nav>
 
         {/* User Profile at Bottom */}
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-3 border-t border-white/10">
           <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar className="w-11 h-11">
-              <AvatarFallback className="bg-slate-200 text-slate-700 font-semibold text-sm">
+            <Avatar className="w-10 h-10 border-2 border-violet-500/50">
+              <AvatarFallback className="bg-violet-600 text-white font-semibold text-sm">
                 {user.firstName ? user.firstName.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-900 truncate">{userDisplayName}</p>
-              <p className="text-xs text-slate-500 truncate">{userEmail}</p>
+              <p className="text-sm font-medium text-white truncate">{userDisplayName}</p>
+              <p className="text-xs text-slate-400 truncate">{userEmail}</p>
             </div>
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-red-400 transition-colors"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
@@ -181,35 +171,35 @@ export default function TeacherLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-[280px]">
+      <div className="lg:pl-[260px]">
         {/* Top navbar */}
         <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200">
           <div className="h-full px-4 lg:px-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <button
-                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
                 onClick={() => setSidebarOpen(true)}
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               </button>
               
               {/* Page Title */}
-              <span className="text-sm font-semibold text-slate-900">
+              <h1 className="text-lg font-semibold text-slate-800">
                 {getCurrentPageTitle()}
-              </span>
+              </h1>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* User Avatar and Name */}
-              <div className="flex items-center gap-3">
-                <Avatar className="w-9 h-9">
-                  <AvatarFallback className="bg-slate-200 text-slate-700 text-sm font-medium">
+              {/* User Avatar */}
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:block text-sm font-medium text-slate-700">
+                  {user.firstName || user.username}
+                </span>
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-violet-500 text-white text-sm font-medium">
                     {user.firstName ? user.firstName.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:block text-sm font-semibold text-slate-900">
-                  {user.firstName || user.username}
-                </span>
               </div>
             </div>
           </div>

@@ -151,11 +151,10 @@ body {
   min-height: 100vh;
 }
 
-/* Typography */
+/* Typography - Let Tailwind handle colors */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--heading);
   font-weight: 600;
-  color: var(--text-h);
   letter-spacing: -0.025em;
   line-height: 1.25;
 }
@@ -425,3 +424,72 @@ code {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+/* Print Styles for School Forms */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  .print-hide {
+    display: none !important;
+  }
+  
+  .print-form {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+  
+  .print-form * {
+    color: black !important;
+    background: white !important;
+  }
+  
+  .print-form table {
+    border-collapse: collapse !important;
+  }
+  
+  .print-form table td,
+  .print-form table th {
+    border: 1px solid #000 !important;
+    padding: 4px !important;
+  }
+  
+  .print-form .bg-gray-200,
+  .print-form .bg-gray-100,
+  .print-form .bg-gray-50 {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  @page {
+    size: legal;
+    margin: 0.5in;
+  }
+}
+
+/* Override dark mode for school forms to ensure text visibility */
+.print-form h1,
+.print-form h2,
+.print-form h3,
+.print-form h4,
+.print-form h5,
+.print-form h6 {
+  color: #111827 !important;
+}
+
+.print-form p,
+.print-form span,
+.print-form td,
+.print-form th,
+.print-form label,
+.print-form div {
+  color: inherit !important;
+}

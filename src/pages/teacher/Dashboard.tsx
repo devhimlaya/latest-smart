@@ -234,9 +234,83 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 shadow-2xl shadow-emerald-500/20">
+        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
+        
+        <div className="relative px-8 py-12 lg:py-16">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+            <div className="flex-1 space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
+                <Award className="w-4 h-4 text-white" />
+                <span className="text-sm font-semibold text-white">Academic Year 2025-2026 • Quarter 1</span>
+              </div>
+              
+              <h1 className="text-3xl lg:text-4xl font-bold text-white leading-tight">
+                Welcome back, {data.teacher.name}
+              </h1>
+              
+              <p className="text-lg text-emerald-50 max-w-2xl">
+                {data.stats.subjects.length > 0 
+                  ? `Teaching ${data.stats.subjects.join(", ")} across ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`
+                  : `Managing ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`}
+              </p>
+
+              <div className="flex flex-wrap gap-4 pt-2">
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20">
+                  <Users className="w-5 h-5 text-white" />
+                  <div>
+                    <p className="text-2xl font-bold text-white">{data.stats.totalStudents}</p>
+                    <p className="text-xs text-emerald-100 font-medium">Total Students</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20">
+                  <Target className="w-5 h-5 text-white" />
+                  <div>
+                    <p className="text-2xl font-bold text-white">{stats?.summary.overallPassingRate.toFixed(0)}%</p>
+                    <p className="text-xs text-emerald-100 font-medium">Passing Rate</p>
+                  </div>
+                </div>
+
+                {stats && stats.summary.studentsAtRiskCount > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/20 backdrop-blur-md border border-amber-300/30">
+                    <AlertTriangle className="w-5 h-5 text-amber-100" />
+                    <div>
+                      <p className="text-2xl font-bold text-white">{stats.summary.studentsAtRiskCount}</p>
+                      <p className="text-xs text-amber-100 font-medium">Need Support</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Link to="/teacher/advisory">
+                <Button className="w-full lg:w-auto bg-white hover:bg-gray-50 text-emerald-700 shadow-xl font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105">
+                  <Users className="w-5 h-5 mr-2" />
+                  View My Advisory
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              
+              <Link to="/teacher/classes">
+                <Button variant="outline" className="w-full lg:w-auto bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-md shadow-lg font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105">
+                  <BookOpen className="w-5 h-5 mr-2" />
+                  Manage Grades
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* DepEd Mastery Level Distribution Chart */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-5">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-100 to-teal-100 px-6 py-5">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
@@ -367,7 +441,7 @@ export default function TeacherDashboard() {
         ].map((stat, index) => (
           <Card 
             key={stat.label} 
-            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-200/60 transition-all duration-300 bg-white overflow-hidden"
+            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-200/60 transition-all duration-300 bg-white overflow-hidden p-0 rounded-2xl"
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <CardContent className="p-6 h-full flex flex-col">
@@ -397,8 +471,8 @@ export default function TeacherDashboard() {
       {/* Grading Progress & Performance Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Grading Progress */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
                 <FileCheck className="w-5 h-5" />
@@ -455,8 +529,8 @@ export default function TeacherDashboard() {
         </Card>
 
         {/* Class Performance */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
                 <BarChart3 className="w-5 h-5" />
@@ -504,8 +578,8 @@ export default function TeacherDashboard() {
       {/* Honors Section with Dropdown & Students Needing Attention */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Honors / With Honors Students */}
-        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-5">
+        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-amber-100 to-yellow-100 px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-lg">
@@ -629,7 +703,7 @@ export default function TeacherDashboard() {
         </Card>
 
         {/* Quick Stats Summary */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 overflow-hidden rounded-2xl text-white">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 overflow-hidden rounded-2xl text-white p-0">
           <CardContent className="p-6 h-full flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
@@ -670,8 +744,8 @@ export default function TeacherDashboard() {
 
       {/* Students At Risk Section */}
       {stats && stats.summary.studentsAtRisk.length > 0 && (
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-red-50 to-rose-50 px-6 py-5">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-red-100 to-rose-100 px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg">
@@ -679,7 +753,9 @@ export default function TeacherDashboard() {
                 </div>
                 <div>
                   <CardTitle className="text-lg font-bold text-gray-900">Students Needing Attention</CardTitle>
-                  <CardDescription className="text-gray-500 text-sm">Students at risk of failing (below 75)</CardDescription>
+                  <CardDescription className="text-gray-500 text-sm">
+                    INC (60-74) requires remediation • Failed (&lt;60) must retake
+                  </CardDescription>
                 </div>
               </div>
               <Badge className="bg-red-100 text-red-700 font-semibold">
@@ -690,22 +766,58 @@ export default function TeacherDashboard() {
           <CardContent className="p-6">
             <div className="max-h-[280px] overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {stats.summary.studentsAtRisk.map((student, index) => (
-                  <div key={`${student.id}-${index}`} className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                        <span className="text-red-600 font-bold text-sm">{student.name.charAt(0)}</span>
+                {stats.summary.studentsAtRisk.map((student, index) => {
+                  const isINC = student.grade >= 60 && student.grade < 75;
+                  const isFailed = student.grade < 60;
+                  
+                  return (
+                    <div 
+                      key={`${student.id}-${index}`} 
+                      className={`flex items-center justify-between p-3 rounded-xl border ${
+                        isINC 
+                          ? 'bg-amber-50 border-amber-200' 
+                          : 'bg-red-50 border-red-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          isINC ? 'bg-amber-100' : 'bg-red-100'
+                        }`}>
+                          <span className={`font-bold text-sm ${
+                            isINC ? 'text-amber-600' : 'text-red-600'
+                          }`}>
+                            {student.name.charAt(0)}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 h-4 ${
+                                isINC 
+                                  ? 'bg-amber-100 text-amber-700 border-amber-300' 
+                                  : 'bg-red-100 text-red-700 border-red-300'
+                              }`}
+                            >
+                              {isINC ? 'INC' : 'FAILED'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
-                        <p className="text-xs text-gray-500"><span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span></p>
+                      <div className="text-right">
+                        <p className={`text-lg font-bold ${
+                          isINC ? 'text-amber-600' : 'text-red-600'
+                        }`}>
+                          {student.grade}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-red-600">{student.grade}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             {stats.summary.studentsAtRiskCount > 6 && (
@@ -718,8 +830,8 @@ export default function TeacherDashboard() {
       )}
 
       {/* Recent Classes - Compact View */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-lg">
@@ -751,12 +863,17 @@ export default function TeacherDashboard() {
                     <Badge
                       variant="secondary"
                       className={`${gradeLevelColors[assignment.section.gradeLevel]} border font-medium text-xs px-2 py-0.5`}
+                      style={{
+                        color: assignment.section.gradeLevel === 'GRADE_7' ? '#1e40af' : 
+                               assignment.section.gradeLevel === 'GRADE_8' ? '#6b21a8' : 
+                               assignment.section.gradeLevel === 'GRADE_9' ? '#b45309' : '#047857'
+                      }}
                     >
                       {gradeLevelLabels[assignment.section.gradeLevel]}
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <h4 className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">{gradeLevelLabels[assignment.section.gradeLevel]}</h4>
+                  <h4 className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors" style={{ color: '#111827' }}>{gradeLevelLabels[assignment.section.gradeLevel]}</h4>
                   <p className="text-sm text-gray-500 mt-1">Section <span className="font-bold text-gray-700">{assignment.section.name}</span></p>
                   <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
                     <Users className="w-3.5 h-3.5" />

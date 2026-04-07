@@ -148,11 +148,11 @@ export default function ClassRecordsList() {
               className="animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <Card className="h-full group border-0 shadow-lg shadow-gray-200/50 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl bg-white">
-                {/* Gradient top border */}
-                <div className={`h-2 bg-gradient-to-r ${gradeLevelBg[assignment.section.gradeLevel]}`} />
+              <Card className="h-full group border-0 shadow-lg shadow-gray-200/50 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl bg-white relative">
+                {/* Gradient left accent */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${gradeLevelBg[assignment.section.gradeLevel]} rounded-l-2xl`} />
                 
-                <CardHeader className="pb-4 pt-6 px-6">
+                <CardHeader className="pb-4 pt-6 px-6 pl-8">
                   <div className="flex items-start justify-between">
                     <Badge
                       variant="secondary"
@@ -175,7 +175,7 @@ export default function ClassRecordsList() {
                   </CardDescription>
                 </CardHeader>
                 
-                <CardContent className="px-6 pb-6">
+                <CardContent className="px-6 pb-6 pl-8">
                   <div className="flex items-center justify-between pt-5 border-t border-gray-100">
                     <div className="flex items-center gap-3 text-sm text-gray-500">
                       <div className="p-2 rounded-lg bg-gray-100">

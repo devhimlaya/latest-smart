@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "http://localhost:3000/api";
 
 // Create axios instance with auth header
 const api = axios.create({
@@ -349,6 +349,183 @@ export const advisoryApi = {
     }),
 
   getAdvisorySummary: () => api.get<AdvisorySummary>("/advisory/summary"),
+};
+
+// Registrar API Types
+export interface RegistrarDashboard {
+  totalStudents: number;
+  totalSections: number;
+  totalTeachers: number;
+  enrolledThisYear: number;
+  recentEnrollments: {
+    id: string;
+    name: string;
+    lrn: string;
+    section: string;
+    gradeLevel: string;
+    enrolledAt: string;
+  }[];
+  sectionStats: {
+    sectionId: string;
+    sectionName: string;
+    gradeLevel: string;
+    studentCount: number;
+    maleCount: number;
+    femaleCount: number;
+  }[];
+}
+
+export interface SchoolYear {
+  id: string;
+  year: string;
+  isCurrent: boolean;
+}
+
+export interface RegistrarStudent {
+  id: string;
+  lrn: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  suffix?: string;
+  gender?: string;
+  birthDate?: string;
+  address?: string;
+  guardianName?: string;
+  guardianContact?: string;
+  enrollments: {
+    id: string;
+    sectionId: string;
+    schoolYear: string;
+    status: string;
+    section: {
+      name: string;
+      gradeLevel: string;
+    };
+  }[];
+}
+
+export interface SF8Data {
+  section: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    schoolYear: string;
+    adviser?: string;
+  };
+  students: {
+    id: string;
+    lrn: string;
+    name: string;
+    gender: string;
+    birthDate?: string;
+    subjectGrades: {
+      subjectCode: string;
+      subjectName: string;
+      Q1?: number;
+      Q2?: number;
+      Q3?: number;
+      Q4?: number;
+      final?: number;
+      remarks?: string;
+    }[];
+    generalAverage?: number;
+    honors?: string;
+    promotionStatus?: string;
+  }[];
+}
+
+export interface SF9Data {
+  student: {
+    id: string;
+    lrn: string;
+    name: string;
+    gender: string;
+    birthDate?: string;
+    address?: string;
+    section: string;
+    gradeLevel: string;
+    schoolYear: string;
+    adviser?: string;
+  };
+  subjectGrades: {
+    subjectCode: string;
+    subjectName: string;
+    Q1?: number;
+    Q2?: number;
+    Q3?: number;
+    Q4?: number;
+    final?: number;
+    remarks?: string;
+  }[];
+  attendance: {
+    Q1?: { present: number; absent: number; tardy: number };
+    Q2?: { present: number; absent: number; tardy: number };
+    Q3?: { present: number; absent: number; tardy: number };
+    Q4?: { present: number; absent: number; tardy: number };
+  };
+  values: {
+    mpiDescription: string;
+    Q1?: string;
+    Q2?: string;
+    Q3?: string;
+    Q4?: string;
+  }[];
+  generalAverage?: number;
+  honors?: string;
+  promotionStatus?: string;
+}
+
+export interface SF10Data {
+  student: {
+    id: string;
+    lrn: string;
+    name: string;
+    gender: string;
+    birthDate?: string;
+    address?: string;
+    guardianName?: string;
+    guardianContact?: string;
+  };
+  schoolRecords: {
+    schoolYear: string;
+    gradeLevel: string;
+    section: string;
+    school?: string;
+    subjectGrades: {
+      subjectCode: string;
+      subjectName: string;
+      final?: number;
+      remarks?: string;
+    }[];
+    generalAverage?: number;
+    honors?: string;
+    promotionStatus?: string;
+  }[];
+}
+
+export const registrarApi = {
+  getDashboard: () => api.get<RegistrarDashboard>("/registrar/dashboard"),
+
+  getSchoolYears: () => api.get<{ schoolYears: string[] }>("/registrar/school-years"),
+
+  getStudents: (params?: { schoolYear?: string; gradeLevel?: string; sectionId?: string; search?: string }) =>
+    api.get<{ students: RegistrarStudent[]; sections: Section[]; stats: any }>("/registrar/students", { params }),
+
+  getStudent: (studentId: string) =>
+    api.get<{ student: RegistrarStudent }>(`/registrar/student/${studentId}`),
+
+  getSF8: (sectionId: string, schoolYear: string) =>
+    api.get<SF8Data>("/registrar/forms/sf8", { params: { sectionId, schoolYear } }),
+
+  getSF9: (studentId: string, schoolYear: string) =>
+    api.get<SF9Data>(`/registrar/forms/sf9/${studentId}`, { params: { schoolYear } }),
+
+  getSF10: (studentId: string) =>
+    api.get<SF10Data>(`/registrar/forms/sf10/${studentId}`),
+
+  getSections: (params?: { schoolYear?: string; gradeLevel?: string }) =>
+    api.get<Section[]>("/registrar/sections", { params }),
 };
 
 export default api;

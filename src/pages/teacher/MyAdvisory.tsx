@@ -9,6 +9,7 @@ import {
   UserCircle,
   BookOpen,
   ClipboardList,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export default function MyAdvisory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [separateByGender, setSeparateByGender] = useState(false);
 
   const fetchAdvisory = useCallback(async () => {
     setLoading(true);
@@ -116,6 +118,30 @@ export default function MyAdvisory() {
     const query = searchQuery.toLowerCase();
     return fullName.includes(query) || lrn.includes(query);
   }) || [];
+
+  // Separate by gender if enabled
+  const maleStudents = filteredStudents
+    .filter((s) => s.gender?.toLowerCase() === "male")
+    .sort((a, b) => {
+      const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+      const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+  const femaleStudents = filteredStudents
+    .filter((s) => s.gender?.toLowerCase() === "female")
+    .sort((a, b) => {
+      const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+      const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+  // Combined list (alphabetically sorted)
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+    const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -255,7 +281,7 @@ export default function MyAdvisory() {
       )}
 
       {/* Student List */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
         <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -268,87 +294,236 @@ export default function MyAdvisory() {
               </div>
             </div>
             
-            <div className="relative w-full lg:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search by name or LRN..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-xl border-gray-200"
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant={separateByGender ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSeparateByGender(!separateByGender)}
+                className={`rounded-xl font-medium ${
+                  separateByGender 
+                    ? "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white" 
+                    : "hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200"
+                }`}
+              >
+                <SplitSquareHorizontal className="w-4 h-4 mr-2" />
+                {separateByGender ? "Gender Separated" : "Group by Gender"}
+              </Button>
+              
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or LRN..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 rounded-xl border-gray-200"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50/50">
-                  <TableHead className="w-16 text-center font-bold">#</TableHead>
-                  <TableHead className="font-bold">LRN</TableHead>
-                  <TableHead className="font-bold">Student Name</TableHead>
-                  <TableHead className="font-bold text-center">Gender</TableHead>
-                  <TableHead className="font-bold">Guardian</TableHead>
-                  <TableHead className="w-24 text-center font-bold">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-gray-500">
-                      {searchQuery ? "No students found matching your search." : "No students enrolled in this section."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStudents.map((student, index) => (
-                    <TableRow key={student.id} className="hover:bg-purple-50/30 transition-colors">
-                      <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
-                      <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white ${
-                            student.gender?.toLowerCase() === "male" 
-                              ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
-                              : "bg-gradient-to-br from-pink-500 to-rose-600"
-                          }`}>
-                            {student.lastName.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={`${
-                          student.gender?.toLowerCase() === "male"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-pink-100 text-pink-700"
-                        }`}>
-                          {student.gender || "N/A"}
+          <div className="overflow-x-auto">{separateByGender ? (
+              // Gender-separated view
+              <>
+                {/* Male Students */}
+                {maleStudents.length > 0 && (
+                  <>
+                    <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-500 text-white">
+                          Male
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-gray-600 text-sm">
-                        {student.guardianName || "-"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Link to={`/teacher/advisory/student/${student.id}`}>
-                          <Button 
-                            size="sm" 
-                            className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
-                          >
-                            View
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        </Link>
+                        <span className="text-sm font-semibold text-blue-900">
+                          {maleStudents.length} {maleStudents.length === 1 ? 'Student' : 'Students'}
+                        </span>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-blue-50/50">
+                          <TableHead className="w-16 text-center font-bold">#</TableHead>
+                          <TableHead className="font-bold">LRN</TableHead>
+                          <TableHead className="font-bold">Student Name</TableHead>
+                          <TableHead className="font-bold">Guardian</TableHead>
+                          <TableHead className="w-24 text-center font-bold">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {maleStudents.map((student, index) => (
+                          <TableRow key={student.id} className="hover:bg-blue-50/30 transition-colors">
+                            <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
+                            <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white bg-gradient-to-br from-blue-500 to-indigo-600">
+                                  {student.lastName.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-900">
+                                    {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-600 text-sm">
+                              {student.guardianName || "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Link to={`/teacher/advisory/student/${student.id}`}>
+                                <Button 
+                                  size="sm" 
+                                  className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                                >
+                                  View
+                                  <ChevronRight className="w-4 h-4 ml-1" />
+                                </Button>
+                              </Link>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {/* Female Students */}
+                {femaleStudents.length > 0 && (
+                  <>
+                    <div className="px-6 py-3 bg-pink-50 border-b border-pink-100">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-pink-500 text-white">
+                          Female
+                        </Badge>
+                        <span className="text-sm font-semibold text-pink-900">
+                          {femaleStudents.length} {femaleStudents.length === 1 ? 'Student' : 'Students'}
+                        </span>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-pink-50/50">
+                          <TableHead className="w-16 text-center font-bold">#</TableHead>
+                          <TableHead className="font-bold">LRN</TableHead>
+                          <TableHead className="font-bold">Student Name</TableHead>
+                          <TableHead className="font-bold">Guardian</TableHead>
+                          <TableHead className="w-24 text-center font-bold">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {femaleStudents.map((student, index) => (
+                          <TableRow key={student.id} className="hover:bg-pink-50/30 transition-colors">
+                            <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
+                            <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white bg-gradient-to-br from-pink-500 to-rose-600">
+                                  {student.lastName.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-900">
+                                    {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-600 text-sm">
+                              {student.guardianName || "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Link to={`/teacher/advisory/student/${student.id}`}>
+                                <Button 
+                                  size="sm" 
+                                  className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                                >
+                                  View
+                                  <ChevronRight className="w-4 h-4 ml-1" />
+                                </Button>
+                              </Link>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {maleStudents.length === 0 && femaleStudents.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    {searchQuery ? "No students found matching your search." : "No students enrolled in this section."}
+                  </div>
+                )}
+              </>
+            ) : (
+              // Combined view
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50/50">
+                    <TableHead className="w-16 text-center font-bold">#</TableHead>
+                    <TableHead className="font-bold">LRN</TableHead>
+                    <TableHead className="font-bold">Student Name</TableHead>
+                    <TableHead className="font-bold text-center">Gender</TableHead>
+                    <TableHead className="font-bold">Guardian</TableHead>
+                    <TableHead className="w-24 text-center font-bold">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedStudents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                        {searchQuery ? "No students found matching your search." : "No students enrolled in this section."}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    sortedStudents.map((student, index) => (
+                      <TableRow key={student.id} className="hover:bg-purple-50/30 transition-colors">
+                        <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
+                        <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white ${
+                              student.gender?.toLowerCase() === "male" 
+                                ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
+                                : "bg-gradient-to-br from-pink-500 to-rose-600"
+                            }`}>
+                              {student.lastName.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={`${
+                            student.gender?.toLowerCase() === "male"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-pink-100 text-pink-700"
+                          }`}>
+                            {student.gender || "N/A"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-gray-600 text-sm">
+                          {student.guardianName || "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Link to={`/teacher/advisory/student/${student.id}`}>
+                            <Button 
+                              size="sm" 
+                              className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                            >
+                              View
+                              <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </CardContent>
       </Card>
