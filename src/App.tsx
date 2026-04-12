@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from './contexts/ThemeContext'
 import LoginPage from './pages/LoginPage'
 import TeacherLayout from './layouts/TeacherLayout'
 import TeacherDashboard from './pages/teacher/Dashboard'
@@ -20,9 +21,10 @@ import SystemSettings from './pages/admin/SystemSettings'
 
 function App() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
+    <ThemeProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
       
       {/* Teacher routes */}
       <Route path="/teacher" element={<TeacherLayout />}>
@@ -55,6 +57,7 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </ThemeProvider>
   )
 }
 

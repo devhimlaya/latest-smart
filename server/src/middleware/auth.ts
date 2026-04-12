@@ -15,7 +15,8 @@ export const authenticateToken = (
   next: NextFunction
 ): void => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  // Also accept token as query param (needed for EventSource/SSE which can't set headers)
+  const token = (authHeader && authHeader.split(" ")[1]) || (req.query.token as string | undefined);
 
   if (!token) {
     res.status(401).json({ message: "Access token required" });

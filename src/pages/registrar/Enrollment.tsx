@@ -35,6 +35,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -56,7 +59,7 @@ const mockEnrollments = [
 ];
 
 const statusColors: Record<string, string> = {
-  Approved: "bg-emerald-100 text-emerald-700",
+  Approved: "status-theme",
   Pending: "bg-amber-100 text-amber-700",
   Rejected: "bg-red-100 text-red-700",
 };
@@ -71,6 +74,7 @@ export default function Enrollment() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
+  const { colors } = useTheme();
 
   const filteredEnrollments = mockEnrollments.filter((enrollment) => {
     const matchesSearch = enrollment.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -88,7 +92,15 @@ export default function Enrollment() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/registrar" },
+          { label: "Enrollment" },
+        ]}
+      />
+      
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
@@ -100,19 +112,24 @@ export default function Enrollment() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl px-5 py-2.5 font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all">
-            <UserPlus className="w-4 h-4 mr-2" />
-            New Enrollment
-          </Button>
+          <Tooltip content="Add a new student enrollment application">
+            <Button 
+              className="text-white rounded-xl px-5 py-2.5 font-semibold shadow-lg transition-all"
+              style={{ backgroundColor: colors.primary }}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              New Enrollment
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+        <div className="p-4 rounded-xl border" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}20` }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100">
-              <Users className="w-5 h-5 text-blue-600" />
+            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary}20` }}>
+              <Users className="w-5 h-5" style={{ color: colors.primary }} />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Applications</p>
@@ -120,10 +137,10 @@ export default function Enrollment() {
             </div>
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+        <div className="p-4 rounded-xl border" style={{ backgroundColor: `${colors.secondary}10`, borderColor: `${colors.secondary}20` }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.secondary}20` }}>
+              <CheckCircle2 className="w-5 h-5" style={{ color: colors.secondary }} />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Approved</p>
@@ -157,10 +174,10 @@ export default function Enrollment() {
 
       {/* Main Card with Tabs */}
       <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5">
+        <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}08` }}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
+              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                 <UserPlus className="w-5 h-5" />
               </div>
               <div>
@@ -215,18 +232,21 @@ export default function Enrollment() {
                 </TableHeader>
                 <TableBody>
                   {filteredEnrollments.map((enrollment) => (
-                    <TableRow key={enrollment.id} className="hover:bg-blue-50/30">
+                    <TableRow key={enrollment.id} className="transition-colors" onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}08`} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}>
                       <TableCell className="font-mono text-sm text-gray-600">{enrollment.lrn}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+                          <div 
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-semibold text-sm"
+                            style={{ backgroundColor: colors.primary }}
+                          >
                             {enrollment.name.charAt(0)}
                           </div>
                           <p className="font-semibold text-gray-900">{enrollment.name}</p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-700">
+                        <Badge style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
                           {gradeLevelLabels[enrollment.gradeLevel]}
                         </Badge>
                       </TableCell>
@@ -240,7 +260,10 @@ export default function Enrollment() {
                         {new Date(enrollment.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[enrollment.status]}>
+                        <Badge 
+                          className={statusColors[enrollment.status] === 'status-theme' ? '' : statusColors[enrollment.status]}
+                          style={statusColors[enrollment.status] === 'status-theme' ? { backgroundColor: `${colors.primary}15`, color: colors.primary } : undefined}
+                        >
                           {statusIcons[enrollment.status]}
                           {enrollment.status}
                         </Badge>
@@ -263,7 +286,7 @@ export default function Enrollment() {
                             </DropdownMenuItem>
                             {enrollment.status === "Pending" && (
                               <>
-                                <DropdownMenuItem className="rounded-lg text-emerald-600">
+                                <DropdownMenuItem className="rounded-lg" style={{ color: colors.primary }}>
                                   <CheckCircle2 className="w-4 h-4 mr-2" />
                                   Approve
                                 </DropdownMenuItem>

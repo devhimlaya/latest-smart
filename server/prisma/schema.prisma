@@ -118,6 +118,11 @@ model ClassAssignment {
   section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   schoolYear String   // e.g., "2025-2026"
   grades     Grade[]
+  
+  // ECR (E-Class Record) import tracking
+  ecrLastSyncedAt DateTime?  // Last ECR sync timestamp
+  ecrFileName     String?    // Original ECR filename for reference
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -168,4 +173,95 @@ model Grade {
   updatedAt         DateTime @updatedAt
 
   @@unique([studentId, classAssignmentId, quarter])
+}
+
+// Audit Log for tracking all system activities
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  CONFIG
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model AuditLog {
+  id          String        @id @default(cuid())
+  action      AuditAction
+  userId      String?       // User who performed the action (null for system actions)
+  userName    String        // Cached user name for display
+  userRole    String        // Cached user role
+  target      String        // What was affected (e.g., "Student Grades", "User Account")
+  targetType  String        // Category (e.g., "Grades", "Auth", "Config", "Student", "User")
+  targetId    String?       // ID of the affected entity if applicable
+  details     String        // Human-readable description
+  ipAddress   String?       // IP address of the request
+  severity    AuditSeverity @default(INFO)
+  metadata    Json?         // Additional data as JSON
+  createdAt   DateTime      @default(now())
+  
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([targetType])
+}
+
+// System Settings for school configuration
+model SystemSettings {
+  id                String   @id @default("main") // Single row with fixed ID
+  schoolName        String   @default("Sample High School")
+  schoolId          String   @default("123456")
+  division          String   @default("Division of Sample City")
+  region            String   @default("Region IV-A CALABARZON")
+  address           String?
+  contactNumber     String?
+  email             String?
+  
+  // Academic Settings
+  currentSchoolYear String   @default("2025-2026")
+  currentQuarter    Quarter  @default(Q1)
+  
+  // Academic Calendar - Quarter Start/End Dates
+  q1StartDate       DateTime?
+  q1EndDate         DateTime?
+  q2StartDate       DateTime?
+  q2EndDate         DateTime?
+  q3StartDate       DateTime?
+  q3EndDate         DateTime?
+  q4StartDate       DateTime?
+  q4EndDate         DateTime?
+  autoAdvanceQuarter Boolean @default(false)  // Auto-advance quarter when end date is reached
+  
+  // Theming - Logo and Color Scheme
+  logoUrl           String?  // Path to uploaded logo
+  primaryColor      String   @default("#6366f1")   // Indigo-500
+  secondaryColor    String   @default("#8b5cf6")   // Violet-500
+  accentColor       String   @default("#06b6d4")   // Cyan-500
+  
+  // System Config
+  sessionTimeout    Int      @default(30)          // minutes
+  maxLoginAttempts  Int      @default(5)
+  passwordMinLength Int      @default(8)
+  requireSpecialChar Boolean @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Grading Configuration per subject type
+model GradingConfig {
+  id                    String      @id @default(cuid())
+  subjectType           SubjectType @unique
+  writtenWorkWeight     Int         // percentage
+  performanceTaskWeight Int         // percentage
+  quarterlyAssessWeight Int         // percentage
+  isDepEdDefault        Boolean     @default(true)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,8 +18,15 @@ import {
   TrendingDown,
   Target,
   FileSpreadsheet,
+  Upload,
+  RefreshCw,
+  FileUp,
+  X,
+  Check,
+  AlertTriangle,
+  SplitSquareHorizontal,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,13 +44,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -54,6 +60,7 @@ import {
   type Grade,
   type ScoreItem,
 } from "@/lib/api";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -63,10 +70,10 @@ const gradeLevelLabels: Record<string, string> = {
 };
 
 const gradeLevelColors: Record<string, string> = {
-  GRADE_7: "from-blue-500 via-blue-600 to-indigo-600",
-  GRADE_8: "from-purple-500 via-purple-600 to-violet-600",
-  GRADE_9: "from-amber-500 via-orange-500 to-orange-600",
-  GRADE_10: "from-emerald-500 via-emerald-600 to-teal-600",
+  GRADE_7: "theme",
+  GRADE_8: "theme",
+  GRADE_9: "theme",
+  GRADE_10: "theme",
 };
 
 const quarters = ["Q1", "Q2", "Q3", "Q4"] as const;
@@ -99,6 +106,7 @@ function getGradeRemarks(grade: number | null): string {
 }
 
 export default function ClassRecordView() {
+  const { colors } = useTheme();
   const { classAssignmentId } = useParams();
   const [classAssignment, setClassAssignment] = useState<ClassAssignment | null>(null);
   const [classRecord, setClassRecord] = useState<ClassRecord[]>([]);
@@ -119,9 +127,30 @@ export default function ClassRecordView() {
   const [quarterlyAssessScore, setQuarterlyAssessScore] = useState<string>("");
   const [quarterlyAssessMax, setQuarterlyAssessMax] = useState<string>("100");
 
+  // ECR Import state
+  const [ecrDialogOpen, setEcrDialogOpen] = useState(false);
+  const [ecrFile, setEcrFile] = useState<File | null>(null);
+  const [ecrPreview, setEcrPreview] = useState<any>(null);
+  const [ecrLoading, setEcrLoading] = useState(false);
+  const [ecrImporting, setEcrImporting] = useState(false);
+  const [ecrSyncStatus, setEcrSyncStatus] = useState<{
+    hasSynced: boolean;
+    ecrLastSyncedAt: string | null;
+    ecrFileName: string | null;
+  } | null>(null);
+  const [separateByGender, setSeparateByGender] = useState(false);
+  const ecrFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetchClassRecord();
   }, [classAssignmentId, selectedQuarter]);
+
+  // Fetch ECR sync status
+  useEffect(() => {
+    if (classAssignmentId) {
+      fetchEcrStatus();
+    }
+  }, [classAssignmentId]);
 
   // Auto-dismiss messages
   useEffect(() => {
@@ -148,6 +177,83 @@ export default function ClassRecordView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchEcrStatus = async () => {
+    if (!classAssignmentId) return;
+    try {
+      const response = await gradesApi.getEcrStatus(classAssignmentId);
+      setEcrSyncStatus(response.data);
+    } catch (err) {
+      console.error("Failed to fetch ECR status:", err);
+    }
+  };
+
+  const handleEcrFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEcrFile(file);
+      handleEcrPreview(file);
+    }
+  };
+
+  const handleEcrPreview = async (file: File) => {
+    if (!classAssignmentId) return;
+    
+    try {
+      setEcrLoading(true);
+      setEcrPreview(null);
+      const response = await gradesApi.previewEcr(classAssignmentId, file);
+      setEcrPreview(response.data);
+    } catch (err: any) {
+      console.error("Failed to preview ECR:", err);
+      setError(err.response?.data?.message || "Failed to parse ECR file");
+      setEcrFile(null);
+      setEcrDialogOpen(false);
+    } finally {
+      setEcrLoading(false);
+    }
+  };
+
+  const handleEcrImport = async () => {
+    if (!classAssignmentId || !ecrFile) return;
+    
+    try {
+      setEcrImporting(true);
+      const response = await gradesApi.importEcr(classAssignmentId, ecrFile);
+      
+      // Update sync status
+      setEcrSyncStatus({
+        hasSynced: true,
+        ecrLastSyncedAt: response.data.ecrLastSyncedAt,
+        ecrFileName: response.data.ecrFileName,
+      });
+      
+      setSuccess(`Successfully imported ${response.data.importedGrades} grades from ECR. ${response.data.skippedStudents > 0 ? `${response.data.skippedStudents} students could not be matched.` : ''}`);
+      setEcrDialogOpen(false);
+      setEcrFile(null);
+      setEcrPreview(null);
+      
+      // Refresh class record
+      fetchClassRecord();
+    } catch (err: any) {
+      console.error("Failed to import ECR:", err);
+      setError(err.response?.data?.message || "Failed to import ECR grades");
+    } finally {
+      setEcrImporting(false);
+    }
+  };
+
+  const formatSyncDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-PH', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const openGradeDialog = (student: ClassRecord, existingGrade?: Grade) => {
@@ -402,8 +508,11 @@ export default function ClassRecordView() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center shadow-lg shadow-emerald-100 animate-pulse">
-            <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+          <div 
+            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
+            style={{ backgroundColor: `${colors.primary}15` }}
+          >
+            <Loader2 className="w-10 h-10 animate-spin" style={{ color: colors.primary }} />
           </div>
           <p className="text-gray-600 font-semibold text-lg">Loading class record...</p>
           <p className="text-gray-400 text-sm mt-1">Fetching student data</p>
@@ -424,7 +533,10 @@ export default function ClassRecordView() {
             The class record you're looking for doesn't exist or you don't have permission to access it.
           </p>
           <Link to="/teacher/records">
-            <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25 rounded-xl px-6">
+            <Button 
+              className="shadow-lg rounded-xl px-6"
+              style={{ backgroundColor: colors.primary }}
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Class Records
             </Button>
@@ -435,6 +547,7 @@ export default function ClassRecordView() {
   }
 
   const gradientClass = gradeLevelColors[classAssignment.section.gradeLevel] || "from-gray-500 to-gray-600";
+  const useThemeGradient = gradientClass === "theme";
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -444,14 +557,15 @@ export default function ClassRecordView() {
           className={`fixed top-6 right-6 z-50 flex items-center gap-4 px-5 py-4 rounded-2xl shadow-2xl border animate-slide-in-right ${
             error
               ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-200 text-red-800"
-              : "bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-800"
+              : "border-gray-200"
           }`}
+          style={!error ? { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30`, color: colors.primary } : undefined}
         >
-          <div className={`p-2 rounded-xl ${error ? 'bg-red-100' : 'bg-emerald-100'}`}>
+          <div className={`p-2 rounded-xl ${error ? 'bg-red-100' : ''}`} style={!error ? { backgroundColor: `${colors.primary}20` } : undefined}>
             {error ? (
               <AlertCircle className="w-5 h-5 text-red-600" />
             ) : (
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <CheckCircle className="w-5 h-5" style={{ color: colors.primary }} />
             )}
           </div>
           <span className="font-semibold">{error || success}</span>
@@ -459,7 +573,9 @@ export default function ClassRecordView() {
       )}
 
       {/* Header Card - Premium Glass Design */}
-      <Card className={`border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl bg-gradient-to-r ${gradientClass}`}>
+      <Card className={`border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl ${useThemeGradient ? '' : `bg-gradient-to-r ${gradientClass}`}`}
+        style={useThemeGradient ? { backgroundColor: colors.primary } : undefined}
+      >
         <div className="p-8 lg:p-10 text-white relative overflow-hidden">
           {/* Background decorations */}
           <div className="absolute inset-0 overflow-hidden">
@@ -520,20 +636,33 @@ export default function ClassRecordView() {
       {stats && stats.avg > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
           {[
-            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "emerald", gradient: "from-emerald-50 to-teal-50", iconBg: "from-emerald-500 to-teal-600" },
-            { label: "Passed", value: `${stats.passed}/${classRecord.length}`, icon: TrendingUp, color: "blue", gradient: "from-blue-50 to-indigo-50", iconBg: "from-blue-500 to-indigo-600" },
-            { label: "Highest Score", value: stats.highest.toString(), icon: Award, color: "amber", gradient: "from-amber-50 to-orange-50", iconBg: "from-amber-500 to-orange-600" },
-            { label: "Lowest Score", value: stats.lowest.toString(), icon: TrendingDown, color: "purple", gradient: "from-purple-50 to-violet-50", iconBg: "from-purple-500 to-violet-600" },
+            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "primary", gradient: "", iconBg: "", useTheme: true },
+            { label: "Passed", value: `${stats.passed}/${classRecord.length}`, icon: TrendingUp, color: "blue", gradient: "from-blue-50 to-indigo-50", iconBg: "from-blue-500 to-indigo-600", useTheme: false },
+            { label: "Highest Score", value: stats.highest.toString(), icon: Award, color: "amber", gradient: "from-amber-50 to-orange-50", iconBg: "from-amber-500 to-orange-600", useTheme: false },
+            { label: "Lowest Score", value: stats.lowest.toString(), icon: TrendingDown, color: "purple", gradient: "from-purple-50 to-violet-50", iconBg: "from-purple-500 to-violet-600", useTheme: false },
           ].map((stat) => (
-            <Card key={stat.label} className={`border-none shadow-lg shadow-${stat.color}-100/50 bg-gradient-to-br ${stat.gradient} rounded-2xl overflow-hidden`}>
+            <Card 
+              key={stat.label} 
+              className={`border-none shadow-lg rounded-2xl overflow-hidden ${!stat.useTheme ? `bg-gradient-to-br ${stat.gradient}` : ''}`}
+              style={stat.useTheme ? { backgroundColor: `${colors.primary}10` } : undefined}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.iconBg} text-white shadow-lg`}>
+                  <div 
+                    className={`p-2.5 rounded-xl text-white shadow-lg ${!stat.useTheme ? `bg-gradient-to-br ${stat.iconBg}` : ''}`}
+                    style={stat.useTheme ? { backgroundColor: colors.primary } : undefined}
+                  >
                     <stat.icon className="w-5 h-5" />
                   </div>
                 </div>
-                <p className={`text-${stat.color}-600 text-sm font-semibold uppercase tracking-wider`}>{stat.label}</p>
-                <p className={`text-3xl font-bold text-${stat.color}-700 mt-1`}>{stat.value}</p>
+                <p 
+                  className={`text-sm font-semibold uppercase tracking-wider ${!stat.useTheme ? `text-${stat.color}-600` : ''}`}
+                  style={stat.useTheme ? { color: colors.primary } : undefined}
+                >{stat.label}</p>
+                <p 
+                  className={`text-3xl font-bold mt-1 ${!stat.useTheme ? `text-${stat.color}-700` : ''}`}
+                  style={stat.useTheme ? { color: colors.primary } : undefined}
+                >{stat.value}</p>
               </CardContent>
             </Card>
           ))}
@@ -546,19 +675,36 @@ export default function ClassRecordView() {
         <div className="bg-white border-b border-gray-100 py-4 lg:py-6 px-4 lg:px-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-3 lg:gap-4">
-              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl lg:rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+              <div 
+                className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl flex items-center justify-center shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
                 <Users className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
               </div>
               <div>
                 <h2 className="text-lg lg:text-xl font-bold" style={{ color: '#111827' }}>Student Grades</h2>
-                <p className="text-xs lg:text-sm text-gray-500 mt-0.5">{classRecord.length} students enrolled</p>
+                <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                  <p className="text-xs lg:text-sm text-gray-500">{classRecord.length} students enrolled</p>
+                  {ecrSyncStatus?.hasSynced && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <div 
+                        className="flex items-center gap-1 text-xs text-emerald-600"
+                        title={ecrSyncStatus.ecrFileName ? `Last synced from: ${ecrSyncStatus.ecrFileName}` : undefined}
+                      >
+                        <Check className="w-3 h-3" />
+                        <span className="font-medium">Synced {formatSyncDate(ecrSyncStatus.ecrLastSyncedAt)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Label className="text-gray-600 font-semibold text-sm">Quarter:</Label>
                 <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
-                  <SelectTrigger className="w-36 lg:w-40 bg-white border-gray-200 focus:ring-emerald-500 rounded-xl h-10 lg:h-11 font-medium shadow-sm">
+                  <SelectTrigger className="w-36 lg:w-40 bg-white border-gray-200 rounded-xl h-10 lg:h-11 font-medium shadow-sm">
                     <SelectValue>
                       {selectedQuarter === "Q1" ? "1st Quarter" : selectedQuarter === "Q2" ? "2nd Quarter" : selectedQuarter === "Q3" ? "3rd Quarter" : "4th Quarter"}
                     </SelectValue>
@@ -572,10 +718,62 @@ export default function ClassRecordView() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Gender Separation Toggle */}
+              <Button
+                variant={separateByGender ? "default" : "outline"}
+                onClick={() => setSeparateByGender(!separateByGender)}
+                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3"
+                style={separateByGender 
+                  ? { backgroundColor: colors.primary } 
+                  : { borderColor: `${colors.primary}40`, color: colors.primary }
+                }
+                title={separateByGender ? "Show combined list" : "Separate by gender"}
+              >
+                <SplitSquareHorizontal className="w-4 h-4 lg:mr-2" />
+                <span className="hidden lg:inline">{separateByGender ? "Separated" : "By Gender"}</span>
+              </Button>
+              {/* Hidden file input for ECR */}
+              <input
+                type="file"
+                ref={ecrFileInputRef}
+                onChange={handleEcrFileSelect}
+                accept=".xlsx,.xls"
+                className="hidden"
+              />
+              {/* Import/Sync ECR Button */}
+              <Button
+                onClick={() => {
+                  if (ecrFileInputRef.current) {
+                    ecrFileInputRef.current.click();
+                  }
+                  setEcrDialogOpen(true);
+                }}
+                variant="outline"
+                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
+                style={{ 
+                  borderColor: ecrSyncStatus?.hasSynced ? `${colors.primary}40` : '#10b98140',
+                  color: ecrSyncStatus?.hasSynced ? colors.primary : '#10b981'
+                }}
+              >
+                {ecrSyncStatus?.hasSynced ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Sync ECR</span>
+                    <span className="sm:hidden">Sync</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Import ECR</span>
+                    <span className="sm:hidden">Import</span>
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={printSF8}
                 variant="outline"
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
+                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
+                style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Print SF8</span>
@@ -608,96 +806,160 @@ export default function ClassRecordView() {
 
       {/* Grades Table Data */}
       <div className="border-none overflow-visible rounded-b-3xl bg-white">
-        <Table>
-          <TableBody>
-                {classRecord.map((record, index) => {
-                  const grade = record.grades.find((g) => g.quarter === selectedQuarter);
-                  return (
-                    <TableRow
-                      key={record.student.id}
-                      className={`transition-all duration-200 hover:bg-gray-50/80 ${getGradeBgColor(grade?.quarterlyGrade ?? null)} border-b border-gray-50`}
+        {(() => {
+          // Sort students alphabetically
+          const sortedRecords = [...classRecord].sort((a, b) => {
+            const nameA = `${a.student.lastName}, ${a.student.firstName}`.toLowerCase();
+            const nameB = `${b.student.lastName}, ${b.student.firstName}`.toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+
+          // Separate by gender if enabled
+          const maleRecords = sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'male');
+          const femaleRecords = sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'female');
+
+          // Render student row
+          const renderStudentRow = (record: ClassRecord, index: number, bgTint?: string) => {
+            const grade = record.grades.find((g) => g.quarter === selectedQuarter);
+            return (
+              <TableRow
+                key={record.student.id}
+                className={`transition-all duration-200 hover:bg-gray-50/80 ${getGradeBgColor(grade?.quarterlyGrade ?? null)} border-b border-gray-50 ${bgTint || ''}`}
+              >
+                <TableCell className="text-center text-gray-500 font-semibold py-3">
+                  {index + 1}
+                </TableCell>
+                <TableCell className="font-mono text-sm text-gray-600 tracking-wide py-3">
+                  {record.student.lrn}
+                </TableCell>
+                <TableCell className="py-3">
+                  <div className="font-semibold text-gray-900">
+                    {record.student.lastName}, {record.student.firstName}
+                    {record.student.middleName && (
+                      <span className="text-gray-400 ml-1 font-normal">
+                        {record.student.middleName.charAt(0)}.
+                      </span>
+                    )}
+                    {record.student.suffix && (
+                      <span className="text-gray-400 font-normal"> {record.student.suffix}</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-center font-semibold py-3">
+                  {grade?.writtenWorkPS?.toFixed(1) || <span className="text-gray-300">—</span>}
+                </TableCell>
+                <TableCell className="text-center font-semibold py-3">
+                  {grade?.perfTaskPS?.toFixed(1) || <span className="text-gray-300">—</span>}
+                </TableCell>
+                <TableCell className="text-center font-semibold py-3">
+                  {grade?.quarterlyAssessPS?.toFixed(1) || <span className="text-gray-300">—</span>}
+                </TableCell>
+                <TableCell className="text-center font-semibold py-3">
+                  {grade?.initialGrade?.toFixed(2) || <span className="text-gray-300">—</span>}
+                </TableCell>
+                <TableCell className={`text-center text-xl py-3 ${getGradeColor(grade?.quarterlyGrade ?? null)}`}>
+                  {grade?.quarterlyGrade || <span className="text-gray-300 text-base">—</span>}
+                </TableCell>
+                <TableCell className="py-3">
+                  <Badge
+                    variant="secondary"
+                    className={`text-xs font-semibold px-3 py-1 rounded-lg ${
+                      grade?.quarterlyGrade
+                        ? grade.quarterlyGrade >= 75
+                          ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                          : "bg-red-100 text-red-700 border border-red-200"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    {getGradeRemarks(grade?.quarterlyGrade ?? null)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openGradeDialog(record, grade)}
+                      className="h-8 w-8 p-0 rounded-lg transition-all"
+                      title={grade ? "Edit Grade" : "Add Grade"}
+                      style={{ color: colors.primary }}
                     >
-                      <TableCell className="text-center text-gray-500 font-semibold py-3">
-                        {index + 1}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm text-gray-600 tracking-wide py-3">
-                        {record.student.lrn}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <div className="font-semibold text-gray-900">
-                          {record.student.lastName}, {record.student.firstName}
-                          {record.student.middleName && (
-                            <span className="text-gray-400 ml-1 font-normal">
-                              {record.student.middleName.charAt(0)}.
-                            </span>
-                          )}
-                          {record.student.suffix && (
-                            <span className="text-gray-400 font-normal"> {record.student.suffix}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold py-3">
-                        {grade?.writtenWorkPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                      </TableCell>
-                      <TableCell className="text-center font-semibold py-3">
-                        {grade?.perfTaskPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                      </TableCell>
-                      <TableCell className="text-center font-semibold py-3">
-                        {grade?.quarterlyAssessPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                      </TableCell>
-                      <TableCell className="text-center font-semibold py-3">
-                        {grade?.initialGrade?.toFixed(2) || <span className="text-gray-300">—</span>}
-                      </TableCell>
-                      <TableCell className={`text-center text-xl py-3 ${getGradeColor(grade?.quarterlyGrade ?? null)}`}>
-                        {grade?.quarterlyGrade || <span className="text-gray-300 text-base">—</span>}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs font-semibold px-3 py-1 rounded-lg ${
-                            grade?.quarterlyGrade
-                              ? grade.quarterlyGrade >= 75
-                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                              : "bg-gray-100 text-gray-400"
-                          }`}
-                        >
-                          {getGradeRemarks(grade?.quarterlyGrade ?? null)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openGradeDialog(record, grade)}
-                            className="h-8 w-8 p-0 rounded-lg hover:bg-emerald-100 hover:text-emerald-700 transition-all"
-                            title={grade ? "Edit Grade" : "Add Grade"}
-                          >
-                            {grade ? (
-                              <Edit className="w-4 h-4" />
-                            ) : (
-                              <Plus className="w-4 h-4" />
-                            )}
-                          </Button>
-                          {grade && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                              onClick={() => handleDeleteGrade(grade.id)}
-                              title="Delete Grade"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                      {grade ? (
+                        <Edit className="w-4 h-4" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                    </Button>
+                    {grade && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        onClick={() => handleDeleteGrade(grade.id)}
+                        title="Delete Grade"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          };
+
+          if (separateByGender) {
+            return (
+              <>
+                {/* Male Section */}
+                {maleRecords.length > 0 && (
+                  <>
+                    <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-500 text-white text-xs font-semibold">Male</Badge>
+                        <span className="text-sm font-semibold text-blue-800">
+                          {maleRecords.length} {maleRecords.length === 1 ? 'student' : 'students'}
+                        </span>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableBody>
+                        {maleRecords.map((record, index) => renderStudentRow(record, index))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {/* Female Section */}
+                {femaleRecords.length > 0 && (
+                  <>
+                    <div className="px-4 py-2.5 bg-pink-50 border-b border-pink-100">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-pink-500 text-white text-xs font-semibold">Female</Badge>
+                        <span className="text-sm font-semibold text-pink-800">
+                          {femaleRecords.length} {femaleRecords.length === 1 ? 'student' : 'students'}
+                        </span>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableBody>
+                        {femaleRecords.map((record, index) => renderStudentRow(record, index))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+              </>
+            );
+          }
+
+          // Combined view (alphabetically sorted)
+          return (
+            <Table>
+              <TableBody>
+                {sortedRecords.map((record, index) => renderStudentRow(record, index))}
               </TableBody>
             </Table>
+          );
+        })()}
       </div>
 
       {/* Grade Input Dialog - Tab-Based Responsive Design */}
@@ -986,7 +1248,8 @@ export default function ClassRecordView() {
             <Button
               onClick={handleSaveGrade}
               disabled={saving}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 h-10 px-4 sm:px-6 rounded-lg font-medium text-sm shadow-md"
+              className="h-10 px-4 sm:px-6 rounded-lg font-medium text-sm shadow-md"
+              style={{ backgroundColor: colors.primary }}
             >
               {saving ? (
                 <>
@@ -1001,6 +1264,215 @@ export default function ClassRecordView() {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ECR Import Dialog */}
+      <Dialog open={ecrDialogOpen} onOpenChange={(open) => {
+        setEcrDialogOpen(open);
+        if (!open) {
+          setEcrFile(null);
+          setEcrPreview(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border-0 shadow-2xl">
+          <DialogHeader className="shrink-0">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <FileUp className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold" style={{ color: '#000000' }}>
+                  {ecrSyncStatus?.hasSynced ? 'Sync ECR' : 'Import ECR'}
+                </DialogTitle>
+                <DialogDescription>
+                  {ecrSyncStatus?.hasSynced 
+                    ? 'Update grades from your E-Class Record Excel file'
+                    : 'Import grades from your E-Class Record Excel file'}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-4">
+            {!ecrFile ? (
+              <div 
+                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all hover:border-gray-400 hover:bg-gray-50"
+                style={{ borderColor: `${colors.primary}40` }}
+                onClick={() => ecrFileInputRef.current?.click()}
+              >
+                <Upload className="w-12 h-12 mx-auto mb-4" style={{ color: colors.primary }} />
+                <p className="text-lg font-semibold text-gray-700 mb-2">
+                  Drop your ECR file here
+                </p>
+                <p className="text-sm text-gray-500 mb-4">
+                  or click to select file
+                </p>
+                <p className="text-xs text-gray-400">
+                  Supports .xlsx and .xls files
+                </p>
+              </div>
+            ) : ecrLoading ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" style={{ color: colors.primary }} />
+                <p className="text-gray-600 font-medium">Analyzing ECR file...</p>
+                <p className="text-sm text-gray-400 mt-1">Reading student grades from Excel</p>
+              </div>
+            ) : ecrPreview ? (
+              <div className="space-y-4">
+                {/* File Info */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="w-8 h-8" style={{ color: colors.primary }} />
+                    <div>
+                      <p className="font-semibold text-gray-800">{ecrPreview.fileName}</p>
+                      <p className="text-xs text-gray-500">
+                        {ecrPreview.quarters.length} quarter(s) found
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => {
+                      setEcrFile(null);
+                      setEcrPreview(null);
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Match Statistics */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 bg-blue-50 rounded-xl text-center">
+                    <p className="text-2xl font-bold text-blue-600">{ecrPreview.stats.totalStudents}</p>
+                    <p className="text-xs text-blue-700">Total Students</p>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded-xl text-center">
+                    <p className="text-2xl font-bold text-emerald-600">{ecrPreview.stats.matchedStudents}</p>
+                    <p className="text-xs text-emerald-700">Matched</p>
+                  </div>
+                  <div className={`p-3 rounded-xl text-center ${ecrPreview.stats.unmatchedStudents > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                    <p className={`text-2xl font-bold ${ecrPreview.stats.unmatchedStudents > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                      {ecrPreview.stats.unmatchedStudents}
+                    </p>
+                    <p className={`text-xs ${ecrPreview.stats.unmatchedStudents > 0 ? 'text-amber-700' : 'text-gray-500'}`}>Unmatched</p>
+                  </div>
+                </div>
+
+                {/* Warning for unmatched students */}
+                {ecrPreview.stats.unmatchedStudents > 0 && (() => {
+                  // Collect unique unmatched names across all quarters
+                  const unmatchedNames: string[] = [];
+                  ecrPreview.quarters.forEach((q: any) => {
+                    q.students.forEach((s: any) => {
+                      if (!s.matchedStudentId && !unmatchedNames.includes(s.name)) {
+                        unmatchedNames.push(s.name);
+                      }
+                    });
+                  });
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                      <div className="flex items-start gap-3 p-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-amber-800">
+                            {ecrPreview.stats.unmatchedStudents} student(s) couldn't be matched
+                          </p>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Their grades will be skipped. Check that these names match your class roster.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="border-t border-amber-200 divide-y divide-amber-100">
+                        {unmatchedNames.map((name, idx) => (
+                          <div key={idx} className="flex items-center gap-2 px-3 py-2">
+                            <X className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="text-xs font-medium text-amber-900">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Quarter Preview */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-700">Quarters to Import:</h4>
+                  {ecrPreview.quarters.map((q: any) => (
+                    <div key={q.quarter} className="p-3 bg-gray-50 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="font-semibold">
+                            {q.quarter === 'Q1' ? '1st Quarter' : q.quarter === 'Q2' ? '2nd Quarter' : q.quarter === 'Q3' ? '3rd Quarter' : '4th Quarter'}
+                          </Badge>
+                          <span className="text-sm text-gray-500">
+                            {q.students.filter((s: any) => s.matchedStudentId).length} students
+                          </span>
+                        </div>
+                        <Check className="w-5 h-5 text-emerald-500" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sample matched students */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-gray-700">Sample Matched Students:</h4>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {ecrPreview.quarters[0]?.students
+                      .filter((s: any) => s.matchedStudentId)
+                      .slice(0, 5)
+                      .map((student: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between text-sm p-2 bg-emerald-50/50 rounded-lg">
+                          <span className="text-gray-700">{student.name}</span>
+                          <span className="text-emerald-600 font-semibold">
+                            Grade: {student.quarterlyGrade || '—'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="shrink-0 gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEcrDialogOpen(false);
+                setEcrFile(null);
+                setEcrPreview(null);
+              }}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEcrImport}
+              disabled={!ecrPreview || ecrImporting || ecrPreview?.stats.matchedStudents === 0}
+              className="rounded-lg shadow-md"
+              style={{ backgroundColor: colors.primary }}
+            >
+              {ecrImporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {ecrSyncStatus?.hasSynced ? 'Sync Grades' : 'Import Grades'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

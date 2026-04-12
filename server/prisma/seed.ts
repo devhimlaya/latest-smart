@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, Role, GradeLevel, SubjectType, Quarter } from "@prisma/client";
+import { PrismaClient, Role, GradeLevel, SubjectType, Quarter, AuditAction, AuditSeverity } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
@@ -87,6 +87,9 @@ async function main() {
 
   // Clean up existing data to avoid conflicts
   console.log("Cleaning up existing data...");
+  await prisma.auditLog.deleteMany({});
+  await prisma.gradingConfig.deleteMany({});
+  await prisma.systemSettings.deleteMany({});
   await prisma.grade.deleteMany({});
   await prisma.enrollment.deleteMany({});
   await prisma.student.deleteMany({});
@@ -245,6 +248,92 @@ async function main() {
     },
   });
 
+  // Create Adviser Teachers (Grade 8-10 advisers)
+  const teacher9User = await prisma.user.upsert({
+    where: { username: "teacher9" },
+    update: {
+      firstName: "Antonio",
+      lastName: "Mercado",
+      email: "antonio.mercado@school.edu.ph",
+    },
+    create: {
+      username: "teacher9",
+      password: teacherPassword,
+      role: Role.TEACHER,
+      firstName: "Antonio",
+      lastName: "Mercado",
+      email: "antonio.mercado@school.edu.ph",
+    },
+  });
+
+  const teacher10User = await prisma.user.upsert({
+    where: { username: "teacher10" },
+    update: {
+      firstName: "Elena",
+      lastName: "Valdez",
+      email: "elena.valdez@school.edu.ph",
+    },
+    create: {
+      username: "teacher10",
+      password: teacherPassword,
+      role: Role.TEACHER,
+      firstName: "Elena",
+      lastName: "Valdez",
+      email: "elena.valdez@school.edu.ph",
+    },
+  });
+
+  const teacher11User = await prisma.user.upsert({
+    where: { username: "teacher11" },
+    update: {
+      firstName: "Rafael",
+      lastName: "Navarro",
+      email: "rafael.navarro@school.edu.ph",
+    },
+    create: {
+      username: "teacher11",
+      password: teacherPassword,
+      role: Role.TEACHER,
+      firstName: "Rafael",
+      lastName: "Navarro",
+      email: "rafael.navarro@school.edu.ph",
+    },
+  });
+
+  const teacher12User = await prisma.user.upsert({
+    where: { username: "teacher12" },
+    update: {
+      firstName: "Gabriela",
+      lastName: "Ortega",
+      email: "gabriela.ortega@school.edu.ph",
+    },
+    create: {
+      username: "teacher12",
+      password: teacherPassword,
+      role: Role.TEACHER,
+      firstName: "Gabriela",
+      lastName: "Ortega",
+      email: "gabriela.ortega@school.edu.ph",
+    },
+  });
+
+  const teacher13User = await prisma.user.upsert({
+    where: { username: "teacher13" },
+    update: {
+      firstName: "Fernando",
+      lastName: "Padilla",
+      email: "fernando.padilla@school.edu.ph",
+    },
+    create: {
+      username: "teacher13",
+      password: teacherPassword,
+      role: Role.TEACHER,
+      firstName: "Fernando",
+      lastName: "Padilla",
+      email: "fernando.padilla@school.edu.ph",
+    },
+  });
+
   await prisma.user.upsert({
     where: { username: "admin" },
     update: {},
@@ -350,8 +439,59 @@ async function main() {
     },
   });
 
-  // Create Subjects (Grade 7 only)
+  const teacher9 = await prisma.teacher.upsert({
+    where: { userId: teacher9User.id },
+    update: {},
+    create: {
+      userId: teacher9User.id,
+      employeeId: "EMP-2024-009",
+      specialization: "Grade 8 Adviser",
+    },
+  });
+
+  const teacher10 = await prisma.teacher.upsert({
+    where: { userId: teacher10User.id },
+    update: {},
+    create: {
+      userId: teacher10User.id,
+      employeeId: "EMP-2024-010",
+      specialization: "Grade 9 Adviser",
+    },
+  });
+
+  const teacher11 = await prisma.teacher.upsert({
+    where: { userId: teacher11User.id },
+    update: {},
+    create: {
+      userId: teacher11User.id,
+      employeeId: "EMP-2024-011",
+      specialization: "Grade 9 Adviser",
+    },
+  });
+
+  const teacher12 = await prisma.teacher.upsert({
+    where: { userId: teacher12User.id },
+    update: {},
+    create: {
+      userId: teacher12User.id,
+      employeeId: "EMP-2024-012",
+      specialization: "Grade 10 Adviser",
+    },
+  });
+
+  const teacher13 = await prisma.teacher.upsert({
+    where: { userId: teacher13User.id },
+    update: {},
+    create: {
+      userId: teacher13User.id,
+      employeeId: "EMP-2024-013",
+      specialization: "Grade 10 Adviser",
+    },
+  });
+
+  // Create Subjects for all grade levels
   const subjects = [
+    // Grade 7
     { code: "ENG7", name: "English 7", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
     { code: "MATH7", name: "Mathematics 7", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
     { code: "SCI7", name: "Science 7", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
@@ -360,6 +500,18 @@ async function main() {
     { code: "MAPEH7", name: "MAPEH 7", type: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
     { code: "TLE7", name: "TLE 7", type: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
     { code: "ESP7", name: "Edukasyon sa Pagpapakatao 7", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    // Grade 8
+    { code: "ENG8", name: "English 8", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "MATH8", name: "Mathematics 8", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "SCI8", name: "Science 8", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    // Grade 9
+    { code: "ENG9", name: "English 9", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "MATH9", name: "Mathematics 9", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "SCI9", name: "Science 9", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    // Grade 10
+    { code: "ENG10", name: "English 10", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "MATH10", name: "Mathematics 10", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { code: "SCI10", name: "Science 10", type: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
   ];
 
   for (const subject of subjects) {
@@ -386,11 +538,33 @@ async function main() {
   const mapeh7 = await prisma.subject.findUnique({ where: { code: "MAPEH7" } });
   const tle7 = await prisma.subject.findUnique({ where: { code: "TLE7" } });
   const esp7 = await prisma.subject.findUnique({ where: { code: "ESP7" } });
+  
+  const english8 = await prisma.subject.findUnique({ where: { code: "ENG8" } });
+  const math8 = await prisma.subject.findUnique({ where: { code: "MATH8" } });
+  const science8 = await prisma.subject.findUnique({ where: { code: "SCI8" } });
+  
+  const english9 = await prisma.subject.findUnique({ where: { code: "ENG9" } });
+  const math9 = await prisma.subject.findUnique({ where: { code: "MATH9" } });
+  const science9 = await prisma.subject.findUnique({ where: { code: "SCI9" } });
+  
+  const english10 = await prisma.subject.findUnique({ where: { code: "ENG10" } });
+  const math10 = await prisma.subject.findUnique({ where: { code: "MATH10" } });
+  const science10 = await prisma.subject.findUnique({ where: { code: "SCI10" } });
 
-  // Create Grade 7 Sections only
+  // Create Sections for Grades 7-10
   const sections = [
+    // Grade 7
     { name: "Einstein", gradeLevel: GradeLevel.GRADE_7, isAdvisory: true },
     { name: "Newton", gradeLevel: GradeLevel.GRADE_7, isAdvisory: false },
+    // Grade 8
+    { name: "Rizal", gradeLevel: GradeLevel.GRADE_8, isAdvisory: false },
+    { name: "Bonifacio", gradeLevel: GradeLevel.GRADE_8, isAdvisory: false },
+    // Grade 9
+    { name: "Mabini", gradeLevel: GradeLevel.GRADE_9, isAdvisory: false },
+    { name: "Luna", gradeLevel: GradeLevel.GRADE_9, isAdvisory: false },
+    // Grade 10
+    { name: "Aguinaldo", gradeLevel: GradeLevel.GRADE_10, isAdvisory: false },
+    { name: "Del Pilar", gradeLevel: GradeLevel.GRADE_10, isAdvisory: false },
   ];
 
   const schoolYear = "2025-2026";
@@ -411,12 +585,17 @@ async function main() {
         schoolYear,
       },
     });
-
-    // Update adviser for Einstein section
-    if (section.isAdvisory && teacher) {
-      await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher.id} WHERE name = ${section.name} AND "gradeLevel" = ${section.gradeLevel}::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
-    }
   }
+
+  // Assign advisers to sections
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher.id} WHERE name = 'Einstein' AND "gradeLevel" = 'GRADE_7'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher2.id} WHERE name = 'Newton' AND "gradeLevel" = 'GRADE_7'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher3.id} WHERE name = 'Rizal' AND "gradeLevel" = 'GRADE_8'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher9.id} WHERE name = 'Bonifacio' AND "gradeLevel" = 'GRADE_8'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher10.id} WHERE name = 'Mabini' AND "gradeLevel" = 'GRADE_9'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher11.id} WHERE name = 'Luna' AND "gradeLevel" = 'GRADE_9'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher12.id} WHERE name = 'Aguinaldo' AND "gradeLevel" = 'GRADE_10'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
+  await prisma.$executeRaw`UPDATE "Section" SET "adviserId" = ${teacher13.id} WHERE name = 'Del Pilar' AND "gradeLevel" = 'GRADE_10'::"GradeLevel" AND "schoolYear" = ${schoolYear}`;
 
   // Get created sections
   const sectionEinstein = await prisma.section.findFirst({
@@ -425,38 +604,90 @@ async function main() {
   const sectionNewton = await prisma.section.findFirst({
     where: { name: "Newton", gradeLevel: GradeLevel.GRADE_7 },
   });
+  const sectionRizal = await prisma.section.findFirst({
+    where: { name: "Rizal", gradeLevel: GradeLevel.GRADE_8 },
+  });
+  const sectionBonifacio = await prisma.section.findFirst({
+    where: { name: "Bonifacio", gradeLevel: GradeLevel.GRADE_8 },
+  });
+  const sectionMabini = await prisma.section.findFirst({
+    where: { name: "Mabini", gradeLevel: GradeLevel.GRADE_9 },
+  });
+  const sectionLuna = await prisma.section.findFirst({
+    where: { name: "Luna", gradeLevel: GradeLevel.GRADE_9 },
+  });
+  const sectionAguinaldo = await prisma.section.findFirst({
+    where: { name: "Aguinaldo", gradeLevel: GradeLevel.GRADE_10 },
+  });
+  const sectionDelPilar = await prisma.section.findFirst({
+    where: { name: "Del Pilar", gradeLevel: GradeLevel.GRADE_10 },
+  });
 
   // Create Class Assignments
-  // Teacher 1 (Sean Justin Roma) - English for both sections ONLY
-  // Teacher 2 (Maria Santos) - Math for both sections ONLY
-  // Teacher 3 (Jose Reyes) - Science for both sections
-  // Teachers 4-8 - Other subjects for both sections
+  // Teacher 1 (Sean Justin Roma) - English for ALL sections
+  // Teacher 2 (Maria Santos) - Math for ALL sections
+  // Teacher 3 (Jose Reyes) - Science for ALL sections
+  // Teachers 4-8 - Other subjects for Grade 7 sections only
   
   const classAssignments = [
-    // Teacher 1 - English for both sections
+    // GRADE 7 - Einstein & Newton
+    // Teacher 1 - English
     { teacherId: teacher.id, subjectId: english7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher.id, subjectId: english7!.id, sectionId: sectionNewton!.id },
-    // Teacher 2 - Math for both sections
+    // Teacher 2 - Math
     { teacherId: teacher2.id, subjectId: math7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher2.id, subjectId: math7!.id, sectionId: sectionNewton!.id },
-    // Teacher 3 - Science for both sections
+    // Teacher 3 - Science
     { teacherId: teacher3.id, subjectId: science7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher3.id, subjectId: science7!.id, sectionId: sectionNewton!.id },
-    // Teacher 4 - Filipino for both sections
+    // Teacher 4 - Filipino
     { teacherId: teacher4.id, subjectId: filipino7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher4.id, subjectId: filipino7!.id, sectionId: sectionNewton!.id },
-    // Teacher 5 - Araling Panlipunan for both sections
+    // Teacher 5 - Araling Panlipunan
     { teacherId: teacher5.id, subjectId: ap7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher5.id, subjectId: ap7!.id, sectionId: sectionNewton!.id },
-    // Teacher 6 - MAPEH for both sections
+    // Teacher 6 - MAPEH
     { teacherId: teacher6.id, subjectId: mapeh7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher6.id, subjectId: mapeh7!.id, sectionId: sectionNewton!.id },
-    // Teacher 7 - TLE for both sections
+    // Teacher 7 - TLE
     { teacherId: teacher7.id, subjectId: tle7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher7.id, subjectId: tle7!.id, sectionId: sectionNewton!.id },
-    // Teacher 8 - ESP for both sections
+    // Teacher 8 - ESP
     { teacherId: teacher8.id, subjectId: esp7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher8.id, subjectId: esp7!.id, sectionId: sectionNewton!.id },
+    
+    // GRADE 8 - Rizal & Bonifacio
+    // Teacher 1 - English 8
+    { teacherId: teacher.id, subjectId: english8!.id, sectionId: sectionRizal!.id },
+    { teacherId: teacher.id, subjectId: english8!.id, sectionId: sectionBonifacio!.id },
+    // Teacher 2 - Math 8
+    { teacherId: teacher2.id, subjectId: math8!.id, sectionId: sectionRizal!.id },
+    { teacherId: teacher2.id, subjectId: math8!.id, sectionId: sectionBonifacio!.id },
+    // Teacher 3 - Science 8
+    { teacherId: teacher3.id, subjectId: science8!.id, sectionId: sectionRizal!.id },
+    { teacherId: teacher3.id, subjectId: science8!.id, sectionId: sectionBonifacio!.id },
+    
+    // GRADE 9 - Mabini & Luna
+    // Teacher 1 - English 9
+    { teacherId: teacher.id, subjectId: english9!.id, sectionId: sectionMabini!.id },
+    { teacherId: teacher.id, subjectId: english9!.id, sectionId: sectionLuna!.id },
+    // Teacher 2 - Math 9
+    { teacherId: teacher2.id, subjectId: math9!.id, sectionId: sectionMabini!.id },
+    { teacherId: teacher2.id, subjectId: math9!.id, sectionId: sectionLuna!.id },
+    // Teacher 3 - Science 9
+    { teacherId: teacher3.id, subjectId: science9!.id, sectionId: sectionMabini!.id },
+    { teacherId: teacher3.id, subjectId: science9!.id, sectionId: sectionLuna!.id },
+    
+    // GRADE 10 - Aguinaldo & Del Pilar
+    // Teacher 1 - English 10
+    { teacherId: teacher.id, subjectId: english10!.id, sectionId: sectionAguinaldo!.id },
+    { teacherId: teacher.id, subjectId: english10!.id, sectionId: sectionDelPilar!.id },
+    // Teacher 2 - Math 10
+    { teacherId: teacher2.id, subjectId: math10!.id, sectionId: sectionAguinaldo!.id },
+    { teacherId: teacher2.id, subjectId: math10!.id, sectionId: sectionDelPilar!.id },
+    // Teacher 3 - Science 10
+    { teacherId: teacher3.id, subjectId: science10!.id, sectionId: sectionAguinaldo!.id },
+    { teacherId: teacher3.id, subjectId: science10!.id, sectionId: sectionDelPilar!.id },
   ];
 
   for (const assignment of classAssignments) {
@@ -504,10 +735,11 @@ async function main() {
     },
   });
 
-  // Create 39 more students for Einstein section (total 40)
+  // Create 39-44 more students for Einstein section (total 40-45)
   let studentCounter = 2;
+  const einsteinCount = Math.floor(Math.random() * 6) + 39; // 39-44
   
-  for (let i = 0; i < 39; i++) {
+  for (let i = 0; i < einsteinCount; i++) {
     const firstName = randomElement(firstNames);
     const lastName = randomElement(lastNames);
     const lrn = generateLRN(studentCounter++);
@@ -537,8 +769,9 @@ async function main() {
     });
   }
 
-  // Create 40 students for Newton section
-  for (let i = 0; i < 40; i++) {
+  // Create 40-45 students for Newton section
+  const newtonCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < newtonCount; i++) {
     const firstName = randomElement(firstNames);
     const lastName = randomElement(lastNames);
     const lrn = generateLRN(studentCounter++);
@@ -568,6 +801,198 @@ async function main() {
     });
   }
 
+  // Create 40-45 students for Rizal section (Grade 8)
+  const rizalCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < rizalCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2010 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionRizal!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
+  // Create 40-45 students for Bonifacio section (Grade 8)
+  const bonifacioCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < bonifacioCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2010 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionBonifacio!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
+  // Create 40-45 students for Mabini section (Grade 9)
+  const mabiniCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < mabiniCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2009 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionMabini!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
+  // Create 40-45 students for Luna section (Grade 9)
+  const lunaCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < lunaCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2009 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionLuna!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
+  // Create 40-45 students for Aguinaldo section (Grade 10)
+  const aguinaldoCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < aguinaldoCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2008 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionAguinaldo!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
+  // Create 40-45 students for Del Pilar section (Grade 10)
+  const delPilarCount = Math.floor(Math.random() * 6) + 40; // 40-45
+  for (let i = 0; i < delPilarCount; i++) {
+    const firstName = randomElement(firstNames);
+    const lastName = randomElement(lastNames);
+    const lrn = generateLRN(studentCounter++);
+    const gender = Math.random() > 0.5 ? "Male" : "Female";
+
+    const student = await prisma.student.create({
+      data: {
+        lrn,
+        firstName,
+        middleName: randomElement(lastNames),
+        lastName,
+        gender,
+        birthDate: new Date(2008 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        address: `Brgy. ${randomElement(lastNames)}, Municipality, Province`,
+        guardianName: `${randomElement(firstNames)} ${lastName}`,
+        guardianContact: `09${Math.floor(100000000 + Math.random() * 900000000)}`,
+      },
+    });
+
+    await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        sectionId: sectionDelPilar!.id,
+        schoolYear,
+        status: "ENROLLED",
+      },
+    });
+  }
+
   // Generate grades for all students in all class assignments
   console.log("Generating Q1 grades for all students...");
 
@@ -588,22 +1013,61 @@ async function main() {
     });
 
     for (const enrollment of enrollments) {
-      // Generate realistic scores
-      const basePerformance = 0.75 + Math.random() * 0.23; // 75% to 98%
+      // Generate realistic scores with some failing students
+      // 85% students pass (75-98%), 15% students struggle or fail (40-74%)
+      const performanceLevel = Math.random();
+      const isStruggling = performanceLevel < 0.15; // 15% of students
+      const hasIncomplete = performanceLevel < 0.05; // 5% have incomplete work
       
-      const wwScores = [
-        { name: "Quiz 1", score: Math.round(15 + Math.random() * 5), maxScore: 20 },
-        { name: "Quiz 2", score: Math.round(14 + Math.random() * 6), maxScore: 20 },
-        { name: "Quiz 3", score: Math.round(13 + Math.random() * 7), maxScore: 20 },
-        { name: "Quiz 4", score: Math.round(15 + Math.random() * 5), maxScore: 20 },
-        { name: "Quiz 5", score: Math.round(14 + Math.random() * 6), maxScore: 20 },
-      ];
-      const ptScores = [
-        { name: "Project 1", score: Math.round(35 + Math.random() * 15), maxScore: 50 },
-        { name: "Project 2", score: Math.round(38 + Math.random() * 12), maxScore: 50 },
-        { name: "Project 3", score: Math.round(40 + Math.random() * 10), maxScore: 50 },
-      ];
-      const qaScore = Math.round(70 + Math.random() * 30);
+      let wwScores, ptScores, qaScore;
+      
+      if (hasIncomplete) {
+        // Student with incomplete work (missing some assignments)
+        wwScores = [
+          { name: "Quiz 1", score: Math.round(10 + Math.random() * 8), maxScore: 20 },
+          { name: "Quiz 2", score: Math.round(8 + Math.random() * 10), maxScore: 20 },
+          { name: "Quiz 3", score: 0, maxScore: 20 }, // Missing
+          { name: "Quiz 4", score: Math.round(12 + Math.random() * 6), maxScore: 20 },
+          { name: "Quiz 5", score: 0, maxScore: 20 }, // Missing
+        ];
+        ptScores = [
+          { name: "Project 1", score: Math.round(25 + Math.random() * 15), maxScore: 50 },
+          { name: "Project 2", score: 0, maxScore: 50 }, // Missing
+          { name: "Project 3", score: Math.round(20 + Math.random() * 20), maxScore: 50 },
+        ];
+        qaScore = Math.round(45 + Math.random() * 25); // 45-70
+      } else if (isStruggling) {
+        // Struggling student with low scores
+        wwScores = [
+          { name: "Quiz 1", score: Math.round(8 + Math.random() * 8), maxScore: 20 },
+          { name: "Quiz 2", score: Math.round(7 + Math.random() * 9), maxScore: 20 },
+          { name: "Quiz 3", score: Math.round(9 + Math.random() * 8), maxScore: 20 },
+          { name: "Quiz 4", score: Math.round(10 + Math.random() * 7), maxScore: 20 },
+          { name: "Quiz 5", score: Math.round(8 + Math.random() * 9), maxScore: 20 },
+        ];
+        ptScores = [
+          { name: "Project 1", score: Math.round(20 + Math.random() * 18), maxScore: 50 },
+          { name: "Project 2", score: Math.round(22 + Math.random() * 16), maxScore: 50 },
+          { name: "Project 3", score: Math.round(25 + Math.random() * 15), maxScore: 50 },
+        ];
+        qaScore = Math.round(40 + Math.random() * 30); // 40-70
+      } else {
+        // Regular passing student
+        wwScores = [
+          { name: "Quiz 1", score: Math.round(15 + Math.random() * 5), maxScore: 20 },
+          { name: "Quiz 2", score: Math.round(14 + Math.random() * 6), maxScore: 20 },
+          { name: "Quiz 3", score: Math.round(13 + Math.random() * 7), maxScore: 20 },
+          { name: "Quiz 4", score: Math.round(15 + Math.random() * 5), maxScore: 20 },
+          { name: "Quiz 5", score: Math.round(14 + Math.random() * 6), maxScore: 20 },
+        ];
+        ptScores = [
+          { name: "Project 1", score: Math.round(35 + Math.random() * 15), maxScore: 50 },
+          { name: "Project 2", score: Math.round(38 + Math.random() * 12), maxScore: 50 },
+          { name: "Project 3", score: Math.round(40 + Math.random() * 10), maxScore: 50 },
+        ];
+        qaScore = Math.round(70 + Math.random() * 30); // 70-100
+      }
+      
       const qaMax = 100;
 
       // Calculate weighted scores
@@ -623,6 +1087,16 @@ async function main() {
 
       const initialGrade = (wwPS * wwWeight / 100) + (ptPS * ptWeight / 100) + (qaPS * qaWeight / 100);
       const quarterlyGrade = transmute(initialGrade);
+      
+      // Determine remarks based on grade and completeness
+      let remarks;
+      if (hasIncomplete && initialGrade < 60) {
+        remarks = "INC"; // Incomplete - too many missing requirements
+      } else if (quarterlyGrade >= 75) {
+        remarks = "Passed";
+      } else {
+        remarks = "Failed";
+      }
 
       await prisma.grade.upsert({
         where: {
@@ -642,7 +1116,7 @@ async function main() {
           quarterlyAssessPS: Math.round(qaPS * 100) / 100,
           initialGrade: Math.round(initialGrade * 100) / 100,
           quarterlyGrade,
-          remarks: quarterlyGrade >= 75 ? "Passed" : "Failed",
+          remarks,
         },
         create: {
           studentId: enrollment.studentId,
@@ -657,7 +1131,7 @@ async function main() {
           quarterlyAssessPS: Math.round(qaPS * 100) / 100,
           initialGrade: Math.round(initialGrade * 100) / 100,
           quarterlyGrade,
-          remarks: quarterlyGrade >= 75 ? "Passed" : "Failed",
+          remarks,
         },
       });
     }
@@ -665,11 +1139,187 @@ async function main() {
     console.log(`  - Generated grades for ${classAssignment.section.name} - ${classAssignment.subject.name}`);
   }
 
+  // ============================================
+  // ADMIN MODELS SEEDING
+  // ============================================
+  
+  console.log("\nSeeding admin models...");
+
+  // Create System Settings
+  await prisma.systemSettings.upsert({
+    where: { id: "main" },
+    update: {},
+    create: {
+      id: "main",
+      schoolName: "Hinigaran National High School",
+      schoolId: "300847",
+      division: "Division of Silay",
+      region: "Region VI - Western Visayas",
+      address: "Hinigaran, Negros Occidental",
+      contactNumber: "",
+      email: "",
+      currentSchoolYear: "2025-2026",
+      currentQuarter: Quarter.Q1,
+      primaryColor: "#10b981",
+      secondaryColor: "#34d399",
+      accentColor: "#6ee7b7",
+      sessionTimeout: 30,
+      maxLoginAttempts: 5,
+      passwordMinLength: 8,
+      requireSpecialChar: true,
+    },
+  });
+  console.log("  - Created default SystemSettings for Hinigaran National High School");
+
+  // Create Grading Configurations
+  const gradingConfigs = [
+    { subjectType: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
+    { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
+    { subjectType: SubjectType.MAPEH, ww: 20, pt: 60, qa: 20 },
+    { subjectType: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
+  ];
+
+  for (const config of gradingConfigs) {
+    await prisma.gradingConfig.upsert({
+      where: { subjectType: config.subjectType },
+      update: {},
+      create: {
+        subjectType: config.subjectType,
+        writtenWorkWeight: config.ww,
+        performanceTaskWeight: config.pt,
+        quarterlyAssessWeight: config.qa,
+        isDepEdDefault: true,
+      },
+    });
+  }
+  console.log("  - Created default GradingConfigs (4 subject types)");
+
+  // Create sample Audit Logs
+  const now = new Date();
+  const adminUser = await prisma.user.findUnique({ where: { username: "admin" } });
+  const registrarUser = await prisma.user.findUnique({ where: { username: "registrar" } });
+  
+  const sampleLogs = [
+    {
+      action: AuditAction.CONFIG,
+      userName: "Admin",
+      userRole: "ADMIN",
+      userId: adminUser?.id,
+      target: "System Settings",
+      targetType: "Config",
+      details: "Updated academic year settings to S.Y. 2025-2026",
+      ipAddress: "192.168.1.1",
+      severity: AuditSeverity.CRITICAL,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+    },
+    {
+      action: AuditAction.CREATE,
+      userName: "Admin",
+      userRole: "ADMIN",
+      userId: adminUser?.id,
+      target: "User Account",
+      targetType: "User",
+      details: "Created new teacher account: Sofia Bautista",
+      ipAddress: "192.168.1.1",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2 + 1000 * 60 * 30),
+    },
+    {
+      action: AuditAction.CONFIG,
+      userName: "Admin",
+      userRole: "ADMIN",
+      userId: adminUser?.id,
+      target: "Grading Weights",
+      targetType: "Config",
+      details: "Updated MAPEH grading weights: WW 20%, PT 60%, QA 20%",
+      ipAddress: "192.168.1.1",
+      severity: AuditSeverity.CRITICAL,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24), // 1 day ago
+    },
+    {
+      action: AuditAction.LOGIN,
+      userName: "Registrar",
+      userRole: "REGISTRAR",
+      userId: registrarUser?.id,
+      target: "System",
+      targetType: "Auth",
+      details: "Successful login from Chrome on Windows",
+      ipAddress: "192.168.1.102",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 8), // 8 hours ago
+    },
+    {
+      action: AuditAction.CREATE,
+      userName: "Registrar",
+      userRole: "REGISTRAR",
+      userId: registrarUser?.id,
+      target: "Enrollment",
+      targetType: "Student",
+      details: "New enrollment: Maria Reyes - Grade 7 Einstein",
+      ipAddress: "192.168.1.102",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 6), // 6 hours ago
+    },
+    {
+      action: AuditAction.UPDATE,
+      userName: "Sean Justin Roma",
+      userRole: "TEACHER",
+      userId: teacherUser.id,
+      target: "Student Grades",
+      targetType: "Grades",
+      details: "Updated Q1 grades for English 7 - Einstein section (42 students)",
+      ipAddress: "192.168.1.105",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 4), // 4 hours ago
+    },
+    {
+      action: AuditAction.UPDATE,
+      userName: "Maria Santos",
+      userRole: "TEACHER",
+      userId: teacher2User.id,
+      target: "Class Record",
+      targetType: "Grades",
+      details: "Modified Written Work scores for Math 7 - Newton section",
+      ipAddress: "192.168.1.108",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 2), // 2 hours ago
+    },
+    {
+      action: AuditAction.LOGIN,
+      userName: "Admin",
+      userRole: "ADMIN",
+      userId: adminUser?.id,
+      target: "System",
+      targetType: "Auth",
+      details: "Successful login from admin terminal",
+      ipAddress: "192.168.1.1",
+      severity: AuditSeverity.INFO,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 30), // 30 mins ago
+    },
+  ];
+
+  for (const log of sampleLogs) {
+    await prisma.auditLog.create({
+      data: log,
+    });
+  }
+  console.log("  - Created sample AuditLogs (8 entries)");
+
   console.log("\nSeed completed!");
   console.log("Created users:");
-  console.log("  - Teacher 1: username='teacher', password='teacher123' (Sean Justin Roma - English Major, Advisory)");
-  console.log("  - Teacher 2: username='teacher2', password='teacher123' (Maria Santos - Mathematics Major)");
-  console.log("  - Teacher 3: username='teacher3', password='teacher123' (Jose Reyes - Science Major)");
+  console.log("  - Teacher 1: username='teacher', password='teacher123' (Sean Justin Roma - English, Adviser: Einstein)");
+  console.log("  - Teacher 2: username='teacher2', password='teacher123' (Maria Santos - Mathematics, Adviser: Newton)");
+  console.log("  - Teacher 3: username='teacher3', password='teacher123' (Jose Reyes - Science, Adviser: Rizal)");
+  console.log("  - Teacher 4: username='teacher4', password='teacher123' (Carmen Dela Cruz - Filipino)");
+  console.log("  - Teacher 5: username='teacher5', password='teacher123' (Roberto Gonzales - Araling Panlipunan)");
+  console.log("  - Teacher 6: username='teacher6', password='teacher123' (Patricia Ramos - MAPEH)");
+  console.log("  - Teacher 7: username='teacher7', password='teacher123' (Miguel Torres - TLE)");
+  console.log("  - Teacher 8: username='teacher8', password='teacher123' (Sofia Bautista - ESP)");
+  console.log("  - Teacher 9: username='teacher9', password='teacher123' (Antonio Mercado - Adviser: Bonifacio)");
+  console.log("  - Teacher 10: username='teacher10', password='teacher123' (Elena Valdez - Adviser: Mabini)");
+  console.log("  - Teacher 11: username='teacher11', password='teacher123' (Rafael Navarro - Adviser: Luna)");
+  console.log("  - Teacher 12: username='teacher12', password='teacher123' (Gabriela Ortega - Adviser: Aguinaldo)");
+  console.log("  - Teacher 13: username='teacher13', password='teacher123' (Fernando Padilla - Adviser: Del Pilar Major)");
   console.log("  - Teacher 4: username='teacher4', password='teacher123' (Carmen Dela Cruz - Filipino)");
   console.log("  - Teacher 5: username='teacher5', password='teacher123' (Roberto Gonzales - Araling Panlipunan)");
   console.log("  - Teacher 6: username='teacher6', password='teacher123' (Patricia Ramos - MAPEH)");
@@ -678,11 +1328,24 @@ async function main() {
   console.log("  - Admin: username='admin', password='admin123'");
   console.log("  - Registrar: username='registrar', password='registrar123'");
   console.log("\nCreated:");
-  console.log("  - 2 Grade 7 Sections (Einstein, Newton)");
-  console.log("  - 8 Subjects (Grade 7)");
-  console.log("  - 16 Class Assignments (All 8 subjects for both sections)");
-  console.log("  - 80 Students (40 per section)");
-  console.log("  - Q1 Grades for all 8 subjects in both sections");
+  console.log("  - 8 Sections across 4 grade levels:");
+  console.log("    * Grade 7: Einstein (40-45), Newton (40-45)");
+  console.log("    * Grade 8: Rizal (40-45), Bonifacio (40-45)");
+  console.log("    * Grade 9: Mabini (40-45), Luna (40-45)");
+  console.log("    * Grade 10: Aguinaldo (40-45), Del Pilar (40-45)");
+  console.log("  - 17 Subjects:");
+  console.log("    * Grade 7: 8 subjects (English, Math, Science, Filipino, AP, MAPEH, TLE, ESP)");
+  console.log("    * Grade 8-10: 3 subjects each (English, Math, Science)");
+  console.log("  - 34 Class Assignments:");
+  console.log("    * Teacher 1 (Sean) - English for ALL 8 sections");
+  console.log("    * Teacher 2 (Maria) - Math for ALL 8 sections");
+  console.log("    * Teacher 3 (Jose) - Science for ALL 8 sections");
+  console.log("    * Teachers 4-8 - Other subjects for Grade 7 only");
+  console.log("  - 320-360 Students total (40-45 per section)");
+  console.log("  - Q1 Grades generated with realistic distribution:");
+  console.log("    * ~85% Passing grades (75-98)");
+  console.log("    * ~10% Failing grades (below 75)");
+  console.log("    * ~5% Incomplete (INC) - missing requirements");
 }
 
 main()

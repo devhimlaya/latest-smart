@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Settings,
   Save,
   School,
   Calendar,
   Shield,
-  Database,
   CheckCircle2,
   RefreshCw,
+  Palette,
+  Upload,
+  Loader2,
+  AlertTriangle,
+  Image,
+  Info,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,36 +26,100 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { adminApi, SERVER_URL } from "@/lib/api";
+import type { SystemSettings as SystemSettingsType } from "@/lib/api";
+import { useTheme } from "@/contexts/ThemeContext";
 
-interface SystemSettings {
-  schoolName: string;
-  schoolId: string;
-  division: string;
-  region: string;
-  academicYear: string;
-  currentQuarter: string;
-  timezone: string;
-  dateFormat: string;
-  gradingSystem: string;
-  maintenanceMode: boolean;
-  backupFrequency: string;
-  sessionTimeout: string;
+// Color extraction utility
+function extractColorsFromImage(imageUrl: string): Promise<{ primary: string; secondary: string; accent: string }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve({ primary: "#10b981", secondary: "#34d399", accent: "#6ee7b7" });
+        return;
+      }
+      
+      // Scale down for performance
+      const scale = Math.min(100 / img.width, 100 / img.height);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+      
+      // Color frequency map
+      const colorMap: { [key: string]: number } = {};
+      
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const a = pixels[i + 3];
+        
+        // Skip transparent and very light/dark pixels
+        if (a < 128) continue;
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        if (luminance < 30 || luminance > 225) continue;
+        
+        // Quantize colors to reduce noise
+        const qr = Math.round(r / 32) * 32;
+        const qg = Math.round(g / 32) * 32;
+        const qb = Math.round(b / 32) * 32;
+        
+        const key = `${qr},${qg},${qb}`;
+        colorMap[key] = (colorMap[key] || 0) + 1;
+      }
+      
+      // Sort by frequency
+      const sortedColors = Object.entries(colorMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([key]) => {
+          const [r, g, b] = key.split(",").map(Number);
+          return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+        });
+      
+      // Get distinct colors for primary, secondary, accent
+      const primary = sortedColors[0] || "#10b981";
+      const secondary = sortedColors.find((c, i) => i > 0 && c !== primary) || lightenColor(primary, 0.2);
+      const accent = sortedColors.find((c, i) => i > 1 && c !== primary && c !== secondary) || lightenColor(primary, 0.4);
+      
+      resolve({ primary, secondary, accent });
+    };
+    img.onerror = () => {
+      resolve({ primary: "#10b981", secondary: "#34d399", accent: "#6ee7b7" });
+    };
+    img.src = imageUrl;
+  });
 }
 
-const initialSettings: SystemSettings = {
-  schoolName: "Sample National High School",
-  schoolId: "301234",
-  division: "Division of Sample City",
-  region: "Region IV-A (CALABARZON)",
-  academicYear: "2025-2026",
-  currentQuarter: "Q3",
-  timezone: "Asia/Manila",
-  dateFormat: "MM/DD/YYYY",
-  gradingSystem: "K-12 BEC",
-  maintenanceMode: false,
-  backupFrequency: "daily",
-  sessionTimeout: "30",
+// Default system design colors
+const DEFAULT_DESIGN = {
+  primaryColor: "#10b981",
+  secondaryColor: "#34d399",
+  accentColor: "#6ee7b7",
 };
+
+function lightenColor(hex: string, amount: number): string {
+  const num = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round(((num >> 16) & 0xff) + (255 - ((num >> 16) & 0xff)) * amount));
+  const g = Math.min(255, Math.round(((num >> 8) & 0xff) + (255 - ((num >> 8) & 0xff)) * amount));
+  const b = Math.min(255, Math.round((num & 0xff) + (255 - (num & 0xff)) * amount));
+  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
+}
 
 const settingsSections = [
   {
@@ -58,48 +127,391 @@ const settingsSections = [
     title: "School Information",
     description: "Basic school details and DepEd identification",
     icon: School,
-    color: "blue",
+    opacity: 0.12,
+  },
+  {
+    id: "branding",
+    title: "Branding & Theme",
+    description: "Logo and color scheme customization",
+    icon: Palette,
+    opacity: 0.16,
   },
   {
     id: "academic",
     title: "Academic Settings",
     description: "School year and grading configuration",
     icon: Calendar,
-    color: "purple",
+    opacity: 0.20,
   },
   {
     id: "system",
-    title: "System Configuration",
-    description: "Technical settings and preferences",
+    title: "Contact Information",
+    description: "School contact details",
     icon: Settings,
-    color: "emerald",
+    opacity: 0.24,
   },
   {
     id: "security",
     title: "Security & Backup",
     description: "Security policies and data backup",
     icon: Shield,
-    color: "amber",
+    opacity: 0.28,
   },
 ];
 
+// Philippine DepEd Divisions
+const DEPED_DIVISIONS = [
+  // NCR
+  "Division of Manila",
+  "Division of Quezon City",
+  "Division of Las Piñas",
+  "Division of Makati",
+  "Division of Pasay",
+  "Division of Taguig",
+  "Division of Valenzuela",
+  "Division of Caloocan",
+  // Region I - Ilocos
+  "Division of Ilocos Norte",
+  "Division of Ilocos Sur",
+  "Division of La Union",
+  "Division of Pangasinan",
+  "Division of Dagupan",
+  // Region II - Cagayan Valley
+  "Division of Cagayan",
+  "Division of Isabela",
+  "Division of Nueva Vizcaya",
+  "Division of Quirino",
+  // Region III - Central Luzon
+  "Division of Batangas",
+  "Division of Bulacan",
+  "Division of Cabanatuan",
+  "Division of Cavite",
+  "Division of Nueva Ecija",
+  "Division of Pampanga",
+  "Division of Tarlac",
+  // Region IV-A - CALABARZON
+  "Division of Laguna",
+  "Division of Quezon",
+  "Division of Rizal",
+  // Region IV-B - MIMAROPA
+  "Division of Marinduque",
+  "Division of Occidental Mindoro",
+  "Division of Oriental Mindoro",
+  "Division of Palawan",
+  "Division of Puerto Princesa",
+  "Division of Romblon",
+  // Region V - Bicol
+  "Division of Albay",
+  "Division of Camarines Norte",
+  "Division of Camarines Sur",
+  "Division of Catanduanes",
+  "Division of Masbate",
+  "Division of Sorsogon",
+  // Region VI - Western Visayas
+  "Division of Aklan",
+  "Division of Antique",
+  "Division of Capiz",
+  "Division of Guimaras",
+  "Division of Iloilo",
+  "Division of Iloilo City",
+  "Division of Negros Occidental",
+  "Division of Silay",
+  // Region VII - Central Visayas
+  "Division of Bohol",
+  "Division of Cebu",
+  "Division of Cebu City",
+  "Division of Mandaue",
+  "Division of Lapu-Lapu",
+  "Division of Siquijor",
+  // Region VIII - Eastern Visayas
+  "Division of Biliran",
+  "Division of Eastern Samar",
+  "Division of Guiuan",
+  "Division of Leyte",
+  "Division of Northern Samar",
+  "Division of Samar",
+  "Division of Southern Leyte",
+  // Region IX - Zamboanga
+  "Division of Pagadian",
+  "Division of Zamboanga City",
+  "Division of Zamboanga del Norte",
+  "Division of Zamboanga del Sur",
+  // Region X - Northern Mindanao
+  "Division of Butuan",
+  "Division of Cagayan de Oro",
+  "Division of Compostela Valley",
+  "Division of Dinagat Islands",
+  "Division of Misamis Occidental",
+  "Division of Misamis Oriental",
+  // Region XI - Davao
+  "Division of Davao City",
+  "Division of Davao del Norte",
+  "Division of Davao del Sur",
+  "Division of Davao Oriental",
+  "Division of Generoso Santos",
+  // Region XII - SOCCSKSARGEN
+  "Division of Cotabato",
+  "Division of General Santos",
+  "Division of Maguindanao",
+  "Division of Sarangani",
+  "Division of South Cotabato",
+  "Division of Sultan Kudarat",
+  // Region XIII - CARAGA
+  "Division of Agusan del Norte",
+  "Division of Agusan del Sur",
+  "Division of Surigao del Norte",
+  "Division of Surigao del Sur",
+  // ARMM
+  "Division of Autonomous Region in Muslim Mindanao",
+  // BARMM
+  "Division of Basilan",
+  "Division of Cotabato City",
+  "Division of Jolo",
+  "Division of Lanao del Norte",
+  "Division of Lanao del Sur",
+  "Division of Maguindanao del Norte",
+  "Division of Maguindanao del Sur",
+  "Division of Marawi",
+  "Division of Tawi-Tawi",
+].sort();
+
 export default function SystemSettings() {
-  const [settings, setSettings] = useState<SystemSettings>(initialSettings);
+  const [settings, setSettings] = useState<SystemSettingsType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [resettingDesign, setResettingDesign] = useState(false);
+  const [pendingLogo, setPendingLogo] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [showLogoConfirmDialog, setShowLogoConfirmDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { refreshTheme, colors: themeColors } = useTheme();
 
-  const handleChange = (field: keyof SystemSettings, value: string | boolean) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const response = await adminApi.getSettings();
+      setSettings(response.data.settings);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch settings:", err);
+      setError("Failed to load system settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  // SSE subscription for realtime settings updates
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+    if (!token) return;
+
+    const url = `http://localhost:3000/api/admin/settings/stream`;
+    const es = new EventSource(url + `?token=${encodeURIComponent(token)}`);
+
+    es.onmessage = (event) => {
+      const updatedSettings = JSON.parse(event.data);
+      setSettings(updatedSettings);
+      // Also refresh theme to update sidebar/header
+      refreshTheme();
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [refreshTheme]);
+
+  const handleChange = (field: keyof SystemSettingsType, value: string | boolean) => {
+    if (!settings) return;
+    setSettings((prev) => prev ? { ...prev, [field]: value } : prev);
     setHasChanges(true);
     setSaveSuccess(false);
   };
 
-  const handleSave = () => {
-    console.log("Saving settings:", settings);
-    setHasChanges(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleSave = async () => {
+    if (!settings) return;
+    try {
+      setSaving(true);
+      await adminApi.updateSettings(settings);
+      setHasChanges(false);
+      setSaveSuccess(true);
+      // Refresh theme so title and other components update immediately
+      await refreshTheme();
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      alert("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setPendingLogo({ file, previewUrl });
+    setShowLogoConfirmDialog(true);
+    
+    // Clear the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleCancelLogo = () => {
+    if (pendingLogo) {
+      URL.revokeObjectURL(pendingLogo.previewUrl);
+    }
+    setPendingLogo(null);
+    setShowLogoConfirmDialog(false);
+  };
+
+
+
+  const handleConfirmLogo = async () => {
+    if (!pendingLogo || !settings) return;
+
+    try {
+      setUploadingLogo(true);
+      setShowLogoConfirmDialog(false);
+      
+      // Upload the logo
+      const response = await adminApi.uploadLogo(pendingLogo.file);
+      
+      if (response.data.logoUrl) {
+        const logoUrl = response.data.logoUrl;
+        
+        // Extract colors from the new logo automatically
+        const fullLogoUrl = logoUrl.startsWith("http") 
+          ? logoUrl 
+          : `${SERVER_URL}${logoUrl}`;
+        
+        const colors = await extractColorsFromImage(fullLogoUrl);
+        
+        // Update colors via API
+        await adminApi.updateColors({
+          primaryColor: colors.primary,
+          secondaryColor: colors.secondary,
+          accentColor: colors.accent,
+        });
+        
+        // Update local state
+        setSettings({
+          ...settings,
+          logoUrl,
+          primaryColor: colors.primary,
+          secondaryColor: colors.secondary,
+          accentColor: colors.accent,
+        });
+        
+        // Refresh the theme context so sidebar colors update immediately
+        await refreshTheme();
+        
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Failed to upload logo:", err);
+      alert("Failed to upload logo. Please try again.");
+    } finally {
+      setUploadingLogo(false);
+      if (pendingLogo) {
+        URL.revokeObjectURL(pendingLogo.previewUrl);
+      }
+      setPendingLogo(null);
+    }
+  };
+
+  const handleColorChange = async (field: "primaryColor" | "secondaryColor" | "accentColor", value: string) => {
+    if (!settings) return;
+    
+    const newSettings = { ...settings, [field]: value };
+    setSettings(newSettings);
+    
+    try {
+      await adminApi.updateColors({
+        primaryColor: newSettings.primaryColor || DEFAULT_DESIGN.primaryColor,
+        secondaryColor: newSettings.secondaryColor || DEFAULT_DESIGN.secondaryColor,
+        accentColor: newSettings.accentColor || DEFAULT_DESIGN.accentColor,
+      });
+      // Refresh theme so sidebar updates immediately
+      await refreshTheme();
+    } catch (err) {
+      console.error("Failed to update color:", err);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!settings) return;
+    
+    try {
+      setResettingDesign(true);
+      
+      // Update colors via API
+      await adminApi.updateColors({
+        primaryColor: DEFAULT_DESIGN.primaryColor,
+        secondaryColor: DEFAULT_DESIGN.secondaryColor,
+        accentColor: DEFAULT_DESIGN.accentColor,
+      });
+      
+      setSettings({
+        ...settings,
+        primaryColor: DEFAULT_DESIGN.primaryColor,
+        secondaryColor: DEFAULT_DESIGN.secondaryColor,
+        accentColor: DEFAULT_DESIGN.accentColor,
+      });
+      
+      // Refresh theme so sidebar updates immediately
+      await refreshTheme();
+      
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to reset to default design:", err);
+      alert("Failed to reset to default design");
+    } finally {
+      setResettingDesign(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: themeColors.primary }} />
+          <p className="text-gray-500">Loading system settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !settings) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertTriangle className="w-12 h-12 text-amber-500" />
+          <p className="text-gray-700 font-medium">{error || "No settings found"}</p>
+          <Button onClick={fetchSettings} variant="outline" className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -114,33 +526,37 @@ export default function SystemSettings() {
           </p>
         </div>
         <Button
-          className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/25 w-fit"
+          className="gap-2 text-white font-semibold rounded-xl shadow-lg w-fit"
+          style={{ backgroundColor: themeColors.primary }}
           onClick={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || saving}
         >
-          <Save className="w-4 h-4" />
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Save Settings
         </Button>
       </div>
 
       {/* Status Alert */}
       {saveSuccess && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          <p className="text-sm font-medium text-emerald-700">System settings saved successfully!</p>
+        <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: `${themeColors.primary}15`, borderColor: `${themeColors.primary}40` }}>
+          <CheckCircle2 className="w-5 h-5" style={{ color: themeColors.primary }} />
+          <p className="text-sm font-medium" style={{ color: themeColors.primary }}>System settings saved successfully!</p>
         </div>
       )}
 
       {/* Quick Navigation */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {settingsSections.map((section) => (
           <a
             key={section.id}
             href={`#${section.id}`}
-            className={`p-4 rounded-xl border border-gray-100 hover:border-${section.color}-200 hover:bg-${section.color}-50/50 transition-all group cursor-pointer`}
+            className="p-4 rounded-xl border border-gray-100 transition-all group cursor-pointer"
+            style={{ ['--section-color' as any]: themeColors.primary }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${themeColors.primary}40`; e.currentTarget.style.backgroundColor = `${themeColors.primary}08`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
           >
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl bg-${section.color}-100 text-${section.color}-600 group-hover:bg-${section.color}-200 transition-colors`}>
+              <div className="p-2.5 rounded-xl transition-colors" style={{ backgroundColor: `${themeColors.primary}${Math.round(section.opacity * 255).toString(16).padStart(2, '0')}`, color: themeColors.primary }}>
                 <section.icon className="w-5 h-5" />
               </div>
               <div>
@@ -154,9 +570,9 @@ export default function SystemSettings() {
 
       {/* School Information */}
       <Card id="school" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-blue-50/30">
+        <CardHeader className="border-b border-gray-100" style={{ background: `linear-gradient(to right, ${themeColors.primary}12, ${themeColors.primary}08)` }}>
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-100 text-blue-600">
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${themeColors.primary}20`, color: themeColors.primary }}>
               <School className="w-6 h-6" />
             </div>
             <div>
@@ -193,12 +609,18 @@ export default function SystemSettings() {
               <Label htmlFor="division" className="text-sm font-semibold text-gray-700">
                 Division
               </Label>
-              <Input
-                id="division"
-                value={settings.division}
-                onChange={(e) => handleChange("division", e.target.value)}
-                className="rounded-xl border-gray-200"
-              />
+              <Select value={settings.division} onValueChange={(val) => val && handleChange("division", val)}>
+                <SelectTrigger className="rounded-xl border-gray-200">
+                  <SelectValue>{settings.division}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {DEPED_DIVISIONS.map((division) => (
+                    <SelectItem key={division} value={division}>
+                      {division}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="region" className="text-sm font-semibold text-gray-700">
@@ -220,33 +642,217 @@ export default function SystemSettings() {
         </CardContent>
       </Card>
 
-      {/* Academic Settings */}
-      <Card id="academic" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-purple-50/50 to-purple-50/30">
+      {/* Branding & Theme */}
+      <Card id="branding" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
+        <CardHeader className="border-b border-gray-100" style={{ background: `linear-gradient(to right, ${themeColors.primary}12, ${themeColors.primary}08)` }}>
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-100 text-purple-600">
-              <Calendar className="w-6 h-6" />
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${themeColors.primary}20`, color: themeColors.primary }}>
+              <Palette className="w-6 h-6" />
             </div>
             <div>
-              <CardTitle className="text-lg" style={{ color: '#111827' }}>Academic Settings</CardTitle>
-              <CardDescription>School year and quarter configuration</CardDescription>
+              <CardTitle className="text-lg" style={{ color: '#111827' }}>Branding & Theme</CardTitle>
+              <CardDescription>Customize school logo and system color scheme</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Logo Upload */}
+          <div className="mb-8">
+            <Label className="text-sm font-semibold text-gray-700 mb-4 block">School Logo</Label>
+            <div className="flex items-start gap-6">
+              <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
+                {settings.logoUrl ? (
+                  <img
+                    src={settings.logoUrl.startsWith("http") ? settings.logoUrl : `${SERVER_URL}${settings.logoUrl}`}
+                    alt="School Logo"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Image className="w-12 h-12 text-gray-300" />
+                )}
+              </div>
+              <div className="flex-1 space-y-4">
+                <p className="text-sm text-gray-600">
+                  Upload your school logo to personalize the system. The logo will appear on forms, reports, and the login page. Colors will be automatically extracted from the logo.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    className="gap-2 rounded-xl"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                  >
+                    {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500">Supports PNG, JPG, SVG. Max 5MB. Colors will be auto-extracted.</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Color Scheme */}
+          <div>
+            <Label className="text-sm font-semibold text-gray-700 mb-4 block">Color Scheme</Label>
+            <p className="text-sm text-gray-600 mb-4">
+              Customize the system's color scheme. You can manually select colors or extract them from your uploaded logo.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-3">
+                <Label htmlFor="primaryColor" className="text-sm font-medium text-gray-600">Primary Color</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    id="primaryColor"
+                    value={settings.primaryColor || DEFAULT_DESIGN.primaryColor}
+                    onChange={(e) => handleColorChange("primaryColor", e.target.value)}
+                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <Input
+                      value={settings.primaryColor || DEFAULT_DESIGN.primaryColor}
+                      onChange={(e) => handleColorChange("primaryColor", e.target.value)}
+                      className="rounded-xl border-gray-200 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.primaryColor || DEFAULT_DESIGN.primaryColor }} />
+              </div>
+              
+              <div className="space-y-3">
+                <Label htmlFor="secondaryColor" className="text-sm font-medium text-gray-600">Secondary Color</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    id="secondaryColor"
+                    value={settings.secondaryColor || DEFAULT_DESIGN.secondaryColor}
+                    onChange={(e) => handleColorChange("secondaryColor", e.target.value)}
+                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <Input
+                      value={settings.secondaryColor || DEFAULT_DESIGN.secondaryColor}
+                      onChange={(e) => handleColorChange("secondaryColor", e.target.value)}
+                      className="rounded-xl border-gray-200 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.secondaryColor || DEFAULT_DESIGN.secondaryColor }} />
+              </div>
+              
+              <div className="space-y-3">
+                <Label htmlFor="accentColor" className="text-sm font-medium text-gray-600">Accent Color</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    id="accentColor"
+                    value={settings.accentColor || DEFAULT_DESIGN.accentColor}
+                    onChange={(e) => handleColorChange("accentColor", e.target.value)}
+                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <Input
+                      value={settings.accentColor || DEFAULT_DESIGN.accentColor}
+                      onChange={(e) => handleColorChange("accentColor", e.target.value)}
+                      className="rounded-xl border-gray-200 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.accentColor || DEFAULT_DESIGN.accentColor }} />
+              </div>
+            </div>
+
+            {/* Color Preview */}
+            <div className="mt-6 p-4 rounded-xl bg-gray-50">
+              <Label className="text-sm font-medium text-gray-600 mb-3 block">Preview</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.primaryColor || DEFAULT_DESIGN.primaryColor }}>
+                  Primary Button
+                </div>
+                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.secondaryColor || DEFAULT_DESIGN.secondaryColor }}>
+                  Secondary
+                </div>
+                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.accentColor || DEFAULT_DESIGN.accentColor }}>
+                  Accent
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* Reset to Default Design */}
+            <div className="p-4 rounded-xl border" style={{ backgroundColor: `${themeColors.primary}10`, borderColor: `${themeColors.primary}30` }}>
+              <div className="flex items-start gap-4">
+                <div className="p-2 rounded-lg" style={{ backgroundColor: `${themeColors.primary}20` }}>
+                  <RefreshCw className="w-5 h-5" style={{ color: themeColors.primary }} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold" style={{ color: themeColors.primary }}>Default System Design</h4>
+                  <p className="text-sm mt-1" style={{ color: `${themeColors.primary}cc` }}>
+                    Reset to the default green color scheme. This is useful if you encounter issues with custom colors or want to start fresh.
+                  </p>
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.primaryColor }} />
+                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.secondaryColor }} />
+                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.accentColor }} />
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="gap-2 rounded-xl"
+                      style={{ borderColor: `${themeColors.primary}50`, color: themeColors.primary }}
+                      onClick={handleResetToDefault}
+                      disabled={resettingDesign}
+                    >
+                      {resettingDesign ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      Reset to Default
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Academic Settings */}
+      <Card id="academic" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
+        <CardHeader className="border-b border-gray-100" style={{ background: `linear-gradient(to right, ${themeColors.primary}10, ${themeColors.primary}08)` }}>
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${themeColors.primary}20`, color: themeColors.primary }}>
+              <Calendar className="w-6 h-6" />
+            </div>
+            <div>
+              <CardTitle className="text-lg" style={{ color: '#111827' }}>Academic Settings</CardTitle>
+              <CardDescription>School year, quarter configuration, and academic calendar</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          {/* Basic Academic Settings */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="space-y-2">
-              <Label htmlFor="academicYear" className="text-sm font-semibold text-gray-700">
+              <Label htmlFor="currentSchoolYear" className="text-sm font-semibold text-gray-700">
                 Academic Year
               </Label>
-              <Select value={settings.academicYear} onValueChange={(val) => val && handleChange("academicYear", val)}>
+              <Select value={settings.currentSchoolYear || "2025-2026"} onValueChange={(val) => val && handleChange("currentSchoolYear", val)}>
                 <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.academicYear}</SelectValue>
+                  <SelectValue>{settings.currentSchoolYear || "2025-2026"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2025-2026">2025-2026</SelectItem>
                   <SelectItem value="2024-2025">2024-2025</SelectItem>
+                  <SelectItem value="2025-2026">2025-2026</SelectItem>
                   <SelectItem value="2026-2027">2026-2027</SelectItem>
+                  <SelectItem value="2027-2028">2027-2028</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -254,13 +860,14 @@ export default function SystemSettings() {
               <Label htmlFor="currentQuarter" className="text-sm font-semibold text-gray-700">
                 Current Quarter
               </Label>
-              <Select value={settings.currentQuarter} onValueChange={(val) => val && handleChange("currentQuarter", val)}>
+              <Select value={settings.currentQuarter || "Q1"} onValueChange={(val) => val && handleChange("currentQuarter", val)}>
                 <SelectTrigger className="rounded-xl border-gray-200">
                   <SelectValue>
                     {settings.currentQuarter === "Q1" && "1st Quarter"}
                     {settings.currentQuarter === "Q2" && "2nd Quarter"}
                     {settings.currentQuarter === "Q3" && "3rd Quarter"}
                     {settings.currentQuarter === "Q4" && "4th Quarter"}
+                    {!settings.currentQuarter && "1st Quarter"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -271,18 +878,166 @@ export default function SystemSettings() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="gradingSystem" className="text-sm font-semibold text-gray-700">
-                Grading System
-              </Label>
-              <Select value={settings.gradingSystem} onValueChange={(val) => val && handleChange("gradingSystem", val)}>
-                <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.gradingSystem}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="K-12 BEC">K-12 BEC (DepEd)</SelectItem>
-                </SelectContent>
-              </Select>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Academic Calendar */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Label className="text-sm font-semibold text-gray-700">Academic Calendar</Label>
+                <p className="text-xs text-gray-500 mt-1">Set the start and end dates for each quarter</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="autoAdvanceQuarter"
+                  checked={settings.autoAdvanceQuarter || false}
+                  onChange={(e) => handleChange("autoAdvanceQuarter", e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300"
+                  style={{ accentColor: themeColors.primary }}
+                />
+                <Label htmlFor="autoAdvanceQuarter" className="text-sm text-gray-600 cursor-pointer">
+                  Auto-advance quarter when end date is reached
+                </Label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 1st Quarter */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: themeColors.primary }}>1</div>
+                  <span className="font-semibold text-gray-700">1st Quarter</span>
+                  {settings.currentQuarter === "Q1" && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: themeColors.primary }}>Current</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q1StartDate ? new Date(settings.q1StartDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q1StartDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">End Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q1EndDate ? new Date(settings.q1EndDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q1EndDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2nd Quarter */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: themeColors.secondary }}>2</div>
+                  <span className="font-semibold text-gray-700">2nd Quarter</span>
+                  {settings.currentQuarter === "Q2" && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: themeColors.primary }}>Current</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q2StartDate ? new Date(settings.q2StartDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q2StartDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">End Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q2EndDate ? new Date(settings.q2EndDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q2EndDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3rd Quarter */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: themeColors.accent }}>3</div>
+                  <span className="font-semibold text-gray-700">3rd Quarter</span>
+                  {settings.currentQuarter === "Q3" && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: themeColors.primary }}>Current</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q3StartDate ? new Date(settings.q3StartDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q3StartDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">End Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q3EndDate ? new Date(settings.q3EndDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q3EndDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 4th Quarter */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${themeColors.primary}30`, color: themeColors.primary }}>4</div>
+                  <span className="font-semibold text-gray-700">4th Quarter</span>
+                  {settings.currentQuarter === "Q4" && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: themeColors.primary }}>Current</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q4StartDate ? new Date(settings.q4StartDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q4StartDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">End Date</Label>
+                    <Input
+                      type="date"
+                      value={settings.q4EndDate ? new Date(settings.q4EndDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleChange("q4EndDate", e.target.value)}
+                      className="rounded-lg border-gray-200 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="mt-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700">
+                  When "Auto-advance quarter" is enabled, the system will automatically switch to the next quarter when the current quarter's end date is reached. This ensures fresh grading data for each quarter.
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -290,46 +1045,55 @@ export default function SystemSettings() {
 
       {/* System Configuration */}
       <Card id="system" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-50/50 to-emerald-50/30">
+        <CardHeader className="border-b border-gray-100" style={{ background: `linear-gradient(to right, ${themeColors.secondary}10, ${themeColors.secondary}08)` }}>
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600">
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${themeColors.secondary}20`, color: themeColors.secondary }}>
               <Settings className="w-6 h-6" />
             </div>
             <div>
-              <CardTitle className="text-lg" style={{ color: '#111827' }}>System Configuration</CardTitle>
-              <CardDescription>General system preferences</CardDescription>
+              <CardTitle className="text-lg" style={{ color: '#111827' }}>Contact Information</CardTitle>
+              <CardDescription>School contact details</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="timezone" className="text-sm font-semibold text-gray-700">
-                Timezone
+            <div className="md:col-span-2 space-y-2">
+              <Label htmlFor="address" className="text-sm font-semibold text-gray-700">
+                Address
               </Label>
-              <Select value={settings.timezone} onValueChange={(val) => val && handleChange("timezone", val)}>
-                <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.timezone}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Asia/Manila">Asia/Manila (PHT, UTC+8)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="address"
+                value={settings.address || ""}
+                onChange={(e) => handleChange("address", e.target.value)}
+                placeholder="Enter school address"
+                className="rounded-xl border-gray-200"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dateFormat" className="text-sm font-semibold text-gray-700">
-                Date Format
+              <Label htmlFor="contactNumber" className="text-sm font-semibold text-gray-700">
+                Contact Number
               </Label>
-              <Select value={settings.dateFormat} onValueChange={(val) => val && handleChange("dateFormat", val)}>
-                <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.dateFormat}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="contactNumber"
+                value={settings.contactNumber || ""}
+                onChange={(e) => handleChange("contactNumber", e.target.value)}
+                placeholder="Enter contact number"
+                className="rounded-xl border-gray-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-700">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={settings.email || ""}
+                onChange={(e) => handleChange("email", e.target.value)}
+                placeholder="Enter school email"
+                className="rounded-xl border-gray-200"
+              />
             </div>
           </div>
         </CardContent>
@@ -337,9 +1101,9 @@ export default function SystemSettings() {
 
       {/* Security & Backup */}
       <Card id="security" className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-amber-50/50 to-amber-50/30">
+        <CardHeader className="border-b border-gray-100" style={{ background: `linear-gradient(to right, ${themeColors.primary}12, ${themeColors.primary}08)` }}>
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-amber-100 text-amber-600">
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${themeColors.primary}20`, color: themeColors.primary }}>
               <Shield className="w-6 h-6" />
             </div>
             <div>
@@ -349,14 +1113,14 @@ export default function SystemSettings() {
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="sessionTimeout" className="text-sm font-semibold text-gray-700">
                 Session Timeout (minutes)
               </Label>
-              <Select value={settings.sessionTimeout} onValueChange={(val) => val && handleChange("sessionTimeout", val)}>
+              <Select value={String(settings.sessionTimeout || 30)} onValueChange={(val) => val && handleChange("sessionTimeout", parseInt(val) as any)}>
                 <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.sessionTimeout} minutes</SelectValue>
+                  <SelectValue>{settings.sessionTimeout || 30} minutes</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="15">15 minutes</SelectItem>
@@ -367,21 +1131,33 @@ export default function SystemSettings() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="backupFrequency" className="text-sm font-semibold text-gray-700">
-                Backup Frequency
+              <Label htmlFor="maxLoginAttempts" className="text-sm font-semibold text-gray-700">
+                Max Login Attempts
               </Label>
-              <Select value={settings.backupFrequency} onValueChange={(val) => val && handleChange("backupFrequency", val)}>
+              <Select value={String(settings.maxLoginAttempts || 5)} onValueChange={(val) => val && handleChange("maxLoginAttempts", parseInt(val) as any)}>
                 <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>
-                    {settings.backupFrequency === "daily" && "Daily"}
-                    {settings.backupFrequency === "weekly" && "Weekly"}
-                    {settings.backupFrequency === "monthly" && "Monthly"}
-                  </SelectValue>
+                  <SelectValue>{settings.maxLoginAttempts || 5} attempts</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="3">3 attempts</SelectItem>
+                  <SelectItem value="5">5 attempts</SelectItem>
+                  <SelectItem value="10">10 attempts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="passwordMinLength" className="text-sm font-semibold text-gray-700">
+                Min Password Length
+              </Label>
+              <Select value={String(settings.passwordMinLength || 8)} onValueChange={(val) => val && handleChange("passwordMinLength", parseInt(val) as any)}>
+                <SelectTrigger className="rounded-xl border-gray-200">
+                  <SelectValue>{settings.passwordMinLength || 8} characters</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="6">6 characters</SelectItem>
+                  <SelectItem value="8">8 characters</SelectItem>
+                  <SelectItem value="10">10 characters</SelectItem>
+                  <SelectItem value="12">12 characters</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -391,21 +1167,72 @@ export default function SystemSettings() {
 
           <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Database className="w-5 h-5 text-purple-600" />
+              <div className="p-2 rounded-lg" style={{ backgroundColor: `${themeColors.primary}20` }}>
+                <Shield className="w-5 h-5" style={{ color: themeColors.primary }} />
               </div>
               <div>
-                <p className="font-semibold text-sm" style={{ color: '#111827' }}>Last Backup</p>
-                <p className="text-xs text-gray-500">Mar 31, 2026 at 3:00 AM</p>
+                <p className="font-semibold text-sm" style={{ color: '#111827' }}>Database Status</p>
+                <p className="text-xs text-gray-500">Connected and operational</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="rounded-xl gap-2">
               <RefreshCw className="w-4 h-4" />
-              Backup Now
+              Test Connection
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Logo Upload Confirmation Dialog */}
+      <Dialog open={showLogoConfirmDialog} onOpenChange={(open) => !open && handleCancelLogo()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Logo Upload</DialogTitle>
+            <DialogDescription>
+              This will set the new logo and automatically extract colors from it to update the system theme.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {pendingLogo && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="w-36 h-36 rounded-full border-2 border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden shadow-md">
+                <img
+                  src={pendingLogo.previewUrl}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <p className="text-sm text-gray-500 text-center">
+                The logo will be displayed as a circle. Colors will be auto-extracted.
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancelLogo} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmLogo} 
+              className="rounded-xl text-white"
+              style={{ backgroundColor: themeColors.primary }}
+              disabled={uploadingLogo}
+            >
+              {uploadingLogo ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Confirm & Upload
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

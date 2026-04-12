@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, LogIn, User, Lock, AlertCircle, CheckCircle, GraduationCap, BookOpen, Sparkles, Shield, BarChart3 } from "lucide-react";
+import { Eye, EyeOff, LogIn, User, Lock, AlertCircle, CheckCircle, GraduationCap, BookOpen, Sparkles, Shield, BarChart3, MapPin, Building2, Globe } from "lucide-react";
 import axios from "axios";
+import { useTheme } from "@/contexts/ThemeContext";
+import { SERVER_URL } from "@/lib/api";
+import { getAcronym } from "@/lib/utils";
 
 const API_URL = "http://localhost:3000/api";
 
@@ -21,6 +24,9 @@ interface LoginResponse {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { colors, logoUrl, schoolName, schoolAddress, schoolDivision, schoolRegion } = useTheme();
+  const acronym = getAcronym(schoolName);
+  const fullLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${SERVER_URL}${logoUrl}`) : null;
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,8 +46,8 @@ export default function LoginPage() {
         password,
       });
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      sessionStorage.setItem("token", response.data.token);
+      sessionStorage.setItem("user", JSON.stringify(response.data.user));
 
       setSuccess(response.data);
 
@@ -72,18 +78,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-full flex bg-gradient-to-br from-slate-50 via-emerald-50/30 to-cyan-50/20 overflow-hidden">
+    <div className="h-screen w-full flex overflow-hidden" style={{ background: `linear-gradient(to bottom right, #f8fafc, ${colors.primary}08, ${colors.accent}06)` }}>
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-[55%] xl:w-3/5 relative overflow-hidden">
         {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 animate-gradient" style={{ backgroundSize: '200% 200%' }} />
+        <div className="absolute inset-0 animate-gradient" style={{ background: `linear-gradient(to bottom right, ${colors.primary}, ${colors.secondary}, ${colors.accent})`, backgroundSize: '200% 200%' }} />
         
         {/* Decorative patterns */}
         <div className="absolute inset-0">
           {/* Floating orbs */}
           <div className="absolute top-20 left-20 w-96 h-96 rounded-full bg-white/10 blur-3xl animate-float" />
-          <div className="absolute bottom-32 right-16 w-80 h-80 rounded-full bg-cyan-300/20 blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-          <div className="absolute top-1/2 left-1/4 w-64 h-64 rounded-full bg-emerald-200/15 blur-2xl animate-float" style={{ animationDelay: '4s' }} />
+          <div className="absolute bottom-32 right-16 w-80 h-80 rounded-full blur-3xl animate-float" style={{ backgroundColor: `${colors.accent}33` }} />
+          <div className="absolute top-1/2 left-1/4 w-64 h-64 rounded-full blur-2xl animate-float" style={{ backgroundColor: `${colors.primary}25`, animationDelay: '4s' }} />
           
           {/* Grid overlay */}
           <div className="absolute inset-0 opacity-[0.03]" style={{
@@ -96,30 +102,49 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white w-full">
-          {/* Logo section */}
-          <div className="flex items-center gap-4 mb-16">
-            <div className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl">
-              <GraduationCap className="w-9 h-9 text-white" />
+          {/* Logo + Acronym section */}
+          <div className="flex items-center gap-4 mb-12">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl overflow-hidden flex-shrink-0" style={{ backgroundColor: fullLogoUrl ? 'white' : 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)' }}>
+              {fullLogoUrl ? (
+                <img src={fullLogoUrl} alt={schoolName} className="w-full h-full object-cover" />
+              ) : (
+                <GraduationCap className="w-9 h-9 text-white" />
+              )}
             </div>
             <div>
-              <h1 className="text-4xl font-bold tracking-tight">SMART</h1>
-              <p className="text-emerald-100/90 text-sm font-medium tracking-wide">Academic Records Management</p>
+              <h1 className="text-4xl font-bold tracking-tight">{acronym}</h1>
+              <p className="text-white/80 text-sm font-medium tracking-wide">Academic Records Management</p>
             </div>
           </div>
 
-          {/* Main heading with better typography */}
-          <div className="space-y-4 mb-16">
-            <h2 className="text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
-              Modern Education
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-cyan-200 to-white">
-                Management System
-              </span>
+          {/* School Name + Details */}
+          <div className="space-y-3 mb-12">
+            <h2 className="text-3xl xl:text-4xl font-bold leading-tight tracking-tight">
+              {schoolName}
             </h2>
-            
-            <p className="text-lg text-white/70 max-w-lg leading-relaxed mt-6">
-              Streamline your academic workflow with our comprehensive K-12 grading system, fully aligned with DepEd standards.
-            </p>
+            <div className="flex flex-col gap-1.5 mt-3">
+              {schoolAddress && (
+                <div className="flex items-center gap-2 text-white/70 text-sm">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  <span>{schoolAddress}</span>
+                </div>
+              )}
+              {schoolDivision && (
+                <div className="flex items-center gap-2 text-white/70 text-sm">
+                  <Building2 className="w-4 h-4 flex-shrink-0" />
+                  <span>Division of {schoolDivision}</span>
+                </div>
+              )}
+              {schoolRegion && (
+                <div className="flex items-center gap-2 text-white/70 text-sm">
+                  <Globe className="w-4 h-4 flex-shrink-0" />
+                  <span>{schoolRegion}</span>
+                </div>
+              )}
+              {!schoolAddress && !schoolDivision && !schoolRegion && (
+                <p className="text-white/60 text-sm">Department of Education • Philippines</p>
+              )}
+            </div>
           </div>
 
           {/* Feature cards - Modern glass design */}
@@ -138,7 +163,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">{feature.title}</h3>
-                  <p className="text-emerald-100/70 text-sm">{feature.desc}</p>
+                  <p className="text-white/60 text-sm">{feature.desc}</p>
                 </div>
               </div>
             ))}
@@ -150,7 +175,7 @@ export default function LoginPage() {
           <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
             <Shield className="w-4 h-4" />
           </div>
-          <span>Department of Education • Philippines</span>
+          <span>K-12 Academic Records Management System • DepEd Philippines</span>
         </div>
       </div>
 
@@ -159,26 +184,34 @@ export default function LoginPage() {
         <div className="w-full max-w-[420px]">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <GraduationCap className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg overflow-hidden" style={{ background: fullLogoUrl ? 'white' : `linear-gradient(to bottom right, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 10px 15px -3px ${colors.primary}40` }}>
+              {fullLogoUrl ? (
+                <img src={fullLogoUrl} alt={schoolName} className="w-full h-full object-cover" />
+              ) : (
+                <GraduationCap className="w-7 h-7 text-white" />
+              )}
             </div>
             <div>
-              <span className="text-xl font-bold text-gray-900">SMART</span>
-              <p className="text-xs text-gray-500">Academic Records</p>
+              <span className="text-xl font-bold text-gray-900">{acronym}</span>
+              <p className="text-xs text-gray-500">{schoolName}</p>
             </div>
           </div>
 
           {/* Login card with premium styling */}
           <Card className="border-0 shadow-2xl shadow-gray-200/60 bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
             <CardHeader className="space-y-1 text-center pt-5 pb-0 px-6">
-              <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center shadow-lg overflow-hidden" style={{ background: fullLogoUrl ? 'white' : `linear-gradient(to bottom right, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 10px 15px -3px ${colors.primary}30`, border: fullLogoUrl ? `2px solid ${colors.primary}20` : 'none' }}>
+                {fullLogoUrl ? (
+                  <img src={fullLogoUrl} alt={schoolName} className="w-full h-full object-cover" />
+                ) : (
+                  <Sparkles className="w-5 h-5 text-white" />
+                )}
               </div>
               <CardTitle className="text-xl font-bold text-gray-900 pt-2">
                 Welcome Back
               </CardTitle>
               <CardDescription className="text-gray-600 text-sm">
-                Sign in to continue to your dashboard
+                Sign in to continue to <span className="font-semibold" style={{ color: colors.primary }}>{acronym}</span>
               </CardDescription>
             </CardHeader>
             
@@ -195,13 +228,13 @@ export default function LoginPage() {
 
               {/* Success Message */}
               {success && (
-                <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 flex items-center gap-2.5 animate-scale-in">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <div className="mb-4 p-3 rounded-xl border flex items-center gap-2.5 animate-scale-in" style={{ background: `linear-gradient(to right, ${colors.primary}12, ${colors.secondary}12)`, borderColor: `${colors.primary}25` }}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${colors.primary}20` }}>
+                    <CheckCircle className="w-4 h-4" style={{ color: colors.primary }} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-emerald-700">Login successful!</p>
-                    <p className="text-xs text-emerald-600">Redirecting...</p>
+                    <p className="text-sm font-semibold" style={{ color: colors.primary }}>Login successful!</p>
+                    <p className="text-xs" style={{ color: colors.secondary }}>Redirecting...</p>
                   </div>
                 </div>
               )}
@@ -214,8 +247,8 @@ export default function LoginPage() {
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-focus-within:bg-emerald-100 flex items-center justify-center transition-colors duration-200">
-                        <User className="w-4 h-4 text-gray-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-focus-within:bg-gray-200 flex items-center justify-center transition-colors duration-200">
+                        <User className="w-4 h-4 text-gray-500 transition-colors duration-200" />
                       </div>
                     </div>
                     <Input
@@ -224,7 +257,10 @@ export default function LoginPage() {
                       placeholder="Enter your username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="pl-12 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
+                      className="pl-12 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
+                      style={{ '--tw-ring-color': `${colors.primary}18` } as React.CSSProperties}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = colors.primary; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = ''; }}
                       required
                     />
                   </div>
@@ -237,8 +273,8 @@ export default function LoginPage() {
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-focus-within:bg-emerald-100 flex items-center justify-center transition-colors duration-200">
-                        <Lock className="w-4 h-4 text-gray-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-focus-within:bg-gray-200 flex items-center justify-center transition-colors duration-200">
+                        <Lock className="w-4 h-4 text-gray-500 transition-colors duration-200" />
                       </div>
                     </div>
                     <Input
@@ -247,13 +283,16 @@ export default function LoginPage() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-12 pr-11 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
+                      className="pl-12 pr-11 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
+                      style={{ '--tw-ring-color': `${colors.primary}18` } as React.CSSProperties}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = colors.primary; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = ''; }}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-all duration-200"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -269,7 +308,7 @@ export default function LoginPage() {
                         type="checkbox"
                         className="peer sr-only"
                       />
-                      <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:border-emerald-500 peer-checked:bg-emerald-500 transition-all duration-200 flex items-center justify-center">
+                      <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:border-transparent transition-all duration-200 flex items-center justify-center" style={{ ...(false ? { borderColor: colors.primary, backgroundColor: colors.primary } : {}) }}>
                         <svg className="w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 peer-checked:[&]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
@@ -277,7 +316,7 @@ export default function LoginPage() {
                     </div>
                     <span className="text-gray-600 group-hover:text-gray-900 transition-colors font-medium text-sm">Remember me</span>
                   </label>
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold transition-colors hover:underline underline-offset-4 decoration-2 decoration-emerald-200 text-sm">
+                  <a href="#" className="font-semibold transition-colors hover:underline underline-offset-4 decoration-2 text-sm" style={{ color: colors.primary }}>
                     Forgot password?
                   </a>
                 </div>
@@ -286,7 +325,8 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-11 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full h-11 text-white font-semibold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                  style={{ background: `linear-gradient(to right, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 10px 15px -3px ${colors.primary}35` }}
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-3">
@@ -308,22 +348,23 @@ export default function LoginPage() {
               {/* Demo credentials - Integrated */}
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <Sparkles className="w-3.5 h-3.5" style={{ color: colors.primary }} />
                   <p className="text-xs font-semibold text-gray-600">Quick Demo Access</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { role: 'Teacher', user: 'teacher', pass: 'teacher123', color: 'emerald' },
-                    { role: 'Admin', user: 'admin', pass: 'admin123', color: 'blue' },
-                    { role: 'Registrar', user: 'registrar', pass: 'registrar123', color: 'purple' }
+                    { role: 'Teacher', user: 'teacher', pass: 'teacher123', opacity: '12' },
+                    { role: 'Admin', user: 'admin', pass: 'admin123', opacity: '18' },
+                    { role: 'Registrar', user: 'registrar', pass: 'registrar123', opacity: '25' }
                   ].map((demo) => (
                     <button 
                       key={demo.role}
                       type="button"
-                      className={`text-center py-2 px-2 rounded-lg bg-gradient-to-br from-${demo.color}-50 to-${demo.color}-100/50 border border-${demo.color}-100 hover:scale-105 transition-transform cursor-pointer`}
+                      className="text-center py-2 px-2 rounded-lg border hover:scale-105 transition-transform cursor-pointer"
+                      style={{ backgroundColor: `${colors.primary}${demo.opacity}`, borderColor: `${colors.primary}20` }}
                       onClick={() => { setUsername(demo.user); setPassword(demo.pass); }}
                     >
-                      <p className={`font-bold text-${demo.color}-700 text-xs`}>{demo.role}</p>
+                      <p className="font-bold text-xs" style={{ color: colors.primary }}>{demo.role}</p>
                       <p className="text-gray-500 text-[10px] mt-0.5 font-mono">{demo.user}</p>
                     </button>
                   ))}
@@ -333,9 +374,9 @@ export default function LoginPage() {
               {/* Footer */}
               <p className="text-[10px] text-gray-400 text-center mt-4 leading-relaxed">
                 By signing in, you agree to our{' '}
-                <a href="#" className="text-emerald-600 hover:underline">Terms</a>
+                <a href="#" className="hover:underline" style={{ color: colors.primary }}>Terms</a>
                 {' '}and{' '}
-                <a href="#" className="text-emerald-600 hover:underline">Privacy Policy</a>
+                <a href="#" className="hover:underline" style={{ color: colors.primary }}>Privacy Policy</a>
               </p>
             </CardContent>
           </Card>

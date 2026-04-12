@@ -17,11 +17,13 @@ import {
   Medal,
   Filter,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { gradesApi, type ClassAssignment } from "@/lib/api";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Select,
   SelectContent,
@@ -104,13 +106,21 @@ const gradeLevelLabels: Record<string, string> = {
 };
 
 const gradeLevelColors: Record<string, string> = {
-  GRADE_7: "bg-blue-100 text-blue-700 border-blue-200",
-  GRADE_8: "bg-purple-100 text-purple-700 border-purple-200",
-  GRADE_9: "bg-amber-100 text-amber-700 border-amber-200",
-  GRADE_10: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  GRADE_7: "border",
+  GRADE_8: "border",
+  GRADE_9: "border",
+  GRADE_10: "border",
+};
+
+const gradeLevelOpacity: Record<string, string> = {
+  GRADE_7: "18",
+  GRADE_8: "28",
+  GRADE_9: "38",
+  GRADE_10: "48",
 };
 
 export default function TeacherDashboard() {
+  const { colors } = useTheme();
   const [data, setData] = useState<DashboardData | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [masteryData, setMasteryData] = useState<MasteryDistribution | null>(null);
@@ -205,8 +215,14 @@ export default function TeacherDashboard() {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center shadow-lg shadow-emerald-100 animate-pulse">
-            <div className="w-10 h-10 border-[3px] border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div 
+            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
+            style={{ backgroundColor: `${colors.primary}15` }}
+          >
+            <div 
+              className="w-10 h-10 border-[3px] border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}
+            />
           </div>
           <p className="text-gray-500 font-medium">Loading your dashboard...</p>
           <p className="text-gray-400 text-sm mt-1">Please wait a moment</p>
@@ -224,7 +240,11 @@ export default function TeacherDashboard() {
           </div>
           <h3 className="font-semibold text-gray-900 text-lg mb-2">Something went wrong</h3>
           <p className="text-gray-500 mb-6">{error || "Failed to load dashboard data"}</p>
-          <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/25">
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="shadow-lg"
+            style={{ backgroundColor: colors.primary }}
+          >
             Try Again
           </Button>
         </div>
@@ -235,10 +255,13 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 shadow-2xl shadow-emerald-500/20">
+      <div 
+        className="relative overflow-hidden rounded-2xl shadow-2xl"
+        style={{ backgroundColor: colors.primary }}
+      >
         <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]" />
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: `${colors.secondary}30` }} />
         
         <div className="relative px-8 py-12 lg:py-16">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
@@ -252,7 +275,7 @@ export default function TeacherDashboard() {
                 Welcome back, {data.teacher.name}
               </h1>
               
-              <p className="text-lg text-emerald-50 max-w-2xl">
+              <p className="text-lg text-white/80 max-w-2xl">
                 {data.stats.subjects.length > 0 
                   ? `Teaching ${data.stats.subjects.join(", ")} across ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`
                   : `Managing ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`}
@@ -263,7 +286,7 @@ export default function TeacherDashboard() {
                   <Users className="w-5 h-5 text-white" />
                   <div>
                     <p className="text-2xl font-bold text-white">{data.stats.totalStudents}</p>
-                    <p className="text-xs text-emerald-100 font-medium">Total Students</p>
+                    <p className="text-xs text-white/70 font-medium">Total Students</p>
                   </div>
                 </div>
                 
@@ -271,7 +294,7 @@ export default function TeacherDashboard() {
                   <Target className="w-5 h-5 text-white" />
                   <div>
                     <p className="text-2xl font-bold text-white">{stats?.summary.overallPassingRate.toFixed(0)}%</p>
-                    <p className="text-xs text-emerald-100 font-medium">Passing Rate</p>
+                    <p className="text-xs text-white/70 font-medium">Passing Rate</p>
                   </div>
                 </div>
 
@@ -289,7 +312,10 @@ export default function TeacherDashboard() {
 
             <div className="flex flex-col gap-3">
               <Link to="/teacher/advisory">
-                <Button className="w-full lg:w-auto bg-white hover:bg-gray-50 text-emerald-700 shadow-xl font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105">
+                <Button 
+                  className="w-full lg:w-auto bg-white hover:bg-gray-50 shadow-xl font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105"
+                  style={{ color: colors.primary }}
+                >
                   <Users className="w-5 h-5 mr-2" />
                   View My Advisory
                   <ChevronRight className="w-5 h-5 ml-2" />
@@ -310,10 +336,16 @@ export default function TeacherDashboard() {
 
       {/* DepEd Mastery Level Distribution Chart */}
       <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-100 to-teal-100 px-6 py-5">
+        <CardHeader 
+          className="border-b border-gray-100 px-6 py-5"
+          style={{ backgroundColor: `${colors.primary}15` }}
+        >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
+              <div 
+                className="p-2.5 rounded-xl text-white shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
@@ -366,7 +398,10 @@ export default function TeacherDashboard() {
                   ))}
                 </SelectContent>
               </Select>
-              <Badge className="bg-emerald-100 text-emerald-700 font-semibold px-3 py-1">
+              <Badge 
+                className="font-semibold px-3 py-1"
+                style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}
+              >
                 {masteryData?.totalStudents || 0} Students Graded
               </Badge>
             </div>
@@ -434,11 +469,13 @@ export default function TeacherDashboard() {
       {/* Stats Cards - Modern Bento Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {[
-          { label: "Total Classes", value: data.stats.totalClasses, icon: BookOpen, color: "blue", gradient: "from-blue-500 to-indigo-600" },
-          { label: "Students", value: data.stats.totalStudents, icon: Users, color: "emerald", gradient: "from-emerald-500 to-teal-600" },
-          { label: "Academic Year", value: "2025-2026", icon: Calendar, color: "purple", gradient: "from-purple-500 to-violet-600" },
-          { label: "Current Quarter", value: "Q1", icon: Award, color: "amber", gradient: "from-amber-500 to-orange-600" },
-        ].map((stat, index) => (
+          { label: "Total Classes", value: data.stats.totalClasses, icon: BookOpen, themeColor: "primary" },
+          { label: "Students", value: data.stats.totalStudents, icon: Users, themeColor: "secondary" },
+          { label: "Academic Year", value: "2025-2026", icon: Calendar, themeColor: "accent" },
+          { label: "Current Quarter", value: "Q1", icon: Award, themeColor: "primary" },
+        ].map((stat, index) => {
+          const iconColor = stat.themeColor === "primary" ? colors.primary : stat.themeColor === "secondary" ? colors.secondary : colors.accent;
+          return (
           <Card 
             key={stat.label} 
             className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-200/60 transition-all duration-300 bg-white overflow-hidden p-0 rounded-2xl"
@@ -450,13 +487,19 @@ export default function TeacherDashboard() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
                   <p className="text-3xl font-bold text-gray-900 mt-3 tracking-tight">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 flex-shrink-0 ml-2`}>
+                <div 
+                  className="p-3 rounded-2xl text-white shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 flex-shrink-0 ml-2"
+                  style={{ backgroundColor: iconColor }}
+                >
                   <stat.icon className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className={`flex items-center gap-1 text-${stat.color}-600 font-medium`}>
+                  <span 
+                    className="flex items-center gap-1 font-medium"
+                    style={{ color: iconColor }}
+                  >
                     <TrendingUp className="w-4 h-4" />
                     Active
                   </span>
@@ -465,16 +508,17 @@ export default function TeacherDashboard() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        );
+        })}
       </div>
 
       {/* Grading Progress & Performance Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Grading Progress */}
         <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5">
+          <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}12` }}>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
+              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                 <FileCheck className="w-5 h-5" />
               </div>
               <div>
@@ -500,7 +544,10 @@ export default function TeacherDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         {isComplete ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 text-xs font-medium">
+                          <Badge 
+                            className="text-xs font-medium"
+                            style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}
+                          >
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Complete
                           </Badge>
@@ -511,8 +558,11 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full rounded-full transition-all duration-500 ${isComplete ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}
-                        style={{ width: `${percentage}%` }}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${percentage}%`,
+                          backgroundColor: isComplete ? colors.primary : colors.secondary
+                        }}
                       />
                     </div>
                   </div>
@@ -520,7 +570,10 @@ export default function TeacherDashboard() {
               })}
             </div>
             <Link to="/teacher/classes" className="block mt-5">
-              <Button variant="outline" size="sm" className="w-full rounded-xl font-medium hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200">
+              <Button variant="outline" size="sm" className="w-full rounded-xl font-medium" 
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}10`; e.currentTarget.style.color = colors.primary; e.currentTarget.style.borderColor = `${colors.primary}30`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; e.currentTarget.style.borderColor = ''; }}
+              >
                 View All Classes
                 <ArrowUpRight className="w-4 h-4 ml-2" />
               </Button>
@@ -530,9 +583,15 @@ export default function TeacherDashboard() {
 
         {/* Class Performance */}
         <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-5">
+          <CardHeader 
+            className="border-b border-gray-100 px-6 py-5"
+            style={{ backgroundColor: `${colors.primary}10` }}
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
+              <div 
+                className="p-2.5 rounded-xl text-white shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
@@ -549,13 +608,14 @@ export default function TeacherDashboard() {
                 return (
                   <div key={classStat.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white ${
-                        avgGrade >= 90 ? 'bg-gradient-to-br from-emerald-500 to-teal-600' :
-                        avgGrade >= 85 ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-                        avgGrade >= 80 ? 'bg-gradient-to-br from-amber-500 to-orange-500' :
-                        avgGrade >= 75 ? 'bg-gradient-to-br from-orange-500 to-red-500' :
-                        'bg-gradient-to-br from-gray-400 to-gray-500'
-                      }`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white`}
+                        style={{ backgroundColor: 
+                          avgGrade >= 90 ? colors.primary :
+                          avgGrade >= 85 ? colors.secondary :
+                          avgGrade >= 80 ? colors.accent :
+                          avgGrade >= 75 ? `${colors.primary}99` :
+                          '#9ca3af'
+                        }}>
                         {avgGrade > 0 ? avgGrade : '-'}
                       </div>
                       <div>
@@ -564,7 +624,7 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-emerald-600">{classStat.passingRate}%</p>
+                      <p className="text-sm font-semibold" style={{ color: colors.primary }}>{classStat.passingRate}%</p>
                       <p className="text-xs text-gray-400">passing</p>
                     </div>
                   </div>
@@ -579,10 +639,10 @@ export default function TeacherDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Honors / With Honors Students */}
         <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-amber-100 to-yellow-100 px-6 py-5">
+          <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ background: `linear-gradient(to right, ${colors.primary}20, ${colors.primary}10)` }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-lg">
+                <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                   <Medal className="w-5 h-5" />
                 </div>
                 <div>
@@ -639,25 +699,12 @@ export default function TeacherDashboard() {
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
                   {sortedHonors.slice(0, 10).map((student, index) => (
-                    <div key={`${student.id}-${index}`} className={`flex items-center justify-between p-3 rounded-xl border ${
-                      student.honor === "Highest Honors" ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-amber-200' :
-                      student.honor === "High Honors" ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-orange-200' :
-                      student.honor === "Honors" ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' :
-                      'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
-                    }`}>
+                    <div key={`${student.id}-${index}`} className={`flex items-center justify-between p-3 rounded-xl border`}
+                      style={{ backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          student.honor === "Highest Honors" ? 'bg-yellow-100' :
-                          student.honor === "High Honors" ? 'bg-amber-100' :
-                          student.honor === "Honors" ? 'bg-blue-100' :
-                          'bg-emerald-100'
-                        }`}>
-                          <Star className={`w-4 h-4 ${
-                            student.honor === "Highest Honors" ? 'text-yellow-600' :
-                            student.honor === "High Honors" ? 'text-amber-600' :
-                            student.honor === "Honors" ? 'text-blue-600' :
-                            'text-emerald-600'
-                          }`} />
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary}18` }}>
+                          <Star className="w-4 h-4" style={{ color: colors.primary }} />
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
@@ -665,18 +712,8 @@ export default function TeacherDashboard() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`text-lg font-bold ${
-                          student.honor === "Highest Honors" ? 'text-yellow-600' :
-                          student.honor === "High Honors" ? 'text-amber-600' :
-                          student.honor === "Honors" ? 'text-blue-600' :
-                          'text-emerald-600'
-                        }`}>{student.grade}</p>
-                        <Badge className={`text-xs ${
-                          student.honor === "Highest Honors" ? 'bg-yellow-100 text-yellow-700' :
-                          student.honor === "High Honors" ? 'bg-amber-100 text-amber-700' :
-                          student.honor === "Honors" ? 'bg-blue-100 text-blue-700' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`}>{student.honor}</Badge>
+                        <p className="text-lg font-bold" style={{ color: colors.primary }}>{student.grade}</p>
+                        <Badge className="text-xs" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>{student.honor}</Badge>
                       </div>
                     </div>
                   ))}
@@ -703,7 +740,10 @@ export default function TeacherDashboard() {
         </Card>
 
         {/* Quick Stats Summary */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 overflow-hidden rounded-2xl text-white p-0">
+        <Card 
+          className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white p-0"
+          style={{ backgroundColor: colors.primary }}
+        >
           <CardContent className="p-6 h-full flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
@@ -714,12 +754,12 @@ export default function TeacherDashboard() {
             
             <div className="space-y-4 flex-1">
               <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-emerald-100 text-sm mb-1">Overall Passing Rate</p>
+                <p className="text-white/70 text-sm mb-1">Overall Passing Rate</p>
                 <p className="text-3xl font-bold">{stats?.summary.overallPassingRate ?? 0}%</p>
               </div>
               
               <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-emerald-100 text-sm mb-1">Grade Submissions</p>
+                <p className="text-white/70 text-sm mb-1">Grade Submissions</p>
                 <div className="flex items-center gap-2">
                   <p className="text-3xl font-bold">{stats?.summary.gradeSubmissionRate ?? 0}%</p>
                   <Badge className="bg-white/20 text-white text-xs">Q1</Badge>
@@ -727,13 +767,16 @@ export default function TeacherDashboard() {
               </div>
               
               <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-emerald-100 text-sm mb-1">Students At Risk</p>
+                <p className="text-white/70 text-sm mb-1">Students At Risk</p>
                 <p className="text-3xl font-bold">{stats?.summary.studentsAtRiskCount ?? 0}</p>
               </div>
             </div>
 
             <Link to="/teacher/classes" className="block mt-4">
-              <Button className="w-full bg-white text-emerald-600 hover:bg-emerald-50 font-semibold rounded-xl">
+              <Button 
+                className="w-full bg-white font-semibold rounded-xl"
+                style={{ color: colors.primary }}
+              >
                 Enter Grades
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -768,7 +811,6 @@ export default function TeacherDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {stats.summary.studentsAtRisk.map((student, index) => {
                   const isINC = student.grade >= 60 && student.grade < 75;
-                  const isFailed = student.grade < 60;
                   
                   return (
                     <div 
@@ -829,12 +871,119 @@ export default function TeacherDashboard() {
         </Card>
       )}
 
-      {/* Recent Classes - Compact View */}
+      {/* Recently Updated - ECR Synced Classes */}
+      {(() => {
+        const syncedClasses = data.classAssignments
+          .filter(a => a.ecrLastSyncedAt)
+          .sort((a, b) => new Date(b.ecrLastSyncedAt!).getTime() - new Date(a.ecrLastSyncedAt!).getTime());
+        if (syncedClasses.length === 0) return null;
+
+        const formatRelativeTime = (dateStr: string) => {
+          const syncDate = new Date(dateStr);
+          const now = new Date();
+          const diffMs = now.getTime() - syncDate.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          return diffMins < 1 ? 'Just now' :
+            diffMins < 60 ? `${diffMins}m ago` :
+            diffHours < 24 ? `${diffHours}h ago` :
+            diffDays < 7 ? `${diffDays}d ago` :
+            syncDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+        };
+
+        return (
+          <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
+            <CardHeader
+              className="border-b border-gray-100 px-6 py-4"
+              style={{ backgroundColor: `${colors.primary}08` }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl text-white shadow-md" style={{ backgroundColor: colors.primary }}>
+                    <RefreshCw className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-gray-900">Recently Updated</CardTitle>
+                    <CardDescription className="text-gray-500 text-xs">ECR synced classes</CardDescription>
+                  </div>
+                </div>
+                <Badge className="font-medium text-xs px-2.5 py-0.5" style={{ backgroundColor: `${colors.primary}12`, color: colors.primary }}>
+                  {syncedClasses.length} synced
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                {syncedClasses.slice(0, 5).map((assignment) => (
+                  <Link key={assignment.id} to={`/teacher/records/${assignment.id}`} className="block group">
+                    <div
+                      className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div 
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${colors.primary}12` }}
+                        >
+                          <CheckCircle2 className="w-5 h-5" style={{ color: colors.primary }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-900 text-sm truncate">
+                              {assignment.subject?.name ?? 'Subject'}
+                            </p>
+                            <Badge
+                              variant="secondary"
+                              className="border font-medium text-[10px] px-1.5 py-0 flex-shrink-0"
+                              style={{
+                                backgroundColor: `${colors.primary}10`,
+                                color: colors.primary,
+                                borderColor: `${colors.primary}20`,
+                              }}
+                            >
+                              {gradeLevelLabels[assignment.section.gradeLevel]?.replace('Grade ', 'G')}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">
+                            Section {assignment.section.name}
+                            {assignment.ecrFileName && (
+                              <span className="text-gray-400"> · {assignment.ecrFileName}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                          {formatRelativeTime(assignment.ecrLastSyncedAt!)}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              {syncedClasses.length > 5 && (
+                <p className="text-center text-xs text-gray-400 mt-3">
+                  +{syncedClasses.length - 5} more synced classes
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* My Classes - Compact View */}
       <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-5">
+        <CardHeader 
+          className="border-b border-gray-100 px-6 py-5"
+          style={{ backgroundColor: `${colors.secondary}15` }}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-lg">
+              <div 
+                className="p-2.5 rounded-xl text-white shadow-lg"
+                style={{ backgroundColor: colors.secondary }}
+              >
                 <Clock className="w-5 h-5" />
               </div>
               <div>
@@ -843,7 +992,15 @@ export default function TeacherDashboard() {
               </div>
             </div>
             <Link to="/teacher/classes">
-              <Button variant="outline" size="sm" className="rounded-xl font-medium hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl font-medium"
+                style={{ 
+                  borderColor: `${colors.secondary}50`,
+                  color: colors.secondary
+                }}
+              >
                 View All
                 <ArrowUpRight className="w-4 h-4 ml-2" />
               </Button>
@@ -858,22 +1015,34 @@ export default function TeacherDashboard() {
                 to={`/teacher/records/${assignment.id}`}
                 className="block group"
               >
-                <div className="p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 bg-white">
+                <div 
+                  className="p-4 rounded-xl border border-gray-100 hover:shadow-lg transition-all duration-300 bg-white"
+                  style={{ 
+                    '--hover-border-color': `${colors.primary}40`,
+                    '--hover-shadow-color': `${colors.primary}15`
+                  } as React.CSSProperties}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = colors.primary + '40';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#f3f4f6';
+                  }}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <Badge
                       variant="secondary"
                       className={`${gradeLevelColors[assignment.section.gradeLevel]} border font-medium text-xs px-2 py-0.5`}
                       style={{
-                        color: assignment.section.gradeLevel === 'GRADE_7' ? '#1e40af' : 
-                               assignment.section.gradeLevel === 'GRADE_8' ? '#6b21a8' : 
-                               assignment.section.gradeLevel === 'GRADE_9' ? '#b45309' : '#047857'
+                        backgroundColor: `${colors.primary}${gradeLevelOpacity[assignment.section.gradeLevel] || '18'}`,
+                        color: colors.primary,
+                        borderColor: `${colors.primary}30`
                       }}
                     >
                       {gradeLevelLabels[assignment.section.gradeLevel]}
                     </Badge>
-                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:translate-x-0.5 transition-all" style={{ color: undefined }} />
                   </div>
-                  <h4 className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors" style={{ color: '#111827' }}>{gradeLevelLabels[assignment.section.gradeLevel]}</h4>
+                  <h4 className="font-bold text-gray-900 transition-colors" style={{ color: '#111827' }}>{gradeLevelLabels[assignment.section.gradeLevel]}</h4>
                   <p className="text-sm text-gray-500 mt-1">Section <span className="font-bold text-gray-700">{assignment.section.name}</span></p>
                   <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
                     <Users className="w-3.5 h-3.5" />

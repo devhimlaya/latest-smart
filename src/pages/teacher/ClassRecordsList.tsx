@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { gradesApi, type ClassAssignment } from "@/lib/api";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -15,20 +16,21 @@ const gradeLevelLabels: Record<string, string> = {
 };
 
 const gradeLevelColors: Record<string, string> = {
-  GRADE_7: "bg-blue-100 text-blue-700 border-blue-200",
-  GRADE_8: "bg-purple-100 text-purple-700 border-purple-200",
-  GRADE_9: "bg-amber-100 text-amber-700 border-amber-200",
-  GRADE_10: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  GRADE_7: "border",
+  GRADE_8: "border",
+  GRADE_9: "border",
+  GRADE_10: "border",
 };
 
-const gradeLevelBg: Record<string, string> = {
-  GRADE_7: "from-blue-500 to-blue-600",
-  GRADE_8: "from-purple-500 to-purple-600",
-  GRADE_9: "from-amber-500 to-orange-500",
-  GRADE_10: "from-emerald-500 to-green-600",
+const gradeLevelOpacity: Record<string, string> = {
+  GRADE_7: "18",
+  GRADE_8: "28",
+  GRADE_9: "38",
+  GRADE_10: "48",
 };
 
 export default function ClassRecordsList() {
+  const { colors } = useTheme();
   const [classes, setClasses] = useState<ClassAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,8 +64,14 @@ export default function ClassRecordsList() {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center shadow-lg shadow-emerald-100 animate-pulse">
-            <div className="w-10 h-10 border-[3px] border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div 
+            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
+            style={{ backgroundColor: `${colors.primary}15` }}
+          >
+            <div 
+              className="w-10 h-10 border-[3px] border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}
+            />
           </div>
           <p className="text-gray-500 font-medium">Loading your classes...</p>
           <p className="text-gray-400 text-sm mt-1">Please wait a moment</p>
@@ -78,10 +86,17 @@ export default function ClassRecordsList() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
+            <div 
+              className="p-2.5 rounded-xl text-white shadow-lg"
+              style={{ backgroundColor: colors.primary }}
+            >
               <BookOpen className="w-5 h-5" />
             </div>
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-semibold px-3 py-1">
+            <Badge 
+              variant="secondary" 
+              className="font-semibold px-3 py-1"
+              style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}
+            >
               <Sparkles className="w-3 h-3 mr-1.5" />
               {classes.length} Classes
             </Badge>
@@ -99,15 +114,16 @@ export default function ClassRecordsList() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1 group">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <div className="p-2 rounded-lg bg-gray-100 group-focus-within:bg-emerald-100 transition-colors">
-                  <Search className="w-4 h-4 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                <div className="p-2 rounded-lg bg-gray-100 group-focus-within:bg-gray-200 transition-colors">
+                  <Search className="w-4 h-4 text-gray-400 transition-colors" style={{ color: undefined }} />
                 </div>
               </div>
               <Input
                 placeholder="Search by subject, section, or grade level..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-16 h-14 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 rounded-xl text-base transition-all"
+                className="pl-16 h-14 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl text-base transition-all"
+                style={{ '--tw-ring-color': `${colors.primary}15` } as React.CSSProperties}
               />
             </div>
             <div className="flex items-center gap-3">
@@ -148,24 +164,25 @@ export default function ClassRecordsList() {
               className="animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <Card className="h-full group border-0 shadow-lg shadow-gray-200/50 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl bg-white relative">
+              <Card className="h-full group border-0 shadow-lg shadow-gray-200/50 hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl bg-white relative" style={{ ['--hover-shadow' as any]: `${colors.primary}15` }}>
                 {/* Gradient left accent */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${gradeLevelBg[assignment.section.gradeLevel]} rounded-l-2xl`} />
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl" style={{ backgroundColor: colors.primary }} />
                 
                 <CardHeader className="pb-4 pt-6 px-6 pl-8">
                   <div className="flex items-start justify-between">
                     <Badge
                       variant="secondary"
                       className={`${gradeLevelColors[assignment.section.gradeLevel]} border font-semibold px-3 py-1`}
+                      style={{ backgroundColor: `${colors.primary}${gradeLevelOpacity[assignment.section.gradeLevel] || '18'}`, color: colors.primary, borderColor: `${colors.primary}30` }}
                     >
                       {gradeLevelLabels[assignment.section.gradeLevel]}
                     </Badge>
-                    <div className="p-2.5 rounded-xl bg-gray-100 text-gray-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 group-hover:scale-110 transition-all duration-300">
+                    <div className="p-2.5 rounded-xl bg-gray-100 text-gray-400 group-hover:scale-110 transition-all duration-300">
                       <ArrowUpRight className="w-4 h-4" />
                     </div>
                   </div>
-                  <CardTitle className="flex items-center gap-3 mt-5 group-hover:text-emerald-600 transition-colors">
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${gradeLevelBg[assignment.section.gradeLevel]} text-white shadow-lg`}>
+                  <CardTitle className="flex items-center gap-3 mt-5 transition-colors">
+                    <div className="p-3 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                       <BookOpen className="w-5 h-5" />
                     </div>
                     <span className="text-xl font-bold">{assignment.subject.name}</span>
@@ -207,18 +224,19 @@ export default function ClassRecordsList() {
                 className="animate-slide-up block"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="p-6 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/30 transition-all duration-300 flex items-center gap-5 group">
-                  <div className={`p-4 rounded-2xl bg-gradient-to-br ${gradeLevelBg[assignment.section.gradeLevel]} text-white shadow-lg shadow-${assignment.section.gradeLevel === 'GRADE_7' ? 'blue' : assignment.section.gradeLevel === 'GRADE_8' ? 'purple' : assignment.section.gradeLevel === 'GRADE_9' ? 'amber' : 'emerald'}-500/25 group-hover:scale-110 transition-transform duration-300`}>
+                <div className="p-6 hover:bg-gray-50/80 transition-all duration-300 flex items-center gap-5 group">
+                  <div className="p-4 rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform duration-300" style={{ backgroundColor: colors.primary }}>
                     <BookOpen className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1.5">
-                      <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-600 transition-colors">
+                      <h3 className="font-bold text-gray-900 text-lg transition-colors">
                         {assignment.subject.name}
                       </h3>
                       <Badge
                         variant="secondary"
                         className={`${gradeLevelColors[assignment.section.gradeLevel]} border font-semibold text-xs px-2.5 py-0.5`}
+                        style={{ backgroundColor: `${colors.primary}${gradeLevelOpacity[assignment.section.gradeLevel] || '18'}`, color: colors.primary, borderColor: `${colors.primary}30` }}
                       >
                         {gradeLevelLabels[assignment.section.gradeLevel]}
                       </Badge>
@@ -242,7 +260,7 @@ export default function ClassRecordsList() {
                         {assignment.subject.writtenWorkWeight}/{assignment.subject.perfTaskWeight}/{assignment.subject.quarterlyAssessWeight}
                       </p>
                     </div>
-                    <div className="p-3 rounded-xl bg-gray-100 text-gray-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all">
+                    <div className="p-3 rounded-xl bg-gray-100 text-gray-400 transition-all">
                       <ChevronRight className="w-5 h-5" />
                     </div>
                   </div>

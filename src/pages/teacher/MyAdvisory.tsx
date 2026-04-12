@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { advisoryApi, type AdvisoryData } from "@/lib/api";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -34,6 +35,7 @@ const gradeLevelLabels: Record<string, string> = {
 
 export default function MyAdvisory() {
   const location = useLocation();
+  const { colors } = useTheme();
   const [data, setData] = useState<AdvisoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +65,14 @@ export default function MyAdvisory() {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center shadow-lg shadow-purple-100 animate-pulse">
-            <div className="w-10 h-10 border-[3px] border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <div 
+            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
+            style={{ backgroundColor: `${colors.primary}15` }}
+          >
+            <div 
+              className="w-10 h-10 border-[3px] border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}
+            />
           </div>
           <p className="text-gray-500 font-medium">Loading your advisory...</p>
           <p className="text-gray-400 text-sm mt-1">Please wait a moment</p>
@@ -82,7 +90,11 @@ export default function MyAdvisory() {
           </div>
           <h3 className="font-semibold text-gray-900 text-lg mb-2">Something went wrong</h3>
           <p className="text-gray-500 mb-6">{error}</p>
-          <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/25">
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="shadow-lg"
+            style={{ backgroundColor: colors.primary }}
+          >
             Try Again
           </Button>
         </div>
@@ -146,20 +158,23 @@ export default function MyAdvisory() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-500 p-8 lg:p-10 text-white shadow-2xl shadow-purple-500/20">
+      <div 
+        className="relative overflow-hidden rounded-3xl p-8 lg:p-10 text-white shadow-2xl"
+        style={{ backgroundColor: colors.primary }}
+      >
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 animate-float" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 animate-float" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 animate-float" style={{ backgroundColor: `${colors.secondary}30`, animationDelay: '2s' }} />
         </div>
         
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-purple-100" />
+                <GraduationCap className="w-5 h-5 text-white/80" />
               </div>
-              <span className="text-sm text-purple-100 font-semibold tracking-wide uppercase">Advisory Class</span>
+              <span className="text-sm text-white/70 font-semibold tracking-wide uppercase">Advisory Class</span>
             </div>
             <h1 className="text-3xl lg:text-4xl font-bold mb-3 tracking-tight !text-white">
               {gradeLevelLabels[data.section?.gradeLevel || ""] || data.section?.gradeLevel} - {data.section?.name}
@@ -178,12 +193,12 @@ export default function MyAdvisory() {
           
           <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
             <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-              <UserCircle className="w-7 h-7 text-purple-100" />
+              <UserCircle className="w-7 h-7 text-white/80" />
             </div>
             <div>
-              <p className="text-xs text-purple-200 uppercase tracking-wider font-semibold">Class Adviser</p>
+              <p className="text-xs text-white/60 uppercase tracking-wider font-semibold">Class Adviser</p>
               <p className="text-xl font-bold mt-0.5">{data.teacher.name}</p>
-              <p className="text-sm text-purple-100 mt-0.5">{data.teacher.employeeId}</p>
+              <p className="text-sm text-white/70 mt-0.5">{data.teacher.employeeId}</p>
             </div>
           </div>
         </div>
@@ -198,7 +213,10 @@ export default function MyAdvisory() {
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Total Students</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{data.stats?.totalStudents || 0}</p>
               </div>
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-lg">
+              <div 
+                className="p-3.5 rounded-2xl text-white shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
                 <Users className="w-6 h-6" />
               </div>
             </div>
@@ -238,9 +256,9 @@ export default function MyAdvisory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Subjects</p>
-                <p className="text-3xl font-bold text-emerald-600 mt-1">{data.subjects?.length || 0}</p>
+                <p className="text-3xl font-bold mt-1" style={{ color: colors.primary }}>{data.subjects?.length || 0}</p>
               </div>
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
+              <div className="p-3.5 rounded-2xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                 <BookOpen className="w-6 h-6" />
               </div>
             </div>
@@ -253,7 +271,7 @@ export default function MyAdvisory() {
         <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
           <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
+              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
@@ -266,8 +284,8 @@ export default function MyAdvisory() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {data.subjects.map((subject) => (
                 <div key={subject.id} className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <BookOpen className="w-5 h-5 text-emerald-600" />
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary}15` }}>
+                    <BookOpen className="w-5 h-5" style={{ color: colors.primary }} />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 text-sm">{subject.name}</p>
@@ -285,7 +303,10 @@ export default function MyAdvisory() {
         <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-lg">
+              <div 
+                className="p-2.5 rounded-xl text-white shadow-lg"
+                style={{ backgroundColor: colors.primary }}
+              >
                 <Users className="w-5 h-5" />
               </div>
               <div>
@@ -301,9 +322,10 @@ export default function MyAdvisory() {
                 onClick={() => setSeparateByGender(!separateByGender)}
                 className={`rounded-xl font-medium ${
                   separateByGender 
-                    ? "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white" 
-                    : "hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200"
+                    ? "text-white" 
+                    : ""
                 }`}
+                style={separateByGender ? { backgroundColor: colors.primary } : { borderColor: `${colors.primary}40`, color: colors.primary }}
               >
                 <SplitSquareHorizontal className="w-4 h-4 mr-2" />
                 {separateByGender ? "Gender Separated" : "Group by Gender"}
@@ -373,7 +395,8 @@ export default function MyAdvisory() {
                               <Link to={`/teacher/advisory/student/${student.id}`}>
                                 <Button 
                                   size="sm" 
-                                  className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                                  className="rounded-lg shadow-md"
+                                  style={{ backgroundColor: colors.primary }}
                                 >
                                   View
                                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -434,7 +457,8 @@ export default function MyAdvisory() {
                               <Link to={`/teacher/advisory/student/${student.id}`}>
                                 <Button 
                                   size="sm" 
-                                  className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                                  className="rounded-lg shadow-md"
+                                  style={{ backgroundColor: colors.primary }}
                                 >
                                   View
                                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -476,16 +500,12 @@ export default function MyAdvisory() {
                     </TableRow>
                   ) : (
                     sortedStudents.map((student, index) => (
-                      <TableRow key={student.id} className="hover:bg-purple-50/30 transition-colors">
+                      <TableRow key={student.id} className="hover:bg-gray-50/30 transition-colors">
                         <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
                         <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white ${
-                              student.gender?.toLowerCase() === "male" 
-                                ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
-                                : "bg-gradient-to-br from-pink-500 to-rose-600"
-                            }`}>
+                            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white" style={{ backgroundColor: colors.primary }}>
                               {student.lastName.charAt(0)}
                             </div>
                             <div>
@@ -511,7 +531,8 @@ export default function MyAdvisory() {
                           <Link to={`/teacher/advisory/student/${student.id}`}>
                             <Button 
                               size="sm" 
-                              className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-md"
+                              className="rounded-lg shadow-md"
+                              style={{ backgroundColor: colors.primary }}
                             >
                               View
                               <ChevronRight className="w-4 h-4 ml-1" />

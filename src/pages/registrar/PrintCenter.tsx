@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface PrintJob {
   id: string;
@@ -60,14 +61,15 @@ const printJobs: PrintJob[] = [
 
 const quickPrintOptions = [
   { id: "sf9-all", name: "All Report Cards", icon: FileText, description: "Print SF9 for all students", form: "SF9", color: "blue" },
-  { id: "sf10-gradlevel", name: "Permanent Records", icon: Users, description: "Print SF10 by grade level", form: "SF10", color: "violet" },
-  { id: "sf1-section", name: "School Register", icon: Layers, description: "Print SF1 by section", form: "SF1", color: "emerald" },
+  { id: "sf10-gradlevel", name: "Permanent Records", icon: Users, description: "Print SF10 by grade level", form: "SF10", color: "blue" },
+  { id: "sf1-section", name: "School Register", icon: Layers, description: "Print SF1 by section", form: "SF1", color: "amber" },
   { id: "sf2-monthly", name: "Attendance Reports", icon: Calendar, description: "Print SF2 for the month", form: "SF2", color: "amber" },
 ];
 
 export default function PrintCenter() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const { colors } = useTheme();
 
   const filteredJobs = printJobs.filter((job) => {
     const matchesSearch = 
@@ -90,21 +92,21 @@ export default function PrintCenter() {
     switch (status) {
       case "completed":
         return (
-          <Badge className="bg-emerald-100 text-emerald-700 border-0 font-medium">
+          <Badge className="border-0 font-medium" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Completed
           </Badge>
         );
       case "in-progress":
         return (
-          <Badge className="bg-blue-100 text-blue-700 border-0 font-medium">
+          <Badge className="border-0 font-medium" style={{ backgroundColor: `${colors.secondary}25`, color: colors.secondary }}>
             <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
             In Progress
           </Badge>
         );
       case "queued":
         return (
-          <Badge className="bg-amber-100 text-amber-700 border-0 font-medium">
+          <Badge className="border-0 font-medium" style={{ backgroundColor: `${colors.accent}25`, color: colors.accent }}>
             <Clock className="w-3 h-3 mr-1" />
             Queued
           </Badge>
@@ -131,7 +133,10 @@ export default function PrintCenter() {
             Manage print jobs and batch print school forms
           </p>
         </div>
-        <Button className="gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 w-fit">
+        <Button 
+          className="gap-2 text-white font-semibold rounded-xl shadow-lg w-fit"
+          style={{ backgroundColor: colors.primary }}
+        >
           <Printer className="w-4 h-4" />
           New Print Job
         </Button>
@@ -157,10 +162,10 @@ export default function PrintCenter() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Completed</p>
-                <p className="text-2xl font-bold text-emerald-600">{jobCounts.completed}</p>
+                <p className="text-2xl font-bold" style={{ color: colors.primary }}>{jobCounts.completed}</p>
               </div>
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary}20` }}>
+                <CheckCircle2 className="w-5 h-5" style={{ color: colors.primary }} />
               </div>
             </div>
           </CardContent>
@@ -170,10 +175,10 @@ export default function PrintCenter() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">{jobCounts.inProgress}</p>
+                <p className="text-2xl font-bold" style={{ color: colors.secondary }}>{jobCounts.inProgress}</p>
               </div>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <RefreshCw className="w-5 h-5 text-blue-600" />
+              <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.secondary}20` }}>
+                <RefreshCw className="w-5 h-5" style={{ color: colors.secondary }} />
               </div>
             </div>
           </CardContent>
@@ -183,10 +188,10 @@ export default function PrintCenter() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Queued</p>
-                <p className="text-2xl font-bold text-amber-600">{jobCounts.queued}</p>
+                <p className="text-2xl font-bold" style={{ color: colors.accent }}>{jobCounts.queued}</p>
               </div>
-              <div className="p-2 rounded-lg bg-amber-100">
-                <Clock className="w-5 h-5 text-amber-600" />
+              <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.accent}20` }}>
+                <Clock className="w-5 h-5" style={{ color: colors.accent }} />
               </div>
             </div>
           </CardContent>
@@ -294,7 +299,7 @@ export default function PrintCenter() {
             <TableBody>
               {filteredJobs.map((job) => (
                 <TableRow key={job.id} className="hover:bg-gray-50/50">
-                  <TableCell className="font-mono text-sm text-blue-600">{job.id}</TableCell>
+                  <TableCell className="font-mono text-sm" style={{ color: colors.primary }}>{job.id}</TableCell>
                   <TableCell>
                     <div>
                       <p className="font-medium text-gray-900">{job.documentName}</p>

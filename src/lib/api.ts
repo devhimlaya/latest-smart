@@ -2,6 +2,9 @@ import axios from "axios";
 
 const API_URL = "http://localhost:3000/api";
 
+// Export server URL for constructing upload URLs
+export const SERVER_URL = "http://localhost:3000";
+
 // Create axios instance with auth header
 const api = axios.create({
   baseURL: API_URL,
@@ -9,7 +12,7 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -21,8 +24,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
       window.location.href = "/login";
     }
     return Promise.reject(error);
@@ -91,12 +94,17 @@ export interface ClassAssignment {
   schoolYear: string;
   subject: Subject;
   section: Section;
+  // ECR sync tracking
+  ecrLastSyncedAt?: string | null;
+  ecrFileName?: string | null;
 }
 
 export interface ScoreItem {
   name: string;
   score: number;
   maxScore: number;
+  description?: string;
+  date?: string;
 }
 
 export interface Grade {
@@ -210,6 +218,84 @@ export const gradesApi = {
     }>("/grades/mastery-distribution", {
       params: { gradeLevel, sectionId },
     }),
+
+  // ECR (E-Class Record) Import
+  getEcrStatus: (classAssignmentId: string) =>
+    api.get<{
+      hasSynced: boolean;
+      ecrLastSyncedAt: string | null;
+      ecrFileName: string | null;
+    }>(`/grades/ecr/status/${classAssignmentId}`),
+
+  previewEcr: (classAssignmentId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('classAssignmentId', classAssignmentId);
+    return api.post<{
+      fileName: string;
+      metadata: {
+        gradeSection?: string;
+        teacher?: string;
+        subject?: string;
+      };
+      quarters: {
+        quarter: string;
+        maxScores: {
+          writtenWork: number[];
+          perfTask: number[];
+          quarterlyAssess: number;
+        };
+        students: {
+          name: string;
+          writtenWorkScores: number[];
+          writtenWorkTotal: number;
+          writtenWorkPS: number;
+          perfTaskScores: number[];
+          perfTaskTotal: number;
+          perfTaskPS: number;
+          quarterlyAssessScore: number;
+          quarterlyAssessPS: number;
+          initialGrade: number;
+          quarterlyGrade: number;
+          matchedStudentId: string | null;
+          matchedStudent: Student | null;
+        }[];
+      }[];
+      stats: {
+        totalStudents: number;
+        matchedStudents: number;
+        unmatchedStudents: number;
+      };
+      classAssignment: {
+        id: string;
+        subject: string;
+        section: string;
+        ecrLastSyncedAt: string | null;
+        ecrFileName: string | null;
+      };
+    }>("/grades/ecr/preview", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  importEcr: (classAssignmentId: string, file: File, selectedQuarters?: string[]) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('classAssignmentId', classAssignmentId);
+    if (selectedQuarters) {
+      formData.append('selectedQuarters', JSON.stringify(selectedQuarters));
+    }
+    return api.post<{
+      success: boolean;
+      importedGrades: number;
+      skippedStudents: number;
+      quartersImported: string[];
+      ecrLastSyncedAt: string;
+      ecrFileName: string;
+    }>("/grades/ecr/import", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Advisory API
@@ -526,6 +612,192 @@ export const registrarApi = {
 
   getSections: (params?: { schoolYear?: string; gradeLevel?: string }) =>
     api.get<Section[]>("/registrar/sections", { params }),
+};
+
+// ============================================
+// ADMIN API
+// ============================================
+
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalTeachers: number;
+  totalStudents: number;
+  totalAdmins: number;
+  totalRegistrars: number;
+  activeUsers: number;
+  todayLogins: number;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action: "create" | "update" | "delete" | "login" | "logout" | "config";
+  user: string;
+  userRole: string;
+  target: string;
+  targetType: string;
+  details: string;
+  ipAddress?: string;
+  severity: "info" | "warning" | "critical";
+  timestamp: string;
+  date: string;
+  createdAt?: string;
+}
+
+export interface AdminDashboard {
+  stats: AdminDashboardStats;
+  recentLogs: AdminAuditLog[];
+  systemStatus: {
+    database: string;
+    lastBackup: string;
+    uptime: string;
+  };
+  settings?: {
+    schoolName: string;
+    currentSchoolYear: string;
+    currentQuarter: string;
+  };
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: "TEACHER" | "ADMIN" | "REGISTRAR";
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  status: string;
+  lastActive: string;
+  createdAt: string;
+  teacher?: {
+    employeeId: string;
+    specialization?: string;
+  };
+}
+
+export interface AuditLogResponse {
+  logs: AdminAuditLog[];
+  total: number;
+  counts: {
+    total: number;
+    creates: number;
+    updates: number;
+    deletes: number;
+    logins: number;
+    critical: number;
+  };
+}
+
+export interface SystemSettings {
+  id: string;
+  schoolName: string;
+  schoolId: string;
+  division: string;
+  region: string;
+  address?: string;
+  contactNumber?: string;
+  email?: string;
+  currentSchoolYear: string;
+  currentQuarter: string;
+  // Academic calendar dates
+  q1StartDate?: string;
+  q1EndDate?: string;
+  q2StartDate?: string;
+  q2EndDate?: string;
+  q3StartDate?: string;
+  q3EndDate?: string;
+  q4StartDate?: string;
+  q4EndDate?: string;
+  autoAdvanceQuarter?: boolean;
+  // Theming
+  logoUrl?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  sessionTimeout: number;
+  maxLoginAttempts: number;
+  passwordMinLength: number;
+  requireSpecialChar: boolean;
+}
+
+export interface GradingConfig {
+  id: string;
+  subjectType: string;
+  writtenWorkWeight: number;
+  performanceTaskWeight: number;
+  quarterlyAssessWeight: number;
+  isDepEdDefault: boolean;
+}
+
+export const adminApi = {
+  // Dashboard
+  getDashboard: () => api.get<AdminDashboard>("/admin/dashboard"),
+
+  // User Management
+  getUsers: (params?: { search?: string; role?: string; status?: string }) =>
+    api.get<{ users: AdminUser[] }>("/admin/users", { params }),
+
+  createUser: (data: {
+    username: string;
+    password: string;
+    role: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    employeeId?: string;
+    specialization?: string;
+  }) => api.post<{ message: string; user: AdminUser }>("/admin/users", data),
+
+  updateUser: (
+    id: string,
+    data: {
+      username?: string;
+      password?: string;
+      role?: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      employeeId?: string;
+      specialization?: string;
+    }
+  ) => api.put<{ message: string; user: AdminUser }>(`/admin/users/${id}`, data),
+
+  deleteUser: (id: string) => api.delete<{ message: string }>(`/admin/users/${id}`),
+
+  // Audit Logs
+  getLogs: (params?: { action?: string; severity?: string; search?: string; limit?: number; offset?: number }) =>
+    api.get<AuditLogResponse>("/admin/logs", { params }),
+
+  exportLogs: () => api.get("/admin/logs/export", { responseType: "blob" }),
+
+  // System Settings
+  getSettings: () => api.get<{ settings: SystemSettings }>("/admin/settings"),
+
+  updateSettings: (data: Partial<SystemSettings>) =>
+    api.put<{ message: string; settings: SystemSettings }>("/admin/settings", data),
+
+  uploadLogo: (file: File) => {
+    const formData = new FormData();
+    formData.append("logo", file);
+    return api.post<{ message: string; logoUrl: string }>("/admin/settings/logo", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  updateColors: (colors: { primaryColor: string; secondaryColor: string; accentColor: string }) =>
+    api.put<{ message: string; colors: { primaryColor: string; secondaryColor: string; accentColor: string } }>(
+      "/admin/settings/colors",
+      colors
+    ),
+
+  // Grading Config
+  getGradingConfig: () => api.get<{ configs: GradingConfig[] }>("/admin/grading-config"),
+
+  updateGradingConfig: (
+    subjectType: string,
+    data: { writtenWorkWeight: number; performanceTaskWeight: number; quarterlyAssessWeight: number }
+  ) => api.put<{ message: string; config: GradingConfig }>(`/admin/grading-config/${subjectType}`, data),
+
+  resetGradingConfig: () => api.post<{ message: string; configs: GradingConfig[] }>("/admin/grading-config/reset"),
 };
 
 export default api;

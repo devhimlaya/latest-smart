@@ -10,7 +10,9 @@ import {
   Users,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, getAcronym } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
+import { SERVER_URL } from "@/lib/api";
 
 interface UserData {
   id: string;
@@ -32,10 +34,12 @@ export default function TeacherLayout() {
   const location = useLocation();
   const [user, setUser] = useState<UserData | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { colors, logoUrl, schoolName } = useTheme();
+  const acronym = getAcronym(schoolName);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
+    const userData = sessionStorage.getItem("user");
+    const token = sessionStorage.getItem("token");
 
     if (!token || !userData) {
       navigate("/login");
@@ -52,8 +56,8 @@ export default function TeacherLayout() {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     navigate("/login");
   };
 
@@ -100,11 +104,22 @@ export default function TeacherLayout() {
         {/* Logo Header */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-white" />
+            <div 
+              className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+              style={{ backgroundColor: logoUrl ? 'white' : colors.primary, boxShadow: `0 0 0 2px ${colors.primary}40` }}
+            >
+              {logoUrl ? (
+                <img 
+                  src={logoUrl.startsWith("http") ? logoUrl : `${SERVER_URL}${logoUrl}`}
+                  alt="School Logo"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <GraduationCap className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <span className="font-bold text-slate-900 text-lg block">SMART</span>
+              <span className="font-bold text-slate-900 text-lg block">{acronym}</span>
             </div>
           </div>
           <button
@@ -141,12 +156,24 @@ export default function TeacherLayout() {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 no-underline !outline-none",
-                    isActive
-                      ? "bg-emerald-500 text-white shadow-md hover:bg-emerald-600"
-                      : "text-slate-600 hover:bg-emerald-100 hover:text-emerald-700"
-                  )}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 no-underline !outline-none"
+                  style={{
+                    backgroundColor: isActive ? colors.primary : undefined,
+                    color: isActive ? "white" : undefined,
+                    boxShadow: isActive ? "0 4px 6px -1px rgb(0 0 0 / 0.1)" : undefined,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = `${colors.primary}20`;
+                      e.currentTarget.style.color = colors.primary;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = "";
+                      e.currentTarget.style.color = "";
+                    }
+                  }}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5" />

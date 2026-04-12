@@ -1,8 +1,10 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { AuditAction, AuditSeverity } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
+import { createAuditLog } from "../lib/audit";
 
 const router = Router();
 
@@ -10,6 +12,7 @@ const router = Router();
 router.post("/login", async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, password } = req.body;
+    const ipAddress = req.ip || req.socket.remoteAddress;
 
     if (!username || !password) {
       res.status(400).json({ message: "Username and password are required" });
@@ -22,6 +25,16 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     });
 
     if (!user) {
+      // Log failed login attempt (unknown user)
+      await createAuditLog(
+        AuditAction.LOGIN,
+        { id: "unknown", firstName: username, lastName: null, role: "UNKNOWN" },
+        `Login attempt: ${username}`,
+        "Auth",
+        `Failed login attempt for username: ${username} — user not found`,
+        ipAddress,
+        AuditSeverity.WARNING
+      );
       res.status(401).json({ message: "Invalid username or password" });
       return;
     }
@@ -30,6 +43,16 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
+      // Log failed login (wrong password)
+      await createAuditLog(
+        AuditAction.LOGIN,
+        { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role },
+        `Login attempt: ${username}`,
+        "Auth",
+        `Failed login attempt for ${user.firstName || ""} ${user.lastName || ""} (${user.role}) — incorrect password`,
+        ipAddress,
+        AuditSeverity.WARNING
+      );
       res.status(401).json({ message: "Invalid username or password" });
       return;
     }
@@ -43,6 +66,17 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       },
       process.env.JWT_SECRET || "fallback-secret",
       { expiresIn: "24h" }
+    );
+
+    // Log successful login
+    await createAuditLog(
+      AuditAction.LOGIN,
+      { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role },
+      `Login: ${user.username}`,
+      "Auth",
+      `${user.firstName || ""} ${user.lastName || ""} (${user.role}) logged in successfully`,
+      ipAddress,
+      AuditSeverity.INFO
     );
 
     res.json({
@@ -87,9 +121,32 @@ router.get("/me", authenticateToken, async (req: AuthRequest, res: Response): Pr
   }
 });
 
-// Logout (client-side token removal, but we can add token blacklisting later)
-router.post("/logout", authenticateToken, (_req: AuthRequest, res: Response): void => {
-  res.json({ message: "Logged out successfully" });
+// Logout
+router.post("/logout", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    if (req.user) {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, username: true, firstName: true, lastName: true, role: true },
+      });
+      if (user) {
+        await createAuditLog(
+          AuditAction.LOGOUT,
+          { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role },
+          `Logout: ${user.username}`,
+          "Auth",
+          `${user.firstName || ""} ${user.lastName || ""} (${user.role}) logged out`,
+          ipAddress,
+          AuditSeverity.INFO
+        );
+      }
+    }
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.json({ message: "Logged out successfully" });
+  }
 });
 
 export default router;

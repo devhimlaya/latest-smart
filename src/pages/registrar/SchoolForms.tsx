@@ -29,7 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { registrarApi, type Section } from "@/lib/api";
+import { registrarApi, type Section, SERVER_URL } from "@/lib/api";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { HelpTooltip } from "@/components/ui/tooltip";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Student type for the forms page
 interface FormStudent {
@@ -74,7 +77,7 @@ const schoolForms: SchoolForm[] = [
     fullName: "School Form 10 - Learner's Permanent Academic Record",
     description: "Cumulative record of learner's academic history including grades from all school years.",
     icon: FolderOpen,
-    color: "violet",
+    color: "green",
   },
 ];
 
@@ -98,6 +101,8 @@ export default function SchoolForms() {
   const [students, setStudents] = useState<FormStudent[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const { colors: themeColors, schoolName, schoolRegion, schoolDivision, logoUrl } = useTheme();
+  const fullLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${SERVER_URL}${logoUrl}`) : null;
   
   // Form data states
   const [sf8Data, setSf8Data] = useState<any>(null);
@@ -204,7 +209,15 @@ export default function SchoolForms() {
   // Form List View
   if (viewMode === "list") {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-6 animate-fade-in">
+        {/* Breadcrumb */}
+        <Breadcrumb
+          items={[
+            { label: "Dashboard", href: "/registrar" },
+            { label: "School Forms" },
+          ]}
+        />
+        
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -237,7 +250,10 @@ export default function SchoolForms() {
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">School Year</label>
+                <div className="flex items-center gap-1 mb-2">
+                  <label className="block text-sm font-medium text-gray-700">School Year</label>
+                  <HelpTooltip content="Select the school year for which to generate forms" />
+                </div>
                 <Select value={schoolYear} onValueChange={(v: string | null) => v && setSchoolYear(v)}>
                   <SelectTrigger className="rounded-xl">
                     <SelectValue />
@@ -296,26 +312,23 @@ export default function SchoolForms() {
 
         {/* Forms Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {schoolForms.map((form) => {
-            const colorClasses: Record<string, { bg: string; badge: string; icon: string }> = {
-              rose: { bg: "from-rose-50 to-rose-50/50", badge: "bg-rose-100 text-rose-700", icon: "from-rose-500 to-rose-600" },
-              blue: { bg: "from-blue-50 to-blue-50/50", badge: "bg-blue-100 text-blue-700", icon: "from-blue-500 to-blue-600" },
-              violet: { bg: "from-violet-50 to-violet-50/50", badge: "bg-violet-100 text-violet-700", icon: "from-violet-500 to-violet-600" },
-            };
-            const colors = colorClasses[form.color];
+          {schoolForms.map((form, formIndex) => {
+            // Use different opacity shades of the theme primary for each form
+            const opacityLevels = [0.12, 0.18, 0.25];
+            const bgOpacity = opacityLevels[formIndex] || 0.12;
 
             return (
               <Card 
                 key={form.id} 
                 className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden rounded-2xl"
               >
-                <CardHeader className={`border-b border-gray-100 bg-gradient-to-r ${colors.bg} px-6 py-4`}>
+                <CardHeader className="border-b border-gray-100 px-6 py-4" style={{ background: `linear-gradient(to right, ${themeColors.primary}${Math.round(bgOpacity * 255).toString(16).padStart(2, '0')}, transparent)` }}>
                   <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colors.icon} text-white shadow-lg group-hover:scale-110 transition-transform`}>
+                    <div className="p-2.5 rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform" style={{ backgroundColor: themeColors.primary }}>
                       <form.icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <Badge className={`${colors.badge} font-bold text-sm`}>
+                      <Badge className="font-bold text-sm" style={{ backgroundColor: `${themeColors.primary}20`, color: themeColors.primary }}>
                         {form.id}
                       </Badge>
                       <CardTitle className="text-base font-bold text-gray-900 mt-1">{form.name}</CardTitle>
@@ -336,7 +349,8 @@ export default function SchoolForms() {
                         (form.id === "SF8" && !selectedSection) ||
                         ((form.id === "SF9" || form.id === "SF10") && !selectedStudent)
                       }
-                      className="rounded-xl bg-blue-600 hover:bg-blue-700"
+                      className="rounded-xl text-white"
+                      style={{ backgroundColor: themeColors.primary }}
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Form
@@ -354,7 +368,7 @@ export default function SchoolForms() {
             <CardHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
+                  <Users className="w-5 h-5" style={{ color: themeColors.primary }} />
                   Students in Selected Section
                 </CardTitle>
                 <div className="relative w-64">
@@ -396,7 +410,10 @@ export default function SchoolForms() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewSF9(student.id)}
-                            className="h-8 rounded-lg hover:bg-blue-50 hover:text-blue-600"
+                            className="h-8 rounded-lg"
+                            style={{ ['--hover-bg' as any]: `${themeColors.primary}15` }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${themeColors.primary}15`; e.currentTarget.style.color = themeColors.primary; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; }}
                           >
                             SF9
                             <ChevronRight className="w-4 h-4 ml-1" />
@@ -405,7 +422,9 @@ export default function SchoolForms() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewSF10(student.id)}
-                            className="h-8 rounded-lg hover:bg-violet-50 hover:text-violet-600"
+                            className="h-8 rounded-lg"
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${themeColors.primary}15`; e.currentTarget.style.color = themeColors.primary; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; }}
                           >
                             SF10
                             <ChevronRight className="w-4 h-4 ml-1" />
@@ -437,16 +456,16 @@ export default function SchoolForms() {
         <Card className="border-0 shadow-lg rounded-2xl">
           <CardContent className="p-12">
             <div className="text-center">
-              <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <BookOpen className="w-10 h-10 text-rose-500" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${themeColors.primary}15` }}>
+                <BookOpen className="w-10 h-10" style={{ color: themeColors.primary }} />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">SF8 - School Health and Nutrition Form</h2>
               <p className="text-gray-600 mb-6">
                 This form is currently not available. The SF8 health and nutrition records will be implemented in a future update.
               </p>
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-left max-w-md mx-auto">
-                <p className="font-medium text-rose-900 mb-2">What is SF8?</p>
-                <p className="text-rose-700">
+              <div className="rounded-xl p-4 text-sm text-left max-w-md mx-auto border" style={{ backgroundColor: `${themeColors.primary}10`, borderColor: `${themeColors.primary}30` }}>
+                <p className="font-medium mb-2" style={{ color: themeColors.primary }}>What is SF8?</p>
+                <p style={{ color: `${themeColors.primary}bb` }}>
                   SF8 (School Form 8) is the School Health and Nutrition Form that records student health information, 
                   immunizations, medical history, nutritional status, and health-related interventions.
                 </p>
@@ -473,7 +492,7 @@ export default function SchoolForms() {
             Back
           </Button>
           <div className="flex gap-2">
-            <Button onClick={handlePrint} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={handlePrint} className="rounded-xl text-white" style={{ backgroundColor: themeColors.primary }}>
               <Printer className="w-4 h-4 mr-2" />
               Print Form
             </Button>
@@ -491,13 +510,17 @@ export default function SchoolForms() {
               <p className="text-xs text-gray-700 mb-1">SF 9 - JHS</p>
               <h2 className="font-bold text-base text-gray-900">Republic of the Philippines</h2>
               <h3 className="font-bold text-sm text-gray-900">Department of Education</h3>
-              <p className="text-sm text-gray-800 mt-1">Region _____________</p>
-              <p className="text-sm text-gray-800">Division of _____________</p>
+              <p className="text-sm text-gray-800 mt-1">{schoolRegion || "Region _____________"}</p>
+              <p className="text-sm text-gray-800">{schoolDivision ? `Division of ${schoolDivision}` : "Division of _____________"}</p>
               <p className="text-sm text-gray-800 mt-1">District: _____________</p>
-              <p className="text-sm text-gray-800">School: _____________</p>
+              <p className="text-sm text-gray-800">{schoolName ? `School: ${schoolName}` : "School: _____________"}</p>
             </div>
-            <div className="w-20">
-              <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
+            <div className="w-20 flex items-center justify-center">
+              {fullLogoUrl ? (
+                <img src={fullLogoUrl} alt="School Logo" className="w-16 h-16 object-contain" />
+              ) : (
+                <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
+              )}
             </div>
           </div>
 
@@ -732,7 +755,7 @@ export default function SchoolForms() {
             Back
           </Button>
           <div className="flex gap-2">
-            <Button onClick={handlePrint} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={handlePrint} className="rounded-xl text-white" style={{ backgroundColor: themeColors.primary }}>
               <Printer className="w-4 h-4 mr-2" />
               Print Form
             </Button>
@@ -749,9 +772,16 @@ export default function SchoolForms() {
             <div className="flex-1 text-center">
               <h2 className="font-bold text-base text-gray-900">Republic of the Philippines</h2>
               <h3 className="font-bold text-sm text-gray-900">Department of Education</h3>
+              {schoolRegion && <p className="text-sm text-gray-800 mt-1">{schoolRegion}</p>}
+              {schoolDivision && <p className="text-sm text-gray-800">Division of {schoolDivision}</p>}
+              {schoolName && <p className="text-sm text-gray-800">{schoolName}</p>}
             </div>
-            <div className="w-20">
-              <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
+            <div className="w-20 flex items-center justify-center">
+              {fullLogoUrl ? (
+                <img src={fullLogoUrl} alt="School Logo" className="w-16 h-16 object-contain" />
+              ) : (
+                <img src="/DepEd.png" alt="DepEd Seal" className="w-16 h-16 object-contain" />
+              )}
             </div>
           </div>
 
@@ -824,7 +854,7 @@ export default function SchoolForms() {
           {sf10Data.schoolRecords.map((record: any, recordIndex: number) => (
             <div key={recordIndex} className="mb-6 border-2 border-gray-600">
               {/* School Entry Record Header */}
-              <div className="bg-blue-100 p-3 border-b-2 border-gray-600">
+              <div className="p-3 border-b-2 border-gray-600" style={{ backgroundColor: `${themeColors.primary}20` }}>
                 <div className="grid grid-cols-2 gap-8 text-xs">
                   <div>
                     <div className="grid grid-cols-3 gap-2 mb-2">

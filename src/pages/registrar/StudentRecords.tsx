@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Users,
   Search,
@@ -7,6 +7,7 @@ import {
   FileText,
   FolderOpen,
   Loader2,
+  Command,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { registrarApi, type Section } from "@/lib/api";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Tooltip, HelpTooltip } from "@/components/ui/tooltip";
+import { Pagination } from "@/components/ui/pagination";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Extended student type that includes enrollment data
 interface StudentWithEnrollment {
@@ -67,17 +72,6 @@ const gradeLevelLabels: Record<string, string> = {
   "GRADE_10": "Grade 10",
 };
 
-const gradeLevelColors: Record<string, string> = {
-  "7": "bg-blue-100 text-blue-700",
-  "8": "bg-purple-100 text-purple-700",
-  "9": "bg-amber-100 text-amber-700",
-  "10": "bg-emerald-100 text-emerald-700",
-  "GRADE_7": "bg-blue-100 text-blue-700",
-  "GRADE_8": "bg-purple-100 text-purple-700",
-  "GRADE_9": "bg-amber-100 text-amber-700",
-  "GRADE_10": "bg-emerald-100 text-emerald-700",
-};
-
 // Format date helper
 const formatDate = (dateString?: string) => {
   if (!dateString) return "-";
@@ -96,6 +90,7 @@ const formatDate = (dateString?: string) => {
 export default function StudentRecords() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { colors } = useTheme();
   const [students, setStudents] = useState<StudentWithEnrollment[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,6 +104,30 @@ export default function StudentRecords() {
   const [sf9Data, setSf9Data] = useState<any>(null);
   const [sf10Data, setSf10Data] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+  
+  // Search input ref for keyboard shortcut
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Keyboard shortcut for search (Ctrl+K or /)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey && e.key === 'k') || (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName))) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedGradeLevel, selectedSection, selectedSchoolYear]);
 
   // Load data
   useEffect(() => {
@@ -186,6 +205,13 @@ export default function StudentRecords() {
     female: filteredStudents.filter((s) => s.gender === "Female").length,
     sections: new Set(filteredStudents.map((s) => s.sectionId).filter(Boolean)).size,
   };
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const paginatedStudents = filteredStudents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (loading) {
     return (
@@ -211,7 +237,15 @@ export default function StudentRecords() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/registrar" },
+          { label: "Student Records" },
+        ]}
+      />
+      
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
@@ -223,17 +257,22 @@ export default function StudentRecords() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-xl">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+          <Tooltip content="Export student records to CSV or Excel format">
+            <Button variant="outline" className="rounded-xl">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-          <p className="text-sm font-medium text-gray-600">Total Students</p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm font-medium text-gray-600">Total Students</p>
+            <HelpTooltip content="Total number of enrolled students matching current filters" />
+          </div>
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
         </div>
         <div className="p-4 rounded-xl bg-sky-50 border border-sky-100">
@@ -244,7 +283,7 @@ export default function StudentRecords() {
           <p className="text-sm font-medium text-gray-600">Female</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.female}</p>
         </div>
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+        <div className="p-4 rounded-xl border" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}20` }}>
           <p className="text-sm font-medium text-gray-600">Sections</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.sections}</p>
         </div>
@@ -252,10 +291,10 @@ export default function StudentRecords() {
 
       {/* Main Table Card */}
       <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5">
+        <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}08` }}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
+              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
                 <Users className="w-5 h-5" />
               </div>
               <div>
@@ -266,7 +305,7 @@ export default function StudentRecords() {
             
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3">
-              <Select value={selectedSchoolYear} onValueChange={setSelectedSchoolYear}>
+              <Select value={selectedSchoolYear} onValueChange={(val) => val && setSelectedSchoolYear(val)}>
                 <SelectTrigger className="w-36 rounded-xl border-gray-200">
                   <SelectValue />
                 </SelectTrigger>
@@ -278,13 +317,17 @@ export default function StudentRecords() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
+                  ref={searchInputRef}
                   placeholder="Search students..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64 rounded-xl border-gray-200"
+                  className="pl-9 pr-16 w-64 rounded-xl border-gray-200"
                 />
+                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 bg-gray-100 rounded border border-gray-200">
+                  <Command className="w-3 h-3" />K
+                </kbd>
               </div>
-              <Select value={selectedGradeLevel} onValueChange={setSelectedGradeLevel}>
+              <Select value={selectedGradeLevel} onValueChange={(val) => val && setSelectedGradeLevel(val)}>
                 <SelectTrigger className="w-36 rounded-xl border-gray-200">
                   <SelectValue>
                     {selectedGradeLevel === "all" ? "All Grades" : gradeLevelLabels[selectedGradeLevel]}
@@ -298,7 +341,7 @@ export default function StudentRecords() {
                   <SelectItem value="10">Grade 10</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={selectedSection} onValueChange={setSelectedSection}>
+              <Select value={selectedSection} onValueChange={(val) => val && setSelectedSection(val)}>
                 <SelectTrigger className="w-40 rounded-xl border-gray-200">
                   <SelectValue>
                     {selectedSection === "all" ? "All Sections" : sections.find((s) => s.id === selectedSection)?.name}
@@ -308,7 +351,7 @@ export default function StudentRecords() {
                   <SelectItem value="all">All Sections</SelectItem>
                   {sections.map((section) => (
                     <SelectItem key={section.id} value={section.id}>
-                      {section.name} (G{section.gradeLevel})
+                      {section.name} ({section.gradeLevel.replace("GRADE_", "Grade ")})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -322,7 +365,71 @@ export default function StudentRecords() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Mobile Card View */}
+              <div className="block md:hidden p-4 space-y-3">
+                {paginatedStudents.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500 font-medium">No students found</p>
+                    <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+                  </div>
+                ) : (
+                  paginatedStudents.map((student) => {
+                    const normalizedGrade = (student.gradeLevel || "").replace("GRADE_", "");
+                    return (
+                      <div 
+                        key={student.id}
+                        className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                              style={{ backgroundColor: colors.primary }}
+                            >
+                              {student.lastName.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {student.lastName}, {student.firstName}
+                              </p>
+                              <p className="text-xs text-gray-500 font-mono">{student.lrn}</p>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleViewStudent(student)}
+                            className="h-8 rounded-lg"
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}10`; e.currentTarget.style.color = colors.primary; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className={student.gender === "Male" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}>
+                            {student.gender}
+                          </Badge>
+                          <Badge style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
+                            {gradeLevelLabels[student.gradeLevel || ""] || `Grade ${normalizedGrade}`}
+                          </Badge>
+                          <Badge variant="outline" className="text-gray-600">
+                            {student.sectionName || "-"}
+                          </Badge>
+                          <Badge style={student.status === "ENROLLED" ? { backgroundColor: `${colors.primary}15`, color: colors.primary } : undefined} className={student.status !== "ENROLLED" ? "bg-gray-100 text-gray-600" : ""}>
+                            {student.status || "N/A"}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/80">
@@ -336,14 +443,26 @@ export default function StudentRecords() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredStudents.map((student) => {
+                  {paginatedStudents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500 font-medium">No students found</p>
+                        <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                  paginatedStudents.map((student) => {
                     const normalizedGrade = (student.gradeLevel || "").replace("GRADE_", "");
                     return (
-                      <TableRow key={student.id} className="hover:bg-blue-50/30">
+                      <TableRow key={student.id} className="transition-colors" onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}08`} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}>
                         <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+                            <div 
+                              className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-semibold text-sm"
+                              style={{ backgroundColor: colors.primary }}
+                            >
                               {student.lastName.charAt(0)}
                             </div>
                             <div>
@@ -359,13 +478,13 @@ export default function StudentRecords() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={gradeLevelColors[student.gradeLevel || "7"] || gradeLevelColors[normalizedGrade] || "bg-gray-100"}>
+                          <Badge style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
                             {gradeLevelLabels[student.gradeLevel || ""] || `Grade ${normalizedGrade}`}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium text-gray-700">{student.sectionName || "-"}</TableCell>
                         <TableCell>
-                          <Badge className={student.status === "ENROLLED" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}>
+                          <Badge style={student.status === "ENROLLED" ? { backgroundColor: `${colors.primary}15`, color: colors.primary } : undefined} className={student.status !== "ENROLLED" ? "bg-gray-100 text-gray-600" : ""}>
                             {student.status || "N/A"}
                           </Badge>
                         </TableCell>
@@ -375,7 +494,9 @@ export default function StudentRecords() {
                               variant="ghost" 
                               size="sm" 
                               onClick={() => handleViewStudent(student)}
-                              className="h-8 rounded-lg hover:bg-blue-50 hover:text-blue-600"
+                              className="h-8 rounded-lg"
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}10`; e.currentTarget.style.color = colors.primary; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; }}
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
@@ -384,9 +505,24 @@ export default function StudentRecords() {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  })
+                  )}
                 </TableBody>
               </Table>
+              </div>
+            </>
+          )}
+          
+          {/* Pagination */}
+          {!loading && filteredStudents.length > 0 && (
+            <div className="border-t border-gray-100 px-6 py-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredStudents.length}
+                itemsPerPage={itemsPerPage}
+              />
             </div>
           )}
         </CardContent>
@@ -410,18 +546,18 @@ export default function StudentRecords() {
                   <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 sm:mb-2">LRN</p>
                   <p className="font-mono font-bold text-gray-900 text-base sm:text-lg break-all">{selectedStudent.lrn}</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 sm:p-5 md:p-6 rounded-xl border-2 border-purple-200 shadow-sm">
-                  <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1 sm:mb-2">Name</p>
+                <div className="p-4 sm:p-5 md:p-6 rounded-xl border-2 shadow-sm" style={{ backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30` }}>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-1 sm:mb-2" style={{ color: colors.primary }}>Name</p>
                   <p className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
                     {selectedStudent.lastName}, {selectedStudent.firstName} {selectedStudent.middleName || ""}
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-4 sm:p-5 md:p-6 rounded-xl border-2 border-emerald-200 shadow-sm">
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1 sm:mb-2">Gender</p>
+                <div className="p-4 sm:p-5 md:p-6 rounded-xl border-2 shadow-sm" style={{ backgroundColor: `${colors.secondary}08`, borderColor: `${colors.secondary}30` }}>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-1 sm:mb-2" style={{ color: colors.secondary }}>Gender</p>
                   <p className="font-bold text-gray-900 text-base sm:text-lg">{selectedStudent.gender || "-"}</p>
                 </div>
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 p-4 sm:p-5 md:p-6 rounded-xl border-2 border-amber-200 shadow-sm">
-                  <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1 sm:mb-2">Birth Date</p>
+                <div className="p-4 sm:p-5 md:p-6 rounded-xl border-2 shadow-sm" style={{ backgroundColor: `${colors.accent}08`, borderColor: `${colors.accent}30` }}>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-1 sm:mb-2" style={{ color: colors.accent }}>Birth Date</p>
                   <p className="font-bold text-gray-900 text-sm">{formatDate(selectedStudent.birthDate)}</p>
                 </div>
               </div>
@@ -479,12 +615,12 @@ export default function StudentRecords() {
                   {sf10Data && sf10Data.schoolRecords.length > 0 && (
                     <div className="bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-md">
                       <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                        <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-violet-600" />
+                        <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: colors.primary }} />
                         <h3 className="font-bold text-gray-900 text-lg sm:text-xl">Academic History (SF10)</h3>
                       </div>
                       <div className="space-y-4 sm:space-y-5">
                         {sf10Data.schoolRecords.map((record: any) => (
-                          <div key={record.schoolYear} className="bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-2 border-violet-200 rounded-xl p-4 sm:p-6 shadow-sm">
+                          <div key={record.schoolYear} className="border-2 rounded-xl p-4 sm:p-6 shadow-sm" style={{ backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30` }}>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 sm:gap-3">
                               <h4 className="font-bold text-gray-900 text-base sm:text-lg">S.Y. {record.schoolYear} - Grade {record.gradeLevel.replace('GRADE_', '')}</h4>
                               <Badge variant="outline" className="bg-white text-sm sm:text-base py-1 px-3 sm:py-2 sm:px-4 w-fit">{record.section}</Badge>

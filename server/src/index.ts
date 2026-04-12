@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth";
 import gradesRoutes from "./routes/grades";
 import advisoryRoutes from "./routes/advisory";
 import registrarRoutes from "./routes/registrar";
+import adminRoutes from "./routes/admin";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,11 +22,15 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/grades", gradesRoutes);
 app.use("/api/advisory", advisoryRoutes);
 app.use("/api/registrar", registrarRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

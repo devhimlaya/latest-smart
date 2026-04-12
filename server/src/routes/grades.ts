@@ -1,8 +1,32 @@
 import { Router, Response } from "express";
+import { AuditAction, AuditSeverity, Quarter } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { authenticateToken, AuthRequest, authorizeRoles } from "../middleware/auth";
+import { createAuditLog } from "../lib/audit";
+import multer from "multer";
+import * as XLSX from "xlsx";
 
 const router = Router();
+
+// Configure multer for ECR file uploads (in-memory storage)
+const ecrUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (_req, file, cb) => {
+    // Accept only Excel files
+    const validMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    const validExts = ['.xlsx', '.xls'];
+    const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+    if (validMimes.includes(file.mimetype) || validExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+    }
+  },
+});
 
 // Types for enrolled student with relations
 interface EnrollmentWithStudent {
@@ -214,6 +238,9 @@ router.post(
           classAssignment.subject.quarterlyAssessWeight
         );
 
+      // Check before upsert to determine create vs update
+      const existingGrade = await prisma.grade.findFirst({ where: { studentId, classAssignmentId, quarter } });
+
       // Upsert grade
       const grade = await prisma.grade.upsert({
         where: {
@@ -250,6 +277,23 @@ router.post(
         },
       });
 
+      // Fetch student and teacher names for audit log
+      const student = await prisma.student.findUnique({ where: { id: studentId }, select: { firstName: true, lastName: true } });
+      const teacherUser = await prisma.user.findUnique({ where: { id: req.user?.id }, select: { id: true, firstName: true, lastName: true, role: true } });
+      const isNew = !existingGrade;
+      if (teacherUser) {
+        await createAuditLog(
+          isNew ? AuditAction.CREATE : AuditAction.UPDATE,
+          { id: teacherUser.id, firstName: teacherUser.firstName, lastName: teacherUser.lastName, role: teacherUser.role },
+          `Grade: ${student?.firstName || ""} ${student?.lastName || ""} — ${classAssignment.subject.name} (${quarter})`,
+          "Grades",
+          `${isNew ? "Recorded" : "Updated"} grade for ${student?.firstName || ""} ${student?.lastName || ""} in ${classAssignment.subject.name} (${quarter}): ${quarterlyGrade}`,
+          req.ip || req.socket?.remoteAddress,
+          AuditSeverity.INFO,
+          grade.id
+        );
+      }
+
       res.json(grade);
     } catch (error) {
       console.error("Error saving grade:", error);
@@ -276,13 +320,14 @@ router.delete(
         return;
       }
 
-      // Verify ownership through class assignment
+      // Verify ownership through class assignment and fetch audit details in one query
       const grade = await prisma.grade.findUnique({
         where: { id: gradeId },
         include: {
-          classAssignment: true,
+          classAssignment: { include: { subject: { select: { name: true } } } },
+          student: { select: { firstName: true, lastName: true } },
         },
-      }) as { id: string; classAssignment: { teacherId: string } } | null;
+      });
 
       if (!grade || grade.classAssignment.teacherId !== teacher.id) {
         res.status(403).json({ message: "Not authorized" });
@@ -292,6 +337,20 @@ router.delete(
       await prisma.grade.delete({
         where: { id: gradeId },
       });
+
+      const teacherUser = await prisma.user.findUnique({ where: { id: req.user?.id }, select: { id: true, firstName: true, lastName: true, role: true } });
+      if (teacherUser) {
+        await createAuditLog(
+          AuditAction.DELETE,
+          { id: teacherUser.id, firstName: teacherUser.firstName, lastName: teacherUser.lastName, role: teacherUser.role },
+          `Grade deleted: ${grade.student.firstName} ${grade.student.lastName} — ${grade.classAssignment.subject.name}`,
+          "Grades",
+          `Deleted grade for ${grade.student.firstName} ${grade.student.lastName} in ${grade.classAssignment.subject.name} (${grade.quarter})`,
+          req.ip || req.socket?.remoteAddress,
+          AuditSeverity.WARNING,
+          gradeId
+        );
+      }
 
       res.json({ message: "Grade deleted successfully" });
     } catch (error) {
@@ -690,6 +749,638 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching mastery distribution:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
+);
+
+// ====================
+// ECR (E-Class Record) Import
+// ====================
+
+interface ECRStudentData {
+  name: string;
+  writtenWorkScores: number[];
+  writtenWorkTotal: number;
+  writtenWorkPS: number;
+  perfTaskScores: number[];
+  perfTaskTotal: number;
+  perfTaskPS: number;
+  quarterlyAssessScore: number;
+  quarterlyAssessPS: number;
+  initialGrade: number;
+  quarterlyGrade: number;
+}
+
+interface ECRQuarterData {
+  quarter: string;
+  students: ECRStudentData[];
+  maxScores: {
+    writtenWork: number[];
+    perfTask: number[];
+    quarterlyAssess: number;
+  };
+}
+
+// Parse ECR Excel file and extract student grades
+function parseECRFile(buffer: Buffer): { quarters: ECRQuarterData[]; metadata: any } {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const quarters: ECRQuarterData[] = [];
+  let metadata: any = {};
+
+  // Map sheet names to quarters
+  const quarterSheetMap: Record<string, string> = {};
+  workbook.SheetNames.forEach(name => {
+    const upperName = name.toUpperCase();
+    if (upperName.includes('Q1') || upperName.includes('_Q1')) quarterSheetMap.Q1 = name;
+    else if (upperName.includes('Q2') || upperName.includes('_Q2')) quarterSheetMap.Q2 = name;
+    else if (upperName.includes('Q3') || upperName.includes('_Q3')) quarterSheetMap.Q3 = name;
+    else if (upperName.includes('Q4') || upperName.includes('_Q4')) quarterSheetMap.Q4 = name;
+  });
+
+  // Process each quarter sheet
+  for (const [quarter, sheetName] of Object.entries(quarterSheetMap)) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+
+    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
+    
+    // Extract metadata from early rows (typically row 7)
+    if (data[6]) {
+      const row7 = data[6];
+      metadata = {
+        ...metadata,
+        gradeSection: row7[2] || '',
+        teacher: row7[3] || '',
+        subject: row7[4] || '',
+      };
+    }
+
+    // Row 10 (index 9) contains highest possible scores
+    const maxScoreRow = data[9] || [];
+    const maxScores = {
+      writtenWork: [] as number[],
+      perfTask: [] as number[],
+      quarterlyAssess: 100,
+    };
+
+    // Extract max scores for WW (columns 5-14) and PT (columns 18-27)
+    for (let i = 5; i <= 14; i++) {
+      const val = Number(maxScoreRow[i]) || 0;
+      if (val > 0) maxScores.writtenWork.push(val);
+    }
+    for (let i = 18; i <= 27; i++) {
+      const val = Number(maxScoreRow[i]) || 0;
+      if (val > 0) maxScores.perfTask.push(val);
+    }
+
+    // Find MALE and FEMALE section markers (can be in column A or B depending on ECR format)
+    let maleStart = -1;
+    let femaleStart = -1;
+    let dataEnd = data.length;
+
+    for (let i = 0; i < data.length; i++) {
+      const colA = String(data[i][0] || '').toUpperCase().trim();
+      const colB = String(data[i][1] || '').toUpperCase().trim();
+      // Check both column A and B for MALE/FEMALE markers
+      if (colA === 'MALE' || colA === 'MALE ' || colB === 'MALE' || colB === 'MALE ') maleStart = i;
+      if (colA === 'FEMALE' || colA === 'FEMALE ' || colB === 'FEMALE' || colB === 'FEMALE ') femaleStart = i;
+      // Stop at empty sections or summary markers
+      if (maleStart > 0 && (colA.includes('SUMMARY') || colA.includes('AVERAGE') || colB.includes('SUMMARY') || colB.includes('AVERAGE'))) {
+        dataEnd = i;
+        break;
+      }
+    }
+
+    const students: ECRStudentData[] = [];
+
+    // Process student rows (after MALE header, and after FEMALE header)
+    const processStudentRows = (startRow: number, endRow: number) => {
+      for (let i = startRow + 1; i < endRow; i++) {
+        const row = data[i];
+        if (!row) continue;
+
+        // Column A is row number (can be string or number), Column B is student name
+        const rowNum = row[0];
+        const name = String(row[1] || '').trim();
+
+        // Skip empty rows or non-student rows (headers, totals, etc.)
+        if (!name || name === '') continue;
+        // Check if rowNum is a valid number (as string or number)
+        const rowNumParsed = typeof rowNum === 'number' ? rowNum : parseInt(String(rowNum), 10);
+        if (isNaN(rowNumParsed)) continue;
+        if (name.toUpperCase().includes('FEMALE') || name.toUpperCase().includes('MALE')) continue;
+        if (name.toUpperCase().includes('TOTAL') || name.toUpperCase().includes('AVERAGE')) continue;
+        if (name.toUpperCase().includes('HIGHEST')) continue;
+
+        // Extract Written Work scores (columns 5-14, 10 items max)
+        const wwScores: number[] = [];
+        for (let c = 5; c <= 14; c++) {
+          const val = Number(row[c]);
+          if (!isNaN(val) && maxScores.writtenWork[c - 5] !== undefined) {
+            wwScores.push(val);
+          }
+        }
+
+        // Extract Performance Task scores (columns 18-27, 10 items max)
+        const ptScores: number[] = [];
+        for (let c = 18; c <= 27; c++) {
+          const val = Number(row[c]);
+          if (!isNaN(val) && maxScores.perfTask[c - 18] !== undefined) {
+            ptScores.push(val);
+          }
+        }
+
+        // Extract totals, PS, and grades
+        const wwTotal = Number(row[15]) || 0;
+        const wwPS = Number(row[16]) || 0;
+        const ptTotal = Number(row[28]) || 0;
+        const ptPS = Number(row[29]) || 0;
+        const qaScore = Number(row[31]) || 0;
+        const qaPS = Number(row[32]) || 0;
+        const initialGrade = Number(row[34]) || 0;
+        const quarterlyGrade = Number(row[35]) || 0;
+
+        // Only add if student has any data
+        if (wwScores.length > 0 || ptScores.length > 0 || qaScore > 0 || quarterlyGrade > 0) {
+          students.push({
+            name,
+            writtenWorkScores: wwScores,
+            writtenWorkTotal: wwTotal,
+            writtenWorkPS: wwPS,
+            perfTaskScores: ptScores,
+            perfTaskTotal: ptTotal,
+            perfTaskPS: ptPS,
+            quarterlyAssessScore: qaScore,
+            quarterlyAssessPS: qaPS,
+            initialGrade,
+            quarterlyGrade,
+          });
+        }
+      }
+    };
+
+    // Process male students
+    if (maleStart > 0 && femaleStart > maleStart) {
+      processStudentRows(maleStart, femaleStart);
+    } else if (maleStart > 0) {
+      processStudentRows(maleStart, dataEnd);
+    }
+
+    // Process female students
+    if (femaleStart > 0) {
+      processStudentRows(femaleStart, dataEnd);
+    }
+
+    if (students.length > 0) {
+      quarters.push({ quarter, students, maxScores });
+    }
+  }
+
+  return { quarters, metadata };
+}
+
+// Normalize name for matching (remove extra spaces, convert to uppercase)
+function normalizeName(name: string): string {
+  return name
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/,\s*/g, ', '); // Standardize comma spacing
+}
+
+// Strip name extensions (Jr., Sr., II, III, IV, V) from both sides for flexible matching
+function stripExtensions(name: string): string {
+  return name
+    .replace(/\b(JR\.?|SR\.?|II|III|IV|V)\b/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .replace(/,\s*$/, '')
+    .trim();
+}
+
+// Match ECR student name to database student
+// Handles: double first names (e.g. "Mary Grace"), extensions (Jr./Sr./III),
+// and flexible prefix matching for compound first names in ECR.
+function matchStudent(
+  ecrName: string,
+  dbStudents: Array<{ id: string; firstName: string; middleName?: string | null; lastName: string; suffix?: string | null }>
+): { id: string } | null {
+  const normalizedEcr = normalizeName(ecrName);
+  const strippedEcr = stripExtensions(normalizedEcr);
+
+  for (const student of dbStudents) {
+    const { firstName, lastName, middleName, suffix } = student;
+
+    // Build various name formats to match
+    const formats = [
+      // LASTNAME, FIRSTNAME MIDDLENAME
+      `${lastName}, ${firstName}${middleName ? ' ' + middleName : ''}`,
+      // LASTNAME, FIRSTNAME M.  (middle initial only)
+      `${lastName}, ${firstName}${middleName ? ' ' + middleName.charAt(0) + '.' : ''}`,
+      // LASTNAME, FIRSTNAME
+      `${lastName}, ${firstName}`,
+      // FIRSTNAME MIDDLENAME LASTNAME
+      `${firstName}${middleName ? ' ' + middleName : ''} ${lastName}`,
+      // FIRSTNAME LASTNAME
+      `${firstName} ${lastName}`,
+    ];
+
+    // Add suffix (Jr./Sr./etc.) variations
+    if (suffix) {
+      formats.push(`${lastName} ${suffix}, ${firstName}`);
+      formats.push(`${lastName}, ${firstName} ${suffix}`);
+      formats.push(`${lastName}, ${firstName}${middleName ? ' ' + middleName : ''} ${suffix}`);
+      formats.push(`${lastName}, ${firstName}${middleName ? ' ' + middleName.charAt(0) + '.' : ''} ${suffix}`);
+    }
+
+    // 1. Exact match
+    for (const fmt of formats) {
+      if (normalizeName(fmt) === normalizedEcr) return { id: student.id };
+    }
+
+    // 2. Extension-stripped match (handles Jr./Sr./II/III in ECR without suffix in DB, or vice versa)
+    for (const fmt of formats) {
+      if (stripExtensions(normalizeName(fmt)) === strippedEcr) return { id: student.id };
+    }
+
+    // 3. Double-first-name: DB has compound first name (e.g. "Mary Grace"),
+    //    try also matching against just the first word
+    const firstWordOfDbFirst = firstName.split(' ')[0];
+    if (firstWordOfDbFirst !== firstName) {
+      const shortFormats = [
+        `${lastName}, ${firstWordOfDbFirst}${middleName ? ' ' + middleName : ''}`,
+        `${lastName}, ${firstWordOfDbFirst}${middleName ? ' ' + middleName.charAt(0) + '.' : ''}`,
+        `${lastName}, ${firstWordOfDbFirst}`,
+      ];
+      for (const fmt of shortFormats) {
+        if (normalizeName(fmt) === normalizedEcr) return { id: student.id };
+        if (stripExtensions(normalizeName(fmt)) === strippedEcr) return { id: student.id };
+      }
+    }
+
+    // 4. Prefix match: ECR may combine first+second name as one token
+    //    e.g. ECR "PIATOS, MARY GRACE O." vs DB firstName="Mary", middleName=null
+    //    Check if ECR last name matches and ECR's first-name token STARTS WITH DB firstName
+    const commaIdx = strippedEcr.indexOf(',');
+    if (commaIdx > 0) {
+      const ecrLastNamePart = strippedEcr.substring(0, commaIdx).trim();
+      const ecrFirstPart = strippedEcr.substring(commaIdx + 1).trim().split(' ');
+      const dbLastNorm = normalizeName(lastName);
+      const dbFirstNorm = normalizeName(firstName);
+
+      if (ecrLastNamePart === dbLastNorm && ecrFirstPart.length > 0) {
+        // ECR first token starts with DB first name
+        if (ecrFirstPart[0] === dbFirstNorm) return { id: student.id };
+        // ECR first two tokens together equal DB first name (e.g. DB="Mary Grace", ECR tokens=["MARY","GRACE"])
+        if (ecrFirstPart.length > 1 && `${ecrFirstPart[0]} ${ecrFirstPart[1]}` === dbFirstNorm) return { id: student.id };
+      }
+    }
+  }
+
+  return null;
+}
+
+// Preview ECR import (returns parsed data without saving)
+router.post(
+  "/ecr/preview",
+  authenticateToken,
+  authorizeRoles("TEACHER"),
+  ecrUpload.single('file'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ message: "No file uploaded" });
+        return;
+      }
+
+      const classAssignmentId = req.body.classAssignmentId;
+      if (!classAssignmentId) {
+        res.status(400).json({ message: "Class assignment ID required" });
+        return;
+      }
+
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: req.user?.id },
+      });
+
+      if (!teacher) {
+        res.status(404).json({ message: "Teacher profile not found" });
+        return;
+      }
+
+      // Verify teacher owns this class assignment
+      const classAssignment = await prisma.classAssignment.findFirst({
+        where: { id: classAssignmentId, teacherId: teacher.id },
+        include: {
+          subject: true,
+          section: {
+            include: {
+              enrollments: {
+                include: { student: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!classAssignment) {
+        res.status(403).json({ message: "Not authorized for this class" });
+        return;
+      }
+
+      // Parse ECR file
+      const { quarters, metadata } = parseECRFile(req.file.buffer);
+
+      if (quarters.length === 0) {
+        res.status(400).json({ message: "No valid quarter data found in ECR file" });
+        return;
+      }
+
+      // Get enrolled students for matching
+      const enrolledStudents = classAssignment.section.enrollments.map(e => e.student);
+
+      // Match ECR students to database students
+      const matchResults = quarters.map(q => ({
+        quarter: q.quarter,
+        maxScores: q.maxScores,
+        students: q.students.map(ecrStudent => {
+          const match = matchStudent(ecrStudent.name, enrolledStudents);
+          return {
+            ...ecrStudent,
+            matchedStudentId: match?.id || null,
+            matchedStudent: match ? enrolledStudents.find(s => s.id === match.id) : null,
+          };
+        }),
+      }));
+
+      // Calculate match statistics (deduplicate by name across quarters)
+      const allNames = new Set<string>();
+      const matchedNames = new Set<string>();
+      matchResults.forEach(q => {
+        q.students.forEach(s => {
+          allNames.add(s.name);
+          if (s.matchedStudentId) matchedNames.add(s.name);
+        });
+      });
+      const totalStudents = allNames.size;
+      const matchedStudents = matchedNames.size;
+
+      res.json({
+        fileName: req.file.originalname,
+        metadata,
+        quarters: matchResults,
+        stats: {
+          totalStudents,
+          matchedStudents,
+          unmatchedStudents: totalStudents - matchedStudents,
+        },
+        classAssignment: {
+          id: classAssignment.id,
+          subject: classAssignment.subject.name,
+          section: classAssignment.section.name,
+          ecrLastSyncedAt: classAssignment.ecrLastSyncedAt,
+          ecrFileName: classAssignment.ecrFileName,
+        },
+      });
+    } catch (error) {
+      console.error("Error previewing ECR:", error);
+      res.status(500).json({ message: "Failed to parse ECR file" });
+    }
+  }
+);
+
+// Import ECR grades (after preview confirmation)
+router.post(
+  "/ecr/import",
+  authenticateToken,
+  authorizeRoles("TEACHER"),
+  ecrUpload.single('file'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ message: "No file uploaded" });
+        return;
+      }
+
+      const { classAssignmentId, selectedQuarters } = req.body;
+      const quartersToImport = selectedQuarters ? JSON.parse(selectedQuarters) : ['Q1', 'Q2', 'Q3', 'Q4'];
+
+      if (!classAssignmentId) {
+        res.status(400).json({ message: "Class assignment ID required" });
+        return;
+      }
+
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: req.user?.id },
+      });
+
+      if (!teacher) {
+        res.status(404).json({ message: "Teacher profile not found" });
+        return;
+      }
+
+      // Verify teacher owns this class assignment
+      const classAssignment = await prisma.classAssignment.findFirst({
+        where: { id: classAssignmentId, teacherId: teacher.id },
+        include: {
+          subject: true,
+          section: {
+            include: {
+              enrollments: {
+                include: { student: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!classAssignment) {
+        res.status(403).json({ message: "Not authorized for this class" });
+        return;
+      }
+
+      // Parse ECR file
+      const { quarters } = parseECRFile(req.file.buffer);
+
+      if (quarters.length === 0) {
+        res.status(400).json({ message: "No valid quarter data found in ECR file" });
+        return;
+      }
+
+      const enrolledStudents = classAssignment.section.enrollments.map(e => e.student);
+      const weights = {
+        ww: classAssignment.subject.writtenWorkWeight,
+        pt: classAssignment.subject.perfTaskWeight,
+        qa: classAssignment.subject.quarterlyAssessWeight,
+      };
+
+      let importedGrades = 0;
+      let skippedStudents = 0;
+
+      // Process each quarter
+      for (const quarterData of quarters) {
+        if (!quartersToImport.includes(quarterData.quarter)) continue;
+
+        for (const ecrStudent of quarterData.students) {
+          const match = matchStudent(ecrStudent.name, enrolledStudents);
+          
+          if (!match) {
+            skippedStudents++;
+            continue;
+          }
+
+          // Build score items array from ECR data
+          const writtenWorkScores = ecrStudent.writtenWorkScores.map((score, idx) => ({
+            name: `WW ${idx + 1}`,
+            score,
+            maxScore: quarterData.maxScores.writtenWork[idx] || 100,
+          }));
+
+          const perfTaskScores = ecrStudent.perfTaskScores.map((score, idx) => ({
+            name: `PT ${idx + 1}`,
+            score,
+            maxScore: quarterData.maxScores.perfTask[idx] || 100,
+          }));
+
+          // Calculate PS (percentage scores) using existing function, but use ECR's final grades
+          const calculated = calculateGrades(
+            writtenWorkScores,
+            perfTaskScores,
+            ecrStudent.quarterlyAssessScore,
+            quarterData.maxScores.quarterlyAssess,
+            weights.ww,
+            weights.pt,
+            weights.qa
+          );
+
+          // IMPORTANT: Use ECR's official grades (which include transmutation, conduct, etc.)
+          // Only use calculated PS values for display purposes
+          const finalInitialGrade = ecrStudent.initialGrade || calculated.initialGrade;
+          const finalQuarterlyGrade = ecrStudent.quarterlyGrade || calculated.quarterlyGrade;
+
+          // Upsert grade
+          await prisma.grade.upsert({
+            where: {
+              studentId_classAssignmentId_quarter: {
+                studentId: match.id,
+                classAssignmentId,
+                quarter: quarterData.quarter as Quarter,
+              },
+            },
+            update: {
+              writtenWorkScores,
+              perfTaskScores,
+              quarterlyAssessScore: ecrStudent.quarterlyAssessScore,
+              quarterlyAssessMax: quarterData.maxScores.quarterlyAssess,
+              writtenWorkPS: ecrStudent.writtenWorkPS || calculated.writtenWorkPS,
+              perfTaskPS: ecrStudent.perfTaskPS || calculated.perfTaskPS,
+              quarterlyAssessPS: ecrStudent.quarterlyAssessPS || calculated.quarterlyAssessPS,
+              initialGrade: finalInitialGrade,
+              quarterlyGrade: finalQuarterlyGrade,
+            },
+            create: {
+              studentId: match.id,
+              classAssignmentId,
+              quarter: quarterData.quarter as Quarter,
+              writtenWorkScores,
+              perfTaskScores,
+              quarterlyAssessScore: ecrStudent.quarterlyAssessScore,
+              quarterlyAssessMax: quarterData.maxScores.quarterlyAssess,
+              writtenWorkPS: ecrStudent.writtenWorkPS || calculated.writtenWorkPS,
+              perfTaskPS: ecrStudent.perfTaskPS || calculated.perfTaskPS,
+              quarterlyAssessPS: ecrStudent.quarterlyAssessPS || calculated.quarterlyAssessPS,
+              initialGrade: finalInitialGrade,
+              quarterlyGrade: finalQuarterlyGrade,
+            },
+          });
+
+          importedGrades++;
+        }
+      }
+
+      // Update class assignment with ECR sync info
+      await prisma.classAssignment.update({
+        where: { id: classAssignmentId },
+        data: {
+          ecrLastSyncedAt: new Date(),
+          ecrFileName: req.file.originalname,
+        },
+      });
+
+      // Create audit log
+      const teacherUser = await prisma.user.findUnique({
+        where: { id: req.user?.id },
+        select: { id: true, firstName: true, lastName: true, role: true },
+      });
+
+      if (teacherUser) {
+        await createAuditLog(
+          AuditAction.UPDATE,
+          teacherUser,
+          `ECR Import: ${classAssignment.subject.name} - ${classAssignment.section.name}`,
+          "Grades",
+          `Imported ${importedGrades} grades from ECR file "${req.file.originalname}" for quarters: ${quartersToImport.join(', ')}. ${skippedStudents} students unmatched.`,
+          req.ip || req.socket?.remoteAddress,
+          AuditSeverity.INFO,
+          classAssignmentId
+        );
+      }
+
+      res.json({
+        success: true,
+        importedGrades,
+        skippedStudents,
+        quartersImported: quarters.map(q => q.quarter).filter(q => quartersToImport.includes(q)),
+        ecrLastSyncedAt: new Date().toISOString(),
+        ecrFileName: req.file.originalname,
+      });
+    } catch (error) {
+      console.error("Error importing ECR:", error);
+      res.status(500).json({ message: "Failed to import ECR file" });
+    }
+  }
+);
+
+// Get ECR sync status for a class assignment
+router.get(
+  "/ecr/status/:classAssignmentId",
+  authenticateToken,
+  authorizeRoles("TEACHER"),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const classAssignmentId = req.params.classAssignmentId as string;
+
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: req.user?.id },
+      });
+
+      if (!teacher) {
+        res.status(404).json({ message: "Teacher profile not found" });
+        return;
+      }
+
+      const classAssignment = await prisma.classAssignment.findFirst({
+        where: { id: classAssignmentId, teacherId: teacher.id },
+        select: {
+          id: true,
+          ecrLastSyncedAt: true,
+          ecrFileName: true,
+        },
+      });
+
+      if (!classAssignment) {
+        res.status(404).json({ message: "Class assignment not found" });
+        return;
+      }
+
+      res.json({
+        hasSynced: !!classAssignment.ecrLastSyncedAt,
+        ecrLastSyncedAt: classAssignment.ecrLastSyncedAt,
+        ecrFileName: classAssignment.ecrFileName,
+      });
+    } catch (error) {
+      console.error("Error fetching ECR status:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   }
