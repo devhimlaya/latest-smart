@@ -513,7 +513,11 @@ router.get("/forms/sf10/:studentId", authenticateToken, async (req: AuthRequest,
           finalGrade: null
         };
       }
-      academicHistory[sy].subjects[subjectId][grade.quarter] = grade.quarterlyGrade;
+      // Store quarterly grade
+      if (grade.quarter === 'Q1') academicHistory[sy].subjects[subjectId].Q1 = grade.quarterlyGrade;
+      if (grade.quarter === 'Q2') academicHistory[sy].subjects[subjectId].Q2 = grade.quarterlyGrade;
+      if (grade.quarter === 'Q3') academicHistory[sy].subjects[subjectId].Q3 = grade.quarterlyGrade;
+      if (grade.quarter === 'Q4') academicHistory[sy].subjects[subjectId].Q4 = grade.quarterlyGrade;
     });
 
     // Calculate final grades for each school year
@@ -526,6 +530,10 @@ router.get("/forms/sf10/:studentId", authenticateToken, async (req: AuthRequest,
         return {
           subjectCode: subject.subjectCode,
           subjectName: subject.subjectName,
+          Q1: subject.Q1,
+          Q2: subject.Q2,
+          Q3: subject.Q3,
+          Q4: subject.Q4,
           final: finalGrade,
           remarks: finalGrade ? (finalGrade >= 75 ? "Passed" : "Failed") : null
         };

@@ -176,7 +176,7 @@ export default function RegistrarDashboard() {
         ].map((stat) => (
           <Card 
             key={stat.label} 
-            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden"
+            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden p-0"
           >
             <CardContent className="p-6 h-full flex flex-col">
               <div className="flex items-start justify-between flex-1">
@@ -208,7 +208,7 @@ export default function RegistrarDashboard() {
       {/* Statistics Graphs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Enrollment by Grade Level Chart */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
           <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}08` }}>
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
@@ -265,7 +265,7 @@ export default function RegistrarDashboard() {
         </Card>
 
         {/* Gender Distribution Chart */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
           <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.secondary}08` }}>
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.secondary }}>
@@ -320,7 +320,7 @@ export default function RegistrarDashboard() {
       </div>
 
       {/* School Forms Quick Access */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
         <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}08` }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -376,7 +376,7 @@ export default function RegistrarDashboard() {
 
       {/* Section Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
           <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -413,7 +413,7 @@ export default function RegistrarDashboard() {
         </Card>
 
         {/* Sections List */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
           <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -467,7 +467,7 @@ export default function RegistrarDashboard() {
       </div>
 
       {/* Recent Activities */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
         <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.accent}10` }}>
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.accent }}>

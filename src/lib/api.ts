@@ -581,6 +581,10 @@ export interface SF10Data {
     subjectGrades: {
       subjectCode: string;
       subjectName: string;
+      Q1?: number;
+      Q2?: number;
+      Q3?: number;
+      Q4?: number;
       final?: number;
       remarks?: string;
     }[];

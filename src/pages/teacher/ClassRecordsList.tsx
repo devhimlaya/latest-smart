@@ -109,7 +109,7 @@ export default function ClassRecordsList() {
       </div>
 
       {/* Search and filters - Modern Glass Card */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden p-0">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1 group">
@@ -215,7 +215,7 @@ export default function ClassRecordsList() {
 
       {/* Class List - List View */}
       {viewMode === "list" && (
-        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
           <div className="divide-y divide-gray-100">
             {filteredClasses.map((assignment, index) => (
               <Link 
@@ -272,7 +272,7 @@ export default function ClassRecordsList() {
       )}
 
       {filteredClasses.length === 0 && (
-        <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl p-0">
           <CardContent className="py-20 text-center">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-100 flex items-center justify-center">
               <BookOpen className="w-10 h-10 text-gray-300" />

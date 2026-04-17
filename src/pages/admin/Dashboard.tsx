@@ -185,7 +185,7 @@ export default function AdminDashboard() {
 
       {/* System Status Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white">
+        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white p-0">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white">
+        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white p-0">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white">
+        <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-xl bg-white p-0">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
-        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white overflow-hidden">
+        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white overflow-hidden p-0">
           <CardHeader className="border-b border-gray-100 px-6 py-4" style={{ backgroundColor: `${colors.primary}08` }}>
             <div className="flex items-center justify-between">
               <div>
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
+        <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white p-0">
           <CardHeader className="border-b border-gray-100 px-6 py-4">
             <CardTitle className="text-lg" style={{ color: '#111827' }}>Quick Actions</CardTitle>
             <CardDescription>Common administrative tasks</CardDescription>
@@ -330,7 +330,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* User Distribution */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white" style={{ backgroundColor: colors.primary }}>
+      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white p-0" style={{ backgroundColor: colors.primary }}>
         <CardContent className="p-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>

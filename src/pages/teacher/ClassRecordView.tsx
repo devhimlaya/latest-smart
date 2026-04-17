@@ -523,7 +523,7 @@ export default function ClassRecordView() {
 
   if (!classAssignment) {
     return (
-      <Card className="max-w-lg mx-auto mt-16 border-none shadow-2xl rounded-3xl overflow-hidden">
+      <Card className="max-w-lg mx-auto mt-16 border-none shadow-2xl rounded-3xl overflow-hidden p-0">
         <CardContent className="flex flex-col items-center py-16 px-8">
           <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-rose-100 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
             <AlertCircle className="w-10 h-10 text-red-500" />

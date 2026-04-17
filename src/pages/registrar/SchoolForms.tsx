@@ -246,7 +246,7 @@ export default function SchoolForms() {
         )}
 
         {/* Filters */}
-        <Card className="border-0 shadow-lg rounded-2xl">
+        <Card className="border-0 shadow-lg rounded-2xl p-0">
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -320,7 +320,7 @@ export default function SchoolForms() {
             return (
               <Card 
                 key={form.id} 
-                className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden rounded-2xl"
+                className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden rounded-2xl p-0"
               >
                 <CardHeader className="border-b border-gray-100 px-6 py-4" style={{ background: `linear-gradient(to right, ${themeColors.primary}${Math.round(bgOpacity * 255).toString(16).padStart(2, '0')}, transparent)` }}>
                   <div className="flex items-center gap-3">
@@ -364,7 +364,7 @@ export default function SchoolForms() {
 
         {/* Student List for Quick Access */}
         {selectedSection && students.length > 0 && (
-          <Card className="border-0 shadow-lg rounded-2xl">
+          <Card className="border-0 shadow-lg rounded-2xl p-0">
             <CardHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -453,7 +453,7 @@ export default function SchoolForms() {
           </Button>
         </div>
 
-        <Card className="border-0 shadow-lg rounded-2xl">
+        <Card className="border-0 shadow-lg rounded-2xl p-0">
           <CardContent className="p-12">
             <div className="text-center">
               <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${themeColors.primary}15` }}>
@@ -787,57 +787,53 @@ export default function SchoolForms() {
 
           {/* Title */}
           <div className="text-center mb-4">
-            <h1 className="text-xl font-bold text-gray-900">Learner Permanent Record for Junior High School (SF10-JHS)</h1>
+            <h1 className="text-lg font-bold text-gray-900 uppercase">Learner's Permanent Academic Record for Junior High School</h1>
             <p className="text-xs text-gray-700 mt-1">(Formerly Form 137)</p>
           </div>
 
           {/* Student's Personal Information */}
-          <div className="mb-6 border-2 border-gray-600">
-            <div className="bg-gray-200 p-2 border-b-2 border-gray-600">
-              <h3 className="font-bold text-sm text-gray-900">LEARNER'S PERSONAL INFORMATION</h3>
+          <div className="mb-4 border-2 border-gray-600">
+            <div className="bg-gray-200 p-1.5 border-b-2 border-gray-600">
+              <h3 className="font-bold text-xs text-gray-900">LEARNER'S INFORMATION</h3>
             </div>
-            <div className="p-4 text-xs">
-              <div className="grid grid-cols-4 gap-4 mb-3">
-                <div>
+            <div className="p-3 text-xs">
+              <div className="grid grid-cols-5 gap-3 mb-2">
+                <div className="col-span-2">
                   <label className="font-bold text-gray-900">LAST NAME:</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(',')[0] || ''}</div>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900 pb-1">{sf10Data.student.name.split(',')[0]?.trim() || ''}</div>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="font-bold text-gray-900">FIRST NAME:</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(',')[1]?.split(' ')[0] || ''}</div>
-                </div>
-                <div>
-                  <label className="font-bold text-gray-900">NAME EXTN. (Jr/III):</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900"></div>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900 pb-1">{sf10Data.student.name.split(',')[1]?.trim().split(' ')[0] || ''}</div>
                 </div>
                 <div>
                   <label className="font-bold text-gray-900">MIDDLE NAME:</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.name.split(' ').slice(2).join(' ') || ''}</div>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900 pb-1">{sf10Data.student.name.split(',')[1]?.trim().split(' ').slice(1).join(' ') || ''}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 mb-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-gray-900">Learner Reference Number (LRN):</label>
-                  <div className="border-b border-gray-600 mt-1 font-mono text-gray-900">{sf10Data.student.lrn}</div>
+                  <label className="font-bold text-gray-900">LRN:</label>
+                  <div className="border-b border-gray-600 mt-1 font-mono text-gray-900 pb-1">{sf10Data.student.lrn}</div>
                 </div>
                 <div>
-                  <label className="font-bold text-gray-900">Date of Birth (MM/DD/YYYY):</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.birthDate || ''}</div>
+                  <label className="font-bold text-gray-900">BIRTHDATE:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900 pb-1">{sf10Data.student.birthDate || ''}</div>
                 </div>
                 <div>
-                  <label className="font-bold text-gray-900">Sex:</label>
-                  <div className="border-b border-gray-600 mt-1 text-gray-900">{sf10Data.student.gender}</div>
+                  <label className="font-bold text-gray-900">SEX:</label>
+                  <div className="border-b border-gray-600 mt-1 text-gray-900 pb-1">{sf10Data.student.gender}</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Eligibility for JHS Enrolment */}
-          <div className="mb-6 border-2 border-gray-600">
-            <div className="bg-gray-200 p-2 border-b-2 border-gray-600">
-              <h3 className="font-bold text-sm text-gray-900">ELIGIBILITY FOR JHS ENROLMENT</h3>
+          <div className="mb-4 border-2 border-gray-600">
+            <div className="bg-gray-200 p-1.5 border-b-2 border-gray-600">
+              <h3 className="font-bold text-xs text-gray-900">ELIGIBILITY FOR JHS ENROLMENT</h3>
             </div>
-            <div className="p-4 text-xs grid grid-cols-3 gap-4">
+            <div className="p-2 text-xs grid grid-cols-3 gap-3">
               <div className="text-gray-900">
                 <label>☐ Grade 6 Completion Certificate</label>
               </div>
@@ -845,163 +841,162 @@ export default function SchoolForms() {
                 <label>☐ Elementary SF10</label>
               </div>
               <div className="text-gray-900">
-                <label>☐ PEPT Passer</label>
+                <label>☐ PEPT Certificate</label>
               </div>
             </div>
           </div>
 
           {/* Academic Records */}
           {sf10Data.schoolRecords.map((record: any, recordIndex: number) => (
-            <div key={recordIndex} className="mb-6 border-2 border-gray-600">
-              {/* School Entry Record Header */}
-              <div className="p-3 border-b-2 border-gray-600" style={{ backgroundColor: `${themeColors.primary}20` }}>
-                <div className="grid grid-cols-2 gap-8 text-xs">
+            <div key={recordIndex} className="mb-4 border-2 border-gray-600 page-break-inside-avoid">
+              {/* School Year Header */}
+              <div className="p-2 border-b-2 border-gray-600 bg-gray-100">
+                <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <div>
-                        <label className="font-bold text-gray-900">School:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
-                      </div>
-                      <div>
-                        <label className="font-bold text-gray-900">District:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
-                      </div>
-                      <div>
-                        <label className="font-bold text-gray-900">Division:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="font-bold text-gray-900">Classified as Grade:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">{formatGradeLevel(record.gradeLevel)}</div>
-                      </div>
-                      <div>
-                        <label className="font-bold text-gray-900">Section:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">{record.section}</div>
-                      </div>
-                    </div>
+                    <span className="font-bold text-gray-900">School Year: </span>
+                    <span className="text-gray-900">{record.schoolYear}</span>
+                    <span className="font-bold text-gray-900 ml-4">Grade Level: </span>
+                    <span className="text-gray-900">{formatGradeLevel(record.gradeLevel)}</span>
                   </div>
                   <div>
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <div>
-                        <label className="font-bold text-gray-900">School ID:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
-                      </div>
-                      <div>
-                        <label className="font-bold text-gray-900">Region:</label>
-                        <div className="border-b border-gray-600 mt-1 text-gray-900">_____________</div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-900">School Year:</label>
-                      <div className="border-b border-gray-600 mt-1 text-gray-900">{record.schoolYear}</div>
-                    </div>
+                    <span className="font-bold text-gray-900">Section: </span>
+                    <span className="text-gray-900">{record.section}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Learning Areas / Grades Table */}
+              {/* Scholastic Record Table */}
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b-2 border-gray-600">
-                    <th rowSpan={2} className="border-r border-gray-600 p-2 w-48 bg-gray-200 text-gray-900">
-                      Learning Areas
+                  <tr className="border-b-2 border-gray-600 bg-gray-200">
+                    <th rowSpan={2} className="border-r border-gray-600 p-1.5 text-left text-gray-900">
+                      LEARNING AREAS
                     </th>
-                    <th colSpan={4} className="border-r border-gray-600 p-2 bg-gray-200 text-gray-900">
+                    <th colSpan={4} className="border-r border-gray-600 p-1.5 text-center text-gray-900">
                       Quarterly Rating
                     </th>
-                    <th rowSpan={2} className="border-r border-gray-600 p-2 w-20 bg-gray-200 text-gray-900">
+                    <th rowSpan={2} className="border-r border-gray-600 p-1.5 text-center text-gray-900 w-16">
                       Final<br/>Rating
                     </th>
-                    <th rowSpan={2} className="p-2 w-24 bg-gray-200 text-gray-900">
-                      Remarks
+                    <th rowSpan={2} className="p-1.5 text-center text-gray-900 w-20">
+                      Action<br/>Taken
                     </th>
                   </tr>
-                  <tr className="border-b-2 border-gray-600">
-                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">1</th>
-                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">2</th>
-                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">3</th>
-                    <th className="border-r border-gray-600 p-2 w-16 bg-gray-200 text-gray-900">4</th>
+                  <tr className="border-b-2 border-gray-600 bg-gray-200">
+                    <th className="border-r border-gray-600 p-1.5 w-12 text-center text-gray-900">1</th>
+                    <th className="border-r border-gray-600 p-1.5 w-12 text-center text-gray-900">2</th>
+                    <th className="border-r border-gray-600 p-1.5 w-12 text-center text-gray-900">3</th>
+                    <th className="border-r border-gray-600 p-1.5 w-12 text-center text-gray-900">4</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Core Subjects */}
                   {record.subjectGrades.map((sg: any, idx: number) => (
                     <tr key={idx} className="border-b border-gray-600">
-                      <td className="border-r border-gray-600 p-2 font-medium text-gray-900">{sg.subjectName}</td>
-                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q1 ?? 0) < 75 && sg.Q1 ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className="border-r border-gray-600 p-1.5 text-gray-900">{sg.subjectName}</td>
+                      <td className={`border-r border-gray-600 p-1.5 text-center font-medium ${(sg.Q1 ?? 0) < 75 && sg.Q1 ? 'text-red-600' : 'text-gray-900'}`}>
                         {sg.Q1 ?? ''}
                       </td>
-                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q2 ?? 0) < 75 && sg.Q2 ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className={`border-r border-gray-600 p-1.5 text-center font-medium ${(sg.Q2 ?? 0) < 75 && sg.Q2 ? 'text-red-600' : 'text-gray-900'}`}>
                         {sg.Q2 ?? ''}
                       </td>
-                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q3 ?? 0) < 75 && sg.Q3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className={`border-r border-gray-600 p-1.5 text-center font-medium ${(sg.Q3 ?? 0) < 75 && sg.Q3 ? 'text-red-600' : 'text-gray-900'}`}>
                         {sg.Q3 ?? ''}
                       </td>
-                      <td className={`border-r border-gray-600 p-2 text-center font-semibold ${(sg.Q4 ?? 0) < 75 && sg.Q4 ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className={`border-r border-gray-600 p-1.5 text-center font-medium ${(sg.Q4 ?? 0) < 75 && sg.Q4 ? 'text-red-600' : 'text-gray-900'}`}>
                         {sg.Q4 ?? ''}
                       </td>
-                      <td className={`border-r border-gray-600 p-2 text-center font-bold ${(sg.final ?? 0) < 75 && sg.final ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className={`border-r border-gray-600 p-1.5 text-center font-bold ${(sg.final ?? 0) < 75 && sg.final ? 'text-red-600' : 'text-gray-900'}`}>
                         {sg.final ?? ''}
                       </td>
-                      <td className="p-2 text-center text-xs text-gray-900">{sg.remarks || ''}</td>
+                      <td className="p-1.5 text-center text-xs text-gray-900">{sg.remarks || ''}</td>
                     </tr>
                   ))}
 
-                  {/* General Average */}
+                  {/* General Average Row */}
                   <tr className="border-t-2 border-gray-600 bg-gray-200 font-bold">
-                    <td colSpan={5} className="border-r border-gray-600 p-2 text-right text-gray-900">General Average</td>
-                    <td className="border-r border-gray-600 p-2 text-center text-base text-gray-900">
+                    <td colSpan={5} className="border-r border-gray-600 p-1.5 text-right text-gray-900">General Average:</td>
+                    <td className="border-r border-gray-600 p-1.5 text-center text-sm text-gray-900">
                       {record.generalAverage?.toFixed(2) ?? ''}
                     </td>
-                    <td className="p-2 text-center">
-                      {record.honors && <span className="text-amber-700 text-xs">{record.honors}</span>}
-                    </td>
+                    <td className="p-1.5"></td>
                   </tr>
                 </tbody>
               </table>
 
-              {/* Status and Signatures */}
-              <div className="border-t-2 border-gray-600 p-4 bg-white">
-                <div className="grid grid-cols-2 gap-8 text-xs mb-4">
-                  <div>
-                    <div className="flex items-center gap-4 mb-2">
-                      <label className="font-bold text-gray-900">Status:</label>
-                      <div className="flex gap-4 text-gray-900">
-                        <label>☐ Promoted to Grade _____</label>
-                        <label>☐ Retained</label>
-                      </div>
+              {/* Remarks and Certification Section */}
+              <div className="border-t-2 border-gray-600 p-2 bg-white">
+                <div className="text-xs mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <span className="font-bold text-gray-900">Prepared by: </span>
+                      <span className="text-gray-900">_________________________</span>
                     </div>
-                    {record.honors && (
-                      <div className="bg-amber-50 border border-amber-400 p-2 rounded">
-                        <span className="font-bold text-gray-900">Award: </span>
-                        <span className="text-amber-700 font-semibold">{record.honors}</span>
-                      </div>
-                    )}
+                    <div>
+                      <span className="font-bold text-gray-900">Date: </span>
+                      <span className="text-gray-900">_____________</span>
+                    </div>
                   </div>
+                  <div className="text-xs text-gray-700 italic mt-1">Signature of Adviser over Printed Name</div>
+                </div>
+                
+                <div className="border-t border-gray-400 pt-2 mt-2">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="font-bold text-gray-900">Remarks:</span>
+                    <label className="flex items-center gap-1">
+                      <input type="checkbox" className="w-3 h-3" />
+                      <span className="text-gray-900">PROMOTED to Grade ____</span>
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input type="checkbox" className="w-3 h-3" />
+                      <span className="text-gray-900">NOT PROMOTED</span>
+                    </label>
+                  </div>
+                  {record.honors && (
+                    <div className="mt-1 text-xs">
+                      <span className="font-bold text-gray-900">Award/Recognition: </span>
+                      <span className="text-amber-700 font-semibold">{record.honors}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 mt-6">
+                <div className="grid grid-cols-2 gap-6 mt-3 text-xs">
                   <div className="text-center">
-                    <div className="border-b border-gray-600 mt-8 mx-12"></div>
-                    <p className="mt-1 text-xs text-gray-900">Name of Adviser/Teacher</p>
-                    <p className="mt-1 text-xs font-bold text-gray-900">Signature</p>
+                    <div className="border-b border-gray-600 mt-6 mx-8"></div>
+                    <p className="mt-0.5 text-gray-900">Signature of Adviser</p>
                   </div>
                   <div className="text-center">
-                    <div className="border-b border-gray-600 mt-8 mx-12"></div>
-                    <p className="mt-1 text-xs text-gray-900">Name of Principal</p>
-                    <p className="mt-1 text-xs font-bold text-gray-900">Signature</p>
+                    <div className="border-b border-gray-600 mt-6 mx-8"></div>
+                    <p className="mt-0.5 text-gray-900">Signature of Principal/School Head</p>
                   </div>
                 </div>
               </div>
             </div>
           ))}
 
-          {/* Footer Note */}
-          <div className="mt-6 text-xs text-gray-700 text-center italic">
-            <p>This is an official DepEd document. Any erasure or alteration shall render this document invalid.</p>
-            <p className="mt-1">SFIO 2017</p>
+          {/* Footer Certification */}
+          <div className="mt-4 pt-3 border-t-2 border-gray-600 text-xs">
+            <p className="text-center text-gray-900 font-bold mb-2">CERTIFICATION</p>
+            <p className="text-gray-700 italic text-center leading-relaxed">
+              I CERTIFY that this is a true record of {sf10Data.student.name.split(',')[1]?.trim().split(' ')[0] || ''} {sf10Data.student.name.split(',')[0] || ''} 
+              {' '}with LRN {sf10Data.student.lrn} and that he/she is eligible for admission to Grade ______.
+            </p>
+            <div className="grid grid-cols-2 gap-8 mt-4">
+              <div className="text-center">
+                <div className="border-b border-gray-600 mt-8 mx-12"></div>
+                <p className="mt-1 text-xs text-gray-900">Date</p>
+              </div>
+              <div className="text-center">
+                <div className="border-b border-gray-600 mt-8 mx-12"></div>
+                <p className="mt-1 text-xs text-gray-900">School Head/Principal</p>
+                <p className="text-xs text-gray-700">(Signature over Printed Name)</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Official Seal */}
+          <div className="text-center mt-4 text-xs text-gray-600 italic">
+            <p>(School Seal)</p>
+            <p className="mt-2">Not valid without official seal</p>
           </div>
         </div>
       </div>

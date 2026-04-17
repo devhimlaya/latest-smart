@@ -556,6 +556,7 @@ async function main() {
     // Grade 7
     { name: "Einstein", gradeLevel: GradeLevel.GRADE_7, isAdvisory: true },
     { name: "Newton", gradeLevel: GradeLevel.GRADE_7, isAdvisory: false },
+    { name: "Gaius", gradeLevel: GradeLevel.GRADE_7, isAdvisory: false },
     // Grade 8
     { name: "Rizal", gradeLevel: GradeLevel.GRADE_8, isAdvisory: false },
     { name: "Bonifacio", gradeLevel: GradeLevel.GRADE_8, isAdvisory: false },
@@ -604,6 +605,9 @@ async function main() {
   const sectionNewton = await prisma.section.findFirst({
     where: { name: "Newton", gradeLevel: GradeLevel.GRADE_7 },
   });
+  const sectionGaius = await prisma.section.findFirst({
+    where: { name: "Gaius", gradeLevel: GradeLevel.GRADE_7 },
+  });
   const sectionRizal = await prisma.section.findFirst({
     where: { name: "Rizal", gradeLevel: GradeLevel.GRADE_8 },
   });
@@ -630,31 +634,39 @@ async function main() {
   // Teachers 4-8 - Other subjects for Grade 7 sections only
   
   const classAssignments = [
-    // GRADE 7 - Einstein & Newton
+    // GRADE 7 - Einstein, Newton & Gaius
     // Teacher 1 - English
     { teacherId: teacher.id, subjectId: english7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher.id, subjectId: english7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher.id, subjectId: english7!.id, sectionId: sectionGaius!.id },
     // Teacher 2 - Math
     { teacherId: teacher2.id, subjectId: math7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher2.id, subjectId: math7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher2.id, subjectId: math7!.id, sectionId: sectionGaius!.id },
     // Teacher 3 - Science
     { teacherId: teacher3.id, subjectId: science7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher3.id, subjectId: science7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher3.id, subjectId: science7!.id, sectionId: sectionGaius!.id },
     // Teacher 4 - Filipino
     { teacherId: teacher4.id, subjectId: filipino7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher4.id, subjectId: filipino7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher4.id, subjectId: filipino7!.id, sectionId: sectionGaius!.id },
     // Teacher 5 - Araling Panlipunan
     { teacherId: teacher5.id, subjectId: ap7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher5.id, subjectId: ap7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher5.id, subjectId: ap7!.id, sectionId: sectionGaius!.id },
     // Teacher 6 - MAPEH
     { teacherId: teacher6.id, subjectId: mapeh7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher6.id, subjectId: mapeh7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher6.id, subjectId: mapeh7!.id, sectionId: sectionGaius!.id },
     // Teacher 7 - TLE
     { teacherId: teacher7.id, subjectId: tle7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher7.id, subjectId: tle7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher7.id, subjectId: tle7!.id, sectionId: sectionGaius!.id },
     // Teacher 8 - ESP
     { teacherId: teacher8.id, subjectId: esp7!.id, sectionId: sectionEinstein!.id },
     { teacherId: teacher8.id, subjectId: esp7!.id, sectionId: sectionNewton!.id },
+    { teacherId: teacher8.id, subjectId: esp7!.id, sectionId: sectionGaius!.id },
     
     // GRADE 8 - Rizal & Bonifacio
     // Teacher 1 - English 8
@@ -1139,6 +1151,163 @@ async function main() {
     console.log(`  - Generated grades for ${classAssignment.section.name} - ${classAssignment.subject.name}`);
   }
 
+  // Generate Q2, Q3, and Q4 grades for all students
+  console.log("\nGenerating Q2, Q3, and Q4 grades for all students...");
+
+  for (const classAssignment of allClassAssignments) {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { 
+        sectionId: classAssignment.sectionId,
+        schoolYear,
+      },
+      include: { student: true },
+    });
+
+    for (const enrollment of enrollments) {
+      // Get Q1 grade to maintain consistency
+      const q1Grade = await prisma.grade.findUnique({
+        where: {
+          studentId_classAssignmentId_quarter: {
+            studentId: enrollment.studentId,
+            classAssignmentId: classAssignment.id,
+            quarter: Quarter.Q1,
+          },
+        },
+      });
+
+      // Generate grades for Q2, Q3, Q4
+      for (const quarter of [Quarter.Q2, Quarter.Q3, Quarter.Q4]) {
+        // Student performance tends to improve or maintain throughout the year
+        // Use Q1 as baseline and add slight variation
+        const performanceLevel = Math.random();
+        const wasStruggling = q1Grade && q1Grade.quarterlyGrade !== null && q1Grade.quarterlyGrade < 75;
+        const wasIncomplete = q1Grade && q1Grade.remarks === "INC";
+        
+        // 70% chance to improve, 20% maintain, 10% decline
+        const trend = Math.random();
+        const improvement = trend < 0.7 ? (Math.random() * 10 - 5) : trend < 0.9 ? 0 : -(Math.random() * 5);
+        
+        let wwScores, ptScores, qaScore;
+        
+        if (wasIncomplete && Math.random() < 0.3) {
+          // 30% chance incomplete student remains incomplete
+          wwScores = [
+            { name: "Quiz 1", score: Math.round(10 + Math.random() * 8), maxScore: 20 },
+            { name: "Quiz 2", score: Math.round(8 + Math.random() * 10), maxScore: 20 },
+            { name: "Quiz 3", score: 0, maxScore: 20 },
+            { name: "Quiz 4", score: Math.round(12 + Math.random() * 6), maxScore: 20 },
+            { name: "Quiz 5", score: 0, maxScore: 20 },
+          ];
+          ptScores = [
+            { name: "Project 1", score: Math.round(25 + Math.random() * 15), maxScore: 50 },
+            { name: "Project 2", score: 0, maxScore: 50 },
+            { name: "Project 3", score: Math.round(20 + Math.random() * 20), maxScore: 50 },
+          ];
+          qaScore = Math.round(45 + Math.random() * 25);
+        } else if (wasStruggling) {
+          // Struggling students may improve
+          const base = wasIncomplete ? 8 : 10;
+          wwScores = [
+            { name: "Quiz 1", score: Math.round(base + Math.random() * 8 + improvement), maxScore: 20 },
+            { name: "Quiz 2", score: Math.round(base + Math.random() * 9 + improvement), maxScore: 20 },
+            { name: "Quiz 3", score: Math.round(base + Math.random() * 8 + improvement), maxScore: 20 },
+            { name: "Quiz 4", score: Math.round(base + Math.random() * 7 + improvement), maxScore: 20 },
+            { name: "Quiz 5", score: Math.round(base + Math.random() * 9 + improvement), maxScore: 20 },
+          ];
+          ptScores = [
+            { name: "Project 1", score: Math.round(20 + Math.random() * 18 + improvement * 2), maxScore: 50 },
+            { name: "Project 2", score: Math.round(22 + Math.random() * 16 + improvement * 2), maxScore: 50 },
+            { name: "Project 3", score: Math.round(25 + Math.random() * 15 + improvement * 2), maxScore: 50 },
+          ];
+          qaScore = Math.round(Math.min(100, Math.max(40, 50 + Math.random() * 30 + improvement * 3)));
+        } else {
+          // Regular students maintain or slightly improve
+          wwScores = [
+            { name: "Quiz 1", score: Math.round(Math.min(20, 15 + Math.random() * 5 + improvement * 0.3)), maxScore: 20 },
+            { name: "Quiz 2", score: Math.round(Math.min(20, 14 + Math.random() * 6 + improvement * 0.3)), maxScore: 20 },
+            { name: "Quiz 3", score: Math.round(Math.min(20, 13 + Math.random() * 7 + improvement * 0.3)), maxScore: 20 },
+            { name: "Quiz 4", score: Math.round(Math.min(20, 15 + Math.random() * 5 + improvement * 0.3)), maxScore: 20 },
+            { name: "Quiz 5", score: Math.round(Math.min(20, 14 + Math.random() * 6 + improvement * 0.3)), maxScore: 20 },
+          ];
+          ptScores = [
+            { name: "Project 1", score: Math.round(Math.min(50, 35 + Math.random() * 15 + improvement * 0.5)), maxScore: 50 },
+            { name: "Project 2", score: Math.round(Math.min(50, 38 + Math.random() * 12 + improvement * 0.5)), maxScore: 50 },
+            { name: "Project 3", score: Math.round(Math.min(50, 40 + Math.random() * 10 + improvement * 0.5)), maxScore: 50 },
+          ];
+          qaScore = Math.round(Math.min(100, Math.max(0, 70 + Math.random() * 30 + improvement)));
+        }
+        
+        const qaMax = 100;
+
+        // Calculate weighted scores
+        const wwTotal = wwScores.reduce((sum, s) => sum + s.score, 0);
+        const wwMaxTotal = wwScores.reduce((sum, s) => sum + s.maxScore, 0);
+        const wwPS = (wwTotal / wwMaxTotal) * 100;
+
+        const ptTotal = ptScores.reduce((sum, s) => sum + s.score, 0);
+        const ptMaxTotal = ptScores.reduce((sum, s) => sum + s.maxScore, 0);
+        const ptPS = (ptTotal / ptMaxTotal) * 100;
+
+        const qaPS = (qaScore / qaMax) * 100;
+
+        const wwWeight = classAssignment.subject.writtenWorkWeight;
+        const ptWeight = classAssignment.subject.perfTaskWeight;
+        const qaWeight = classAssignment.subject.quarterlyAssessWeight;
+
+        const initialGrade = (wwPS * wwWeight / 100) + (ptPS * ptWeight / 100) + (qaPS * qaWeight / 100);
+        const quarterlyGrade = transmute(initialGrade);
+        
+        let remarks;
+        if (wasIncomplete && Math.random() < 0.3 && initialGrade < 60) {
+          remarks = "INC";
+        } else if (quarterlyGrade >= 75) {
+          remarks = "Passed";
+        } else {
+          remarks = "Failed";
+        }
+
+        await prisma.grade.upsert({
+          where: {
+            studentId_classAssignmentId_quarter: {
+              studentId: enrollment.studentId,
+              classAssignmentId: classAssignment.id,
+              quarter: quarter,
+            },
+          },
+          update: {
+            writtenWorkScores: wwScores,
+            perfTaskScores: ptScores,
+            quarterlyAssessScore: qaScore,
+            quarterlyAssessMax: qaMax,
+            writtenWorkPS: Math.round(wwPS * 100) / 100,
+            perfTaskPS: Math.round(ptPS * 100) / 100,
+            quarterlyAssessPS: Math.round(qaPS * 100) / 100,
+            initialGrade: Math.round(initialGrade * 100) / 100,
+            quarterlyGrade,
+            remarks,
+          },
+          create: {
+            studentId: enrollment.studentId,
+            classAssignmentId: classAssignment.id,
+            quarter: quarter,
+            writtenWorkScores: wwScores,
+            perfTaskScores: ptScores,
+            quarterlyAssessScore: qaScore,
+            quarterlyAssessMax: qaMax,
+            writtenWorkPS: Math.round(wwPS * 100) / 100,
+            perfTaskPS: Math.round(ptPS * 100) / 100,
+            quarterlyAssessPS: Math.round(qaPS * 100) / 100,
+            initialGrade: Math.round(initialGrade * 100) / 100,
+            quarterlyGrade,
+            remarks,
+          },
+        });
+      }
+    }
+
+    console.log(`  - Generated Q2-Q4 grades for ${classAssignment.section.name} - ${classAssignment.subject.name}`);
+  }
+
   // ============================================
   // ADMIN MODELS SEEDING
   // ============================================
@@ -1342,10 +1511,11 @@ async function main() {
   console.log("    * Teacher 3 (Jose) - Science for ALL 8 sections");
   console.log("    * Teachers 4-8 - Other subjects for Grade 7 only");
   console.log("  - 320-360 Students total (40-45 per section)");
-  console.log("  - Q1 Grades generated with realistic distribution:");
+  console.log("  - Q1-Q4 Grades generated with realistic distribution:");
   console.log("    * ~85% Passing grades (75-98)");
   console.log("    * ~10% Failing grades (below 75)");
   console.log("    * ~5% Incomplete (INC) - missing requirements");
+  console.log("    * Student performance tends to improve slightly in later quarters");
 }
 
 main()

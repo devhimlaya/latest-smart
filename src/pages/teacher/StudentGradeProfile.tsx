@@ -143,7 +143,7 @@ export default function StudentGradeProfilePage() {
       {/* Student Info Card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info */}
-        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
           <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}08` }}>
             <div className="flex items-center gap-4">
               <div 
@@ -241,7 +241,7 @@ export default function StudentGradeProfilePage() {
         </Card>
 
         {/* Summary Card */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white" style={{ backgroundColor: colors.primary }}>
+        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white p-0" style={{ backgroundColor: colors.primary }}>
           <CardContent className="p-6 h-full flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
@@ -298,7 +298,7 @@ export default function StudentGradeProfilePage() {
       </div>
 
       {/* Grades Table */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
         <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -421,7 +421,7 @@ export default function StudentGradeProfilePage() {
       </Card>
 
       {/* DepEd Grading Legend */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
+      <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
         <CardHeader className="border-b border-gray-100 px-6 py-4">
           <CardTitle className="text-sm font-bold text-gray-700">DepEd Grading Scale</CardTitle>
         </CardHeader>
