@@ -30,10 +30,11 @@ enum GradeLevel {
 }
 
 enum SubjectType {
-  CORE           // 30% WW, 50% PT, 20% QA (English, Math, Science, Filipino, AP)
+  CORE           // 30% WW, 50% PT, 20% QA (English, Filipino, AP, EsP)
+  MATH_SCIENCE   // 40% WW, 40% PT, 20% QA (Mathematics, Science)
   PE_HEALTH      // 20% WW, 60% PT, 20% QA
-  MAPEH          // Computed as average of Music, Arts, PE, Health
-  TLE            // 20% WW, 60% PT, 20% QA
+  MAPEH          // 20% WW, 60% PT, 20% QA (Music, Arts, PE, Health)
+  TLE            // 20% WW, 60% PT, 20% QA (TLE, Home Economics, Industrial Arts)
 }
 
 model User {

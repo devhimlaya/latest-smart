@@ -839,9 +839,10 @@ router.get("/grading-config", authenticateToken, requireAdmin, async (req: AuthR
     if (configs.length === 0) {
       const defaultConfigs = [
         { subjectType: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
-        { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
+        { subjectType: 'MATH_SCIENCE' as SubjectType, ww: 40, pt: 40, qa: 20 },
         { subjectType: SubjectType.MAPEH, ww: 20, pt: 60, qa: 20 },
         { subjectType: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
+        { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
       ];
 
       for (const config of defaultConfigs) {
@@ -924,9 +925,10 @@ router.post("/grading-config/reset", authenticateToken, requireAdmin, async (req
     // DepEd default weights
     const defaults = [
       { subjectType: SubjectType.CORE, ww: 30, pt: 50, qa: 20 },
-      { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
+      { subjectType: 'MATH_SCIENCE' as SubjectType, ww: 40, pt: 40, qa: 20 },
       { subjectType: SubjectType.MAPEH, ww: 20, pt: 60, qa: 20 },
       { subjectType: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
+      { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
     ];
 
     for (const config of defaults) {

@@ -26,10 +26,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 
 const subjectTypeInfo: Record<string, { subjects: string[]; icon: React.ElementType; color: string; opacity: string }> = {
   CORE: {
-    subjects: ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "ESP", "Mother Tongue"],
+    subjects: ["English", "Filipino", "Araling Panlipunan", "Edukasyon sa Pagpapakatao"],
     icon: BookOpen,
     color: "theme",
     opacity: "15",
+  },
+  MATH_SCIENCE: {
+    subjects: ["Mathematics", "Science"],
+    icon: BookOpen,
+    color: "theme",
+    opacity: "10",
   },
   MAPEH: {
     subjects: ["Music", "Arts", "Physical Education", "Health"],
@@ -38,24 +44,18 @@ const subjectTypeInfo: Record<string, { subjects: string[]; icon: React.ElementT
     opacity: "20",
   },
   TLE: {
-    subjects: ["TLE", "Computer Education", "Home Economics", "Industrial Arts"],
+    subjects: ["TLE", "Home Economics", "Industrial Arts", "Computer Education"],
     icon: Wrench,
     color: "theme",
     opacity: "25",
   },
-  TVL: {
-    subjects: ["Technical-Vocational-Livelihood Track Subjects"],
-    icon: Wrench,
-    color: "theme",
-    opacity: "30",
-  },
 };
 
 const subjectTypeLabels: Record<string, string> = {
-  CORE: "Core Academic Subjects",
-  MAPEH: "MAPEH",
+  CORE: "Core Academic Subjects (English, Filipino, AP, EsP)",
+  MATH_SCIENCE: "Mathematics & Science",
+  MAPEH: "MAPEH (Music, Arts, PE, Health)",
   TLE: "Technology & Livelihood Education",
-  TVL: "TVL Track",
 };
 
 export default function GradingConfig() {

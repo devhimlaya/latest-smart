@@ -140,7 +140,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
     }
 
     // Validate subjectType if provided
-    const validTypes = ['CORE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const validTypes = ['CORE', 'MATH_SCIENCE', 'PE_HEALTH', 'TLE', 'MAPEH'];
     const parsedSubjectType = subjectType && validTypes.includes(subjectType) ? subjectType : null;
 
     // Check if template for this subject already exists
@@ -240,7 +240,7 @@ router.put('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Respon
       return;
     }
 
-    const validTypes = ['CORE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const validTypes = ['CORE', 'MATH_SCIENCE', 'PE_HEALTH', 'TLE', 'MAPEH'];
     const parsedSubjectType = subjectType === '' ? null : (subjectType && validTypes.includes(subjectType) ? subjectType : undefined);
 
     const updatedTemplate = await prisma.eCRTemplate.update({

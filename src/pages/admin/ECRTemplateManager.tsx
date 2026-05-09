@@ -503,7 +503,7 @@ export default function ECRTemplateManager() {
                     <TableCell>
                       {template.subjectType ? (
                         <Badge variant="outline" className="text-xs">
-                          {template.subjectType === 'PE_HEALTH' ? 'PE/Health' : template.subjectType}
+                          {template.subjectType === 'PE_HEALTH' ? 'PE/Health' : template.subjectType === 'MATH_SCIENCE' ? 'Math & Science' : template.subjectType}
                         </Badge>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
@@ -661,10 +661,11 @@ export default function ECRTemplateManager() {
                     className="w-full px-3 py-2 border rounded-md text-sm bg-white"
                   >
                     <option value="">— None (use subject name match only) —</option>
-                    <option value="CORE">CORE — English, Math, Science, Filipino, AP (30/50/20)</option>
-                    <option value="PE_HEALTH">PE / Health (20/60/20)</option>
-                    <option value="MAPEH">MAPEH — Music, Arts, PE, Health (20/60/20)</option>
-                    <option value="TLE">TLE / TVL (20/60/20)</option>
+                    <option value="CORE">CORE — English, Filipino, AP, EsP (30% WW / 50% PT / 20% QA)</option>
+                    <option value="MATH_SCIENCE">Math &amp; Science (40% WW / 40% PT / 20% QA)</option>
+                    <option value="MAPEH">MAPEH — Music, Arts, PE, Health (20% WW / 60% PT / 20% QA)</option>
+                    <option value="TLE">TLE / Home Economics (20% WW / 60% PT / 20% QA)</option>
+                    <option value="PE_HEALTH">PE / Health (20% WW / 60% PT / 20% QA)</option>
                   </select>
                   <p className="text-xs text-slate-500">
                     Tag this template so it is automatically used for all subjects of this type when no exact name match is found.
@@ -766,10 +767,11 @@ export default function ECRTemplateManager() {
                                   disabled={item.status !== 'pending'}
                                 >
                                   <option value="">— None —</option>
-                                  <option value="CORE">CORE (English, Math, Science, Filipino, AP)</option>
-                                  <option value="PE_HEALTH">PE / Health</option>
+                                  <option value="CORE">CORE (English, Filipino, AP, EsP)</option>
+                                  <option value="MATH_SCIENCE">Math &amp; Science</option>
                                   <option value="MAPEH">MAPEH</option>
-                                  <option value="TLE">TLE / TVL</option>
+                                  <option value="TLE">TLE / Home Economics</option>
+                                  <option value="PE_HEALTH">PE / Health</option>
                                 </select>
                               </div>
                               <div>
@@ -883,7 +885,7 @@ export default function ECRTemplateManager() {
                   <p className="text-slate-500 text-xs mb-1">Subject Type</p>
                   {selectedTemplate.subjectType ? (
                     <Badge variant="outline">
-                      {selectedTemplate.subjectType === 'PE_HEALTH' ? 'PE / Health' : selectedTemplate.subjectType}
+                      {selectedTemplate.subjectType === 'PE_HEALTH' ? 'PE / Health' : selectedTemplate.subjectType === 'MATH_SCIENCE' ? 'Math & Science' : selectedTemplate.subjectType}
                     </Badge>
                   ) : (
                     <span className="text-xs text-slate-500">Not set (name-only match)</span>
