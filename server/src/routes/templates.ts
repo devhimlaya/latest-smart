@@ -8,10 +8,12 @@ import { prisma } from '../lib/prisma';
 import { authenticateToken, authorizeRoles, type AuthRequest } from '../middleware/auth';
 import templateService from '../services/templateService';
 import { createAuditLog } from '../lib/audit';
+import { excelStyleParser } from '../services/excelStyleParser';
 
 const router = Router();
 
 const ALL_FORM_TYPES: FormType[] = ['SF1', 'SF2', 'SF3', 'SF4', 'SF5', 'SF6', 'SF7', 'SF8', 'SF9', 'SF10'];
+const BUNDLE_SF1_TO_SF7: FormType[] = ['SF1', 'SF2', 'SF3', 'SF4', 'SF5', 'SF6', 'SF7'];
 const BUNDLE_SF1_TO_SF10: FormType[] = ['SF1', 'SF2', 'SF3', 'SF4', 'SF5', 'SF6', 'SF7', 'SF8', 'SF9', 'SF10'];
 
 const FORM_LABELS: Record<FormType, string> = {
@@ -22,7 +24,7 @@ const FORM_LABELS: Record<FormType, string> = {
   SF5: 'School Form 5 - Promotion and Proficiency',
   SF6: 'School Form 6 - Summary Promotion Report',
   SF7: 'School Form 7 - School Personnel Profile',
-  SF8: 'School Form 8 - Report on Learning Progress (JHS)',
+  SF8: "School Form 8 - Learner's Basic Health and Nutrition Report",
   SF9: 'School Form 9 - Progress Report (JHS/SHS)',
   SF10: 'School Form 10 - Permanent Record'
 };
@@ -35,10 +37,12 @@ const SHEET_MATCHERS: Record<FormType, RegExp[]> = {
   SF5: [/\bsf\s*5\b/i, /school\s*form\s*5/i, /promotion/i],
   SF6: [/\bsf\s*6\b/i, /school\s*form\s*6/i, /summarized\s*report/i],
   SF7: [/\bsf\s*7\b/i, /school\s*form\s*7/i, /personnel/i],
-  SF8: [/\bsf\s*8\b/i, /school\s*form\s*8/i, /learning\s*progress/i, /achievement/i],
-  SF9: [/\bsf\s*9\b/i, /school\s*form\s*9/i, /report\s*card/i, /progress\s*report/i],
-  SF10: [/\bsf\s*10\b/i, /school\s*form\s*10/i, /permanent\s*academic\s*record/i, /permanent\s*record/i]
+  SF8: [/\bsf\s*8\b/i, /school\s*form\s*8/i, /health/i, /nutrition/i, /nutritional\s*status/i],
+  SF9: [/\bsf\s*9\b/i, /school\s*form\s*9/i, /report\s*card/i, /progress\s*report/i, /learner'?s\s*progress/i],
+  SF10: [/\bsf\s*10\b/i, /school\s*form\s*10/i, /permanent\s*academic\s*record/i, /permanent\s*record/i, /form\s*137/i, /front/i, /back/i]
 };
+
+const LOW_PRIORITY_HELPER_SHEET_HINTS: RegExp[] = [/helper/i, /legend/i, /instruction/i, /tables?/i];
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -146,6 +150,63 @@ function autoDetectSheetName(formType: FormType, sheetNames: string[]): string |
   return null;
 }
 
+function getNonEmptySheetNames(filePath: string, sheetNames: string[]): string[] {
+  const workbook = XLSX.readFile(filePath);
+  return sheetNames.filter((sheetName) => {
+    const worksheet = workbook.Sheets[sheetName];
+    const ref = worksheet?.['!ref'];
+
+    if (!ref) {
+      return false;
+    }
+
+    const range = XLSX.utils.decode_range(ref);
+    return range.e.r >= range.s.r || range.e.c >= range.s.c;
+  });
+}
+
+function selectSingleUploadFallbackSheet(formType: FormType, sheetNames: string[]): string | null {
+  if (sheetNames.length === 0) {
+    return null;
+  }
+
+  const scoreSheetName = (sheetName: string, index: number): number => {
+    let score = 0;
+    const normalizedName = sheetName.toLowerCase();
+
+    if (SHEET_MATCHERS[formType].some((pattern) => pattern.test(sheetName))) {
+      score += 10;
+    }
+
+    if (/sheet\s*\d+/i.test(sheetName)) {
+      score += 1;
+    }
+
+    if (/\b(front|back)\b/i.test(sheetName)) {
+      score += 2;
+    }
+
+    if (/\b(report|record|nutrition|status|progress)\b/i.test(sheetName)) {
+      score += 2;
+    }
+
+    if (LOW_PRIORITY_HELPER_SHEET_HINTS.some((pattern) => pattern.test(normalizedName))) {
+      score -= 5;
+    }
+
+    score -= index * 0.1;
+    return score;
+  };
+
+  const rankedSheets = [...sheetNames].sort((a, b) => {
+    const scoreDiff = scoreSheetName(b, sheetNames.indexOf(b)) - scoreSheetName(a, sheetNames.indexOf(a));
+    if (scoreDiff !== 0) return scoreDiff;
+    return sheetNames.indexOf(a) - sheetNames.indexOf(b);
+  });
+
+  return rankedSheets[0] ?? null;
+}
+
 function normalizeWorkbookToXlsx(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   if (ext !== '.xls') {
@@ -226,6 +287,183 @@ router.get('/:formType', authorizeRoles('ADMIN', 'REGISTRAR', 'TEACHER'), async 
   }
 });
 
+router.get('/:id/structure', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const template = await prisma.excelTemplate.findUnique({
+      where: { id }
+    });
+
+    if (!template) {
+      res.status(404).json({ success: false, error: 'Template not found' });
+      return;
+    }
+
+    if (!fs.existsSync(template.filePath)) {
+      res.status(404).json({ success: false, error: 'Template file not found on disk' });
+      return;
+    }
+
+    const sheetNames = await templateService.getSheetNames(template.filePath);
+    const sheetDetails = await Promise.all(
+      sheetNames.map(async (sheetName) => {
+        const placeholders = await templateService.extractPlaceholders(template.filePath, sheetName);
+        const validation = await templateService.validateTemplate(template.filePath, sheetName);
+
+        return {
+          sheetName,
+          isMappedSheet: template.sheetName === sheetName,
+          placeholderCount: placeholders.length,
+          placeholderPreview: placeholders.slice(0, 20),
+          isStructurallyValid: validation.valid,
+          validationError: validation.error || null
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        templateId: template.id,
+        formType: template.formType,
+        formName: template.formName,
+        fileName: template.fileName,
+        mappedSheetName: template.sheetName,
+        sheetCount: sheetNames.length,
+        sheets: sheetDetails
+      }
+    });
+  } catch (error: any) {
+    console.error('Failed to inspect template structure:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to inspect template structure' });
+  }
+});
+
+router.get('/:id/preview', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const maxRows = Math.min(Math.max(Number(req.query.maxRows) || 120, 20), 300);
+    const maxCols = Math.min(Math.max(Number(req.query.maxCols) || 30, 10), 80);
+
+    const template = await prisma.excelTemplate.findUnique({
+      where: { id }
+    });
+
+    if (!template) {
+      res.status(404).json({ success: false, error: 'Template not found' });
+      return;
+    }
+
+    if (!fs.existsSync(template.filePath)) {
+      res.status(404).json({ success: false, error: 'Template file not found on disk' });
+      return;
+    }
+
+    const workbook = XLSX.readFile(template.filePath, { cellDates: true });
+    const sheets = workbook.SheetNames.map((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+        header: 1,
+        raw: false,
+        blankrows: true,
+        defval: ''
+      });
+
+      const trimmedRows = rows.slice(0, maxRows).map((row) => {
+        const normalized = Array.isArray(row) ? row.slice(0, maxCols) : [];
+        while (normalized.length < maxCols) {
+          normalized.push('');
+        }
+        return normalized.map((value) => (value == null ? '' : String(value)));
+      });
+
+      return {
+        sheetName,
+        isMappedSheet: template.sheetName === sheetName,
+        totalRows: rows.length,
+        previewRows: trimmedRows
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        templateId: template.id,
+        formType: template.formType,
+        formName: template.formName,
+        fileName: template.fileName,
+        mappedSheetName: template.sheetName,
+        maxRows,
+        maxCols,
+        sheets
+      }
+    });
+  } catch (error: any) {
+    console.error('Failed to preview template workbook:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to preview template workbook' });
+  }
+});
+
+// NEW: Get template with high-fidelity styling for pixel-perfect rendering
+router.get('/:id/styled-preview', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const sheetName = req.query.sheet as string | undefined;
+
+    const template = await prisma.excelTemplate.findUnique({
+      where: { id }
+    });
+
+    if (!template) {
+      res.status(404).json({ success: false, error: 'Template not found' });
+      return;
+    }
+
+    if (!fs.existsSync(template.filePath)) {
+      res.status(404).json({ success: false, error: 'Template file not found on disk' });
+      return;
+    }
+
+    // Parse Excel with full styling information
+    const parsedWorkbook = await excelStyleParser.parseExcelWithStyles(template.filePath);
+
+    // Filter to specific sheet if requested
+    let sheets = parsedWorkbook.sheets;
+    if (sheetName) {
+      sheets = sheets.filter(s => s.name === sheetName);
+      if (sheets.length === 0) {
+        res.status(404).json({ success: false, error: `Sheet "${sheetName}" not found in template` });
+        return;
+      }
+    } else if (template.sheetName) {
+      // Default to mapped sheet if available
+      const mappedSheet = sheets.find(s => s.name === template.sheetName);
+      if (mappedSheet) {
+        sheets = [mappedSheet];
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        templateId: template.id,
+        formType: template.formType,
+        formName: template.formName,
+        fileName: template.fileName,
+        mappedSheetName: template.sheetName,
+        parsedStructure: {
+          sheets,
+          metadata: parsedWorkbook.metadata
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Failed to parse template with styles:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to parse template styles' });
+  }
+});
+
 router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
   let normalizedFilePath: string | null = null;
 
@@ -244,7 +482,8 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
       uploadMode?: string;
     };
 
-    const isBundleUpload = uploadMode === 'bundle' || formType === 'SF1_7_BUNDLE';
+    const bundleType = formType === 'SF1_7_BUNDLE' ? 'SF1_7_BUNDLE' : 'SF1_10_BUNDLE';
+    const isBundleUpload = uploadMode === 'bundle' || formType === 'SF1_10_BUNDLE' || formType === 'SF1_7_BUNDLE';
 
     if (!formName || !formName.trim()) {
       if (fs.existsSync(uploadedFile.path)) {
@@ -280,13 +519,14 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
       ? (() => {
           const parsed = parseFormTypes(req.body.formTypes);
           if (parsed.length > 0) return parsed;
-          return BUNDLE_SF1_TO_SF10;
+          return bundleType === 'SF1_7_BUNDLE' ? BUNDLE_SF1_TO_SF7 : BUNDLE_SF1_TO_SF10;
         })()
       : [formType as FormType];
 
     const requestedSheetMappings = parseSheetMappings(req.body.sheetMappings);
     const resolvedSheetMappings: Record<FormType, string> = {} as Record<FormType, string>;
     const unresolvedForms: FormType[] = [];
+    const nonEmptySheetNames = getNonEmptySheetNames(normalizedFilePath, sheetNames);
 
     for (const currentFormType of targetFormTypes) {
       const manualSheet = requestedSheetMappings[currentFormType];
@@ -303,6 +543,15 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
 
       const autoSheet = autoDetectSheetName(currentFormType, sheetNames);
       if (!autoSheet) {
+        if (!isBundleUpload) {
+          const fallbackSheet = selectSingleUploadFallbackSheet(currentFormType, nonEmptySheetNames);
+          if (fallbackSheet) {
+            console.log(`Using single-upload fallback ${currentFormType} -> ${fallbackSheet}`);
+            resolvedSheetMappings[currentFormType] = fallbackSheet;
+            continue;
+          }
+        }
+
         console.log(`Could not auto-detect sheet for ${currentFormType}`);
         unresolvedForms.push(currentFormType);
         continue;
@@ -321,7 +570,8 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
         success: false,
         error: 'Could not map all selected forms to worksheet names',
         missingForms: unresolvedForms,
-        availableSheets: sheetNames
+        availableSheets: sheetNames,
+        hint: 'Provide exact sheet mappings via sheetMappings JSON, e.g. {"SF8":"Nutritional Status"}'
       });
       return;
     }

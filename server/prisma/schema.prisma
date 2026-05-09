@@ -337,3 +337,33 @@ model ExcelTemplate {
   @@index([isActive])
   @@index([filePath])
 }
+
+// Electronic Class Record (ECR) Templates
+// Admin uploads subject-specific ECR templates
+// Teachers download auto-filled versions with their class data
+model ECRTemplate {
+  id           String   @id @default(cuid())
+  subjectName  String   // e.g., "Mathematics", "English", "Science" - matches Subject.name
+  description  String?  // Optional description for the template
+  filePath     String   // Path to uploaded Excel template file
+  fileName     String   // Original filename
+  fileSize     Int      // File size in bytes
+  
+  // Metadata for auto-fill
+  placeholders Json?    // Available placeholders: {{STUDENT_NAME}}, {{GRADE}}, {{SECTION}}, etc.
+  instructions String?  // How to use this template
+  
+  // Status
+  isActive     Boolean  @default(true)
+  
+  // Tracking
+  uploadedBy   String   // User ID who uploaded
+  uploadedByName String // Cached name for display
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([subjectName])
+  @@index([isActive])
+  @@index([filePath])
+}

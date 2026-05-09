@@ -13,6 +13,7 @@ import registrarRoutes from "./routes/registrar";
 import adminRoutes from "./routes/admin";
 import attendanceRoutes from "./routes/attendance";
 import templateRoutes from "./routes/templates";
+import ecrTemplatesRoutes from "./routes/ecrTemplates";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +36,7 @@ app.use("/api/registrar", registrarRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/templates", templateRoutes);
+app.use("/api/ecr-templates", ecrTemplatesRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

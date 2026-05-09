@@ -23,6 +23,7 @@ import AuditLogs from './pages/admin/AuditLogs'
 import GradingConfig from './pages/admin/GradingConfig'
 import SystemSettings from './pages/admin/SystemSettings'
 import TemplateManager from './pages/admin/TemplateManager'
+import ECRTemplateManager from './pages/admin/ECRTemplateManager'
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
         <Route path="grading" element={<GradingConfig />} />
         <Route path="settings" element={<SystemSettings />} />
         <Route path="templates" element={<TemplateManager />} />
+        <Route path="ecr-templates" element={<ECRTemplateManager />} />
       </Route>
 
       {/* Default redirect */}

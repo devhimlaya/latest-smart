@@ -716,6 +716,24 @@ router.post(
 
       const logoUrl = `/uploads/${req.file.filename}`;
 
+      // Get current settings to find old logo
+      const currentSettings = await prisma.systemSettings.findUnique({
+        where: { id: "main" }
+      });
+
+      // Delete old logo file if it exists
+      if (currentSettings?.logoUrl) {
+        const oldLogoPath = path.join(__dirname, "../../", currentSettings.logoUrl);
+        if (fs.existsSync(oldLogoPath)) {
+          try {
+            fs.unlinkSync(oldLogoPath);
+          } catch (error) {
+            console.warn("Failed to delete old logo file:", error);
+            // Continue even if deletion fails
+          }
+        }
+      }
+
       const settings = await prisma.systemSettings.update({
         where: { id: "main" },
         data: { logoUrl },

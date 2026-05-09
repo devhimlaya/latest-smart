@@ -25,6 +25,7 @@ import {
   Check,
   AlertTriangle,
   SplitSquareHorizontal,
+  Download,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   gradesApi,
+  SERVER_URL,
   type ClassAssignment,
   type ClassRecord,
   type Grade,
@@ -502,6 +504,116 @@ export default function ClassRecordView() {
     setTimeout(() => printWindow.print(), 250);
   };
 
+  // Download ECR - Auto-filled Electronic Class Record with progress tracking
+  const [downloadingECR, setDownloadingECR] = useState(false);
+  const [ecrProgress, setEcrProgress] = useState<string>('');
+  const [ecrPercentage, setEcrPercentage] = useState<number>(0);
+  const [showEcrGenerationDialog, setShowEcrGenerationDialog] = useState(false);
+  
+  const downloadECR = async () => {
+    if (!classAssignment) return;
+    
+    try {
+      setDownloadingECR(true);
+      setShowEcrGenerationDialog(true);
+      setError('');
+      setEcrPercentage(0);
+      
+      // Step 1: Initializing (10%)
+      setEcrProgress('Initializing ECR generation...');
+      setEcrPercentage(10);
+      await new Promise(resolve => setTimeout(resolve, 400));
+      
+      // Step 2: Finding template (25%)
+      setEcrProgress('Finding ECR template for ' + classAssignment.subject.name + '...');
+      setEcrPercentage(25);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Step 3: Fetching student data (40%)
+      setEcrProgress('Fetching student roster and grades...');
+      setEcrPercentage(40);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Step 4: Generating Excel (50%)
+      setEcrProgress('Generating Excel file with auto-filled data...');
+      setEcrPercentage(50);
+      
+      const token = sessionStorage.getItem('token');
+      const startTime = Date.now();
+      const response = await fetch(`${SERVER_URL}/api/ecr-templates/generate/${classAssignment.id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ quarter: selectedQuarter }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate ECR');
+      }
+
+      // Step 5: Processing file (70%)
+      setEcrProgress('Processing Excel file...');
+      setEcrPercentage(70);
+      
+      // Get filename from response headers or create one
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `ECR_${classAssignment.subject.name}_${classAssignment.section.name}.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) filename = filenameMatch[1];
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      
+      // Step 6: Preparing download (90%)
+      setEcrProgress('Preparing your download...');
+      setEcrPercentage(90);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      // Step 7: Complete (100%)
+      setEcrPercentage(100);
+      setEcrProgress(`✅ Downloaded successfully in ${totalTime}s!`);
+      
+      setTimeout(() => {
+        setShowEcrGenerationDialog(false);
+        setEcrPercentage(0);
+        setSuccess(`ECR downloaded successfully in ${totalTime}s!`);
+        setTimeout(() => setSuccess(''), 3000);
+      }, 1200);
+    } catch (error: any) {
+      console.error('Failed to download ECR:', error);
+      const errorMessage = error.message || 'Failed to download ECR. Make sure an ECR template exists for this subject.';
+      
+      // Show error in dialog
+      setEcrProgress('❌ ' + errorMessage);
+      setEcrPercentage(0);
+      
+      // Wait 2 seconds, then close dialog and show error toast
+      setTimeout(() => {
+        setShowEcrGenerationDialog(false);
+        setError(errorMessage);
+        setTimeout(() => setError(''), 5000);
+      }, 2000);
+    } finally {
+      setDownloadingECR(false);
+    }
+  };
+
 
 
   if (loading) {
@@ -551,10 +663,10 @@ export default function ClassRecordView() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Success/Error Alerts - Floating Toast Style */}
+      {/* Success/Error Alerts - Floating Toast Style with Close Button */}
       {(error || success) && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center gap-4 px-5 py-4 rounded-2xl shadow-2xl border animate-slide-in-right ${
+          className={`fixed top-6 right-6 z-[9999] flex items-center gap-4 px-5 py-4 rounded-2xl shadow-2xl border animate-slide-in-right ${
             error
               ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-200 text-red-800"
               : "border-gray-200"
@@ -568,7 +680,16 @@ export default function ClassRecordView() {
               <CheckCircle className="w-5 h-5" style={{ color: colors.primary }} />
             )}
           </div>
-          <span className="font-semibold">{error || success}</span>
+          <span className="font-semibold flex-1">{error || success}</span>
+          <button
+            onClick={() => {
+              setError('');
+              setSuccess('');
+            }}
+            className="p-1 rounded-lg hover:bg-black/10 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -778,6 +899,27 @@ export default function ClassRecordView() {
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Print SF8</span>
                 <span className="sm:hidden">SF8</span>
+              </Button>
+              <Button
+                onClick={downloadECR}
+                disabled={downloadingECR}
+                variant="outline"
+                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
+                style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
+              >
+                {downloadingECR ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Generating...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Download ECR</span>
+                    <span className="sm:hidden">ECR</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -1473,6 +1615,132 @@ export default function ClassRecordView() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ECR Generation Progress Dialog */}
+      <Dialog open={showEcrGenerationDialog} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div 
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: `${colors.primary}15` }}
+              >
+                <FileSpreadsheet className="w-5 h-5" style={{ color: colors.primary }} />
+              </div>
+              Generating ECR
+            </DialogTitle>
+            <DialogDescription>
+              Please wait while we generate your Electronic Class Record
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="flex flex-col items-center justify-center space-y-6">
+              {/* Circular Progress with Percentage */}
+              <div className="relative">
+                <svg className="w-32 h-32 -rotate-90">
+                  {/* Background circle */}
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    className="text-gray-200"
+                  />
+                  {/* Progress circle */}
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 56}`}
+                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - ecrPercentage / 100)}`}
+                    className="transition-all duration-500 ease-out"
+                    style={{ color: ecrProgress.startsWith('❌') ? '#ef4444' : ecrProgress.startsWith('✅') ? '#10b981' : colors.primary }}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {/* Center content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  {ecrProgress.startsWith('❌') ? (
+                    <>
+                      <AlertCircle className="w-10 h-10 text-red-500 mb-1" />
+                      <span className="text-sm font-semibold text-red-600">Error</span>
+                    </>
+                  ) : ecrProgress.startsWith('✅') ? (
+                    <>
+                      <CheckCircle className="w-10 h-10 text-green-500 mb-1" />
+                      <span className="text-sm font-semibold text-green-600">Done!</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-3xl font-bold" style={{ color: colors.primary }}>
+                        {ecrPercentage}%
+                      </span>
+                      <Loader2 
+                        className="w-5 h-5 animate-spin mt-1" 
+                        style={{ color: colors.primary }}
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              {/* Progress Message */}
+              <div className="text-center space-y-2">
+                <p className={`text-sm font-medium ${ecrProgress.startsWith('❌') ? 'text-red-600' : ecrProgress.startsWith('✅') ? 'text-green-600' : 'text-gray-700'}`}>
+                  {ecrProgress || 'Starting...'}
+                </p>
+                {!ecrProgress.startsWith('❌') && !ecrProgress.startsWith('✅') && (
+                  <div className="flex items-center justify-center gap-1">
+                    <div 
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ 
+                        backgroundColor: colors.primary,
+                        animationDelay: '0ms' 
+                      }}
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ 
+                        backgroundColor: colors.primary,
+                        animationDelay: '150ms' 
+                      }}
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ 
+                        backgroundColor: colors.primary,
+                        animationDelay: '300ms' 
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Info Box */}
+              <div className="w-full p-4 rounded-lg bg-gray-50 border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <FileSpreadsheet className="w-5 h-5 text-gray-500 mt-0.5" />
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="font-medium">What's being generated:</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-xs">
+                      <li>Student roster with LRN and names</li>
+                      <li>Current grades from database</li>
+                      <li>Auto-filled with class information</li>
+                      <li>Formatted Excel file ready to use</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -360,6 +360,8 @@ link.remove();
 ```
 GET http://100.93.66.120:3000/api/templates
 GET http://100.93.66.120:3000/api/templates/:formType
+GET http://100.93.66.120:3000/api/templates/:id/preview
+GET http://100.93.66.120:3000/api/templates/:id/styled-preview
 POST http://100.93.66.120:3000/api/templates/upload
 DELETE http://100.93.66.120:3000/api/templates/:id
 POST http://100.93.66.120:3000/api/templates/:id/toggle
@@ -373,6 +375,7 @@ GET http://100.93.66.120:3000/api/templates/:formType/download
 - ✅ Admin uploads templates with placeholders (`{{SCHOOL_NAME}}`, `{{#STUDENTS}}...{{/STUDENTS}}`)
 - ✅ System automatically fills templates with real data
 - ✅ Perfect formatting preserved (colors, borders, fonts)
+- ✅ **NEW: Pixel-perfect HTML rendering** from uploaded Excel templates
 
 **Supported Form Types:**
 - SF1 - School Register (Student Master List)
@@ -381,7 +384,7 @@ GET http://100.93.66.120:3000/api/templates/:formType/download
 - SF4 - Quarterly Assessment Report
 - SF5 - Promotion/Completion Report
 - SF6 - Learner Information System
-- SF8 - Progress Report (Elementary)
+- SF8 - Learner's Basic Health and Nutrition Report
 - SF9 - Progress Report (JHS/SHS)
 - SF10 - Learner's Permanent Record
 
@@ -396,7 +399,7 @@ GET http://100.93.66.120:3000/api/templates/:formType/download
 **Request:** multipart/form-data
 ```
 file: [Excel file .xlsx/.xls]
-formType: "SF1" | "SF2" | "SF3" | ... | "SF10" | "SF1_7_BUNDLE"
+formType: "SF1" | "SF2" | "SF3" | ... | "SF10" | "SF1_10_BUNDLE"
 uploadMode: "single" | "bundle"
 formTypes: ["SF1","SF2",... ] (JSON string, required for bundle mode)
 sheetMappings: { "SF1": "Sheet Name", "SF2": "Sheet Name" } (optional JSON string)
@@ -406,8 +409,8 @@ instructions: "Optional usage instructions"
 ```
 
 **Bundle Mode (All-in-One Workbooks):**
-- Upload one file containing multiple sheets (for example, School Forms 1-7 in one workbook)
-- Use `formType="SF1_7_BUNDLE"` and `uploadMode="bundle"`
+- Upload one file containing multiple sheets (for example, School Forms 1-10 in one workbook)
+- Use `formType="SF1_10_BUNDLE"` and `uploadMode="bundle"`
 - If `sheetMappings` is not provided, the system auto-detects matching sheets by names like `School Form 1 (SF1)`, `School Form 2 (SF2)`, etc.
 - Each form is saved as its own template record, all pointing to the same uploaded workbook file
 
@@ -426,9 +429,98 @@ instructions: "Optional usage instructions"
 }
 ```
 
+#### GET Styled Preview (NEW - High-Fidelity Rendering)
+```
+GET http://100.93.66.120:3000/api/templates/:id/styled-preview?sheet=SheetName
+```
+
+**Purpose:** Get template structure with full styling for pixel-perfect HTML rendering
+
+**Parameters:**
+- `id` - Template ID (in URL)
+- `sheet` - Optional sheet name to filter (query parameter)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "templateId": "template-123",
+    "formType": "SF9",
+    "formName": "School Form 9 - Progress Report",
+    "fileName": "SF9_Template.xlsx",
+    "mappedSheetName": "SF9",
+    "parsedStructure": {
+      "sheets": [
+        {
+          "name": "SF9",
+          "rowCount": 50,
+          "colCount": 15,
+          "cells": [
+            {
+              "row": 1,
+              "col": 1,
+              "value": "REPORT CARD",
+              "type": "string",
+              "style": {
+                "backgroundColor": "#0070C0",
+                "color": "#FFFFFF",
+                "fontSize": 14,
+                "fontWeight": "bold",
+                "textAlign": "center",
+                "border": {
+                  "top": { "style": "2px solid", "color": "#000000" },
+                  "bottom": { "style": "2px solid", "color": "#000000" }
+                }
+              },
+              "mergeInfo": {
+                "rowSpan": 1,
+                "colSpan": 15,
+                "isMaster": true
+              }
+            }
+          ],
+          "columnWidths": [50, 120, 80, ...],
+          "rowHeights": [25, 20, 20, ...],
+          "mergedCells": ["A1:O1", "B5:E5"]
+        }
+      ],
+      "metadata": {
+        "creator": "Admin User",
+        "created": "2026-04-01T00:00:00.000Z"
+      }
+    }
+  }
+}
+```
+
+**Use Case:**
+This endpoint powers the **Dynamic Template Rendering System**. Frontend can:
+1. Fetch template structure with complete styling
+2. Render pixel-perfect HTML that matches Excel exactly
+3. Support print output that looks identical to original template
+4. Enable "no-code maintenance" - admin uploads new template, pages automatically use it
+
+**Example Usage in React:**
+```tsx
+import ExcelRenderer from '@/components/ExcelRenderer';
+import { useTemplate } from '@/lib/useTemplate';
+
+function FormViewer() {
+  const { activeSheet, loading } = useTemplate('SF9');
+  
+  return (
+    <>
+      {activeSheet && <ExcelRenderer sheet={activeSheet} />}
+      <button onClick={() => window.print()}>Print</button>
+    </>
+  );
+}
+```
+
 ---
 
-### 6. SF1 - School Register Export
+### 7. SF1 - School Register Export
 ```
 GET http://100.93.66.120:3000/api/registrar/export/sf1/:sectionId
 ```
@@ -470,6 +562,338 @@ document.body.appendChild(link);
 link.click();
 link.remove();
 ```
+
+---
+
+### 6. ECR Template Management (Electronic Class Record Templates)
+```
+GET http://100.93.66.120:3000/api/ecr-templates
+GET http://100.93.66.120:3000/api/ecr-templates/:id
+GET http://100.93.66.120:3000/api/ecr-templates/:id/download
+POST http://100.93.66.120:3000/api/ecr-templates/upload
+PUT http://100.93.66.120:3000/api/ecr-templates/:id
+DELETE http://100.93.66.120:3000/api/ecr-templates/:id
+POST http://100.93.66.120:3000/api/ecr-templates/generate/:classAssignmentId
+```
+
+**Purpose:** Manage Electronic Class Record (ECR) templates that auto-fill with student data
+
+**What are ECR Templates?**
+ECR Templates are subject-specific Excel files that teachers use for class records. Instead of manually typing student names, LRNs, and class info into blank templates, the system automatically generates completed ECR files with all student data pre-populated. This ensures:
+- ✅ **Time Savings:** Teachers don't manually type student names
+- ✅ **Standardization:** All teachers use the same format for each subject
+- ✅ **Auto-Fill Magic:** Student lists, grades, sections automatically populated
+- ✅ **Error Reduction:** No typos in student names or LRNs
+
+**Admin Workflow:**
+1. Admin uploads Excel template for each subject (Math, English, Science, etc.)
+2. Template contains placeholders: `{{SCHOOL_NAME}}`, `{{TEACHER_NAME}}`, `{{SUBJECT}}`, `{{STUDENT_LIST}}`, etc.
+3. System validates and stores template
+4. Template becomes available for all teachers teaching that subject
+
+**Teacher Workflow:**
+1. Teacher opens their class record page
+2. Clicks "Download ECR" button
+3. System finds active template for their subject
+4. System generates auto-filled Excel with:
+   - School info, teacher name, subject, grade, section
+   - Complete student roster (LRN, full names)
+   - Formatted and ready to use
+5. Teacher receives downloadable Excel file
+
+#### GET All ECR Templates
+**Endpoint:**
+```
+GET http://100.93.66.120:3000/api/ecr-templates?subjectName=Mathematics&isActive=true
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Query Parameters:**
+- `subjectName` (optional) - Filter by subject name
+- `isActive` (optional) - Filter by active status (true/false)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ecr-template-123",
+      "subjectName": "Mathematics",
+      "description": "Electronic Class Record template for Mathematics",
+      "filePath": "/uploads/ecr-templates/1234567890-ECR_Math.xlsx",
+      "fileName": "ECR_Math.xlsx",
+      "fileSize": 45320,
+      "placeholders": [
+        "SCHOOL_NAME",
+        "TEACHER_NAME",
+        "SUBJECT",
+        "GRADE_LEVEL",
+        "SECTION",
+        "SCHOOL_YEAR",
+        "STUDENT_LIST"
+      ],
+      "instructions": "Insert student names at row marked with {{STUDENT_LIST}}",
+      "isActive": true,
+      "uploadedBy": "admin-user-id",
+      "uploadedByName": "Admin User",
+      "createdAt": "2026-04-17T10:00:00.000Z",
+      "updatedAt": "2026-04-17T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### GET Single ECR Template
+**Endpoint:**
+```
+GET http://100.93.66.120:3000/api/ecr-templates/:id
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ecr-template-123",
+    "subjectName": "English",
+    "description": "Electronic Class Record for English subject",
+    "fileName": "ECR_English.xlsx",
+    "fileSize": 52000,
+    "placeholders": ["SCHOOL_NAME", "TEACHER_NAME", "SUBJECT", ...],
+    "instructions": "Template includes grading rubrics and student list section",
+    "isActive": true,
+    "uploadedBy": "admin-user-id",
+    "uploadedByName": "Admin User",
+    "createdAt": "2026-04-17T10:00:00.000Z",
+    "updatedAt": "2026-04-17T10:00:00.000Z"
+  }
+}
+```
+
+#### POST Upload ECR Template
+**Endpoint:**
+```
+POST http://100.93.66.120:3000/api/ecr-templates/upload
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: multipart/form-data
+```
+
+**Request Body (FormData):**
+- `file` - Excel file (.xlsx, .xls) - **Required**
+- `subjectName` - Subject name (e.g., "Mathematics", "English") - **Required**
+- `description` - Template description (optional)
+- `instructions` - Usage instructions (optional)
+
+**Placeholders Supported:**
+- `{{SCHOOL_NAME}}` - Replaced with school name from system settings
+- `{{TEACHER_NAME}}` - Replaced with teacher's full name
+- `{{SUBJECT}}` - Replaced with subject name
+- `{{GRADE_LEVEL}}` - Replaced with grade level (Grade 7, Grade 8, etc.)
+- `{{SECTION}}` - Replaced with section name
+- `{{SCHOOL_YEAR}}` - Replaced with school year
+- `{{STUDENT_LIST}}` - **Special:** Marks where student rows should be inserted
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "ECR template uploaded successfully",
+  "data": {
+    "id": "ecr-template-123",
+    "subjectName": "Science",
+    "fileName": "ECR_Science.xlsx",
+    "fileSize": 48900,
+    "placeholders": ["SCHOOL_NAME", "TEACHER_NAME", "STUDENT_LIST"],
+    "isActive": true
+  }
+}
+```
+
+**Validation:**
+- Only one active template per subject
+- File must be valid Excel (.xlsx or .xls)
+- Max file size: 15MB
+- Template should contain `{{STUDENT_LIST}}` placeholder for proper student insertion
+
+#### PUT Update ECR Template
+**Endpoint:**
+```
+PUT http://100.93.66.120:3000/api/ecr-templates/:id
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "description": "Updated description",
+  "instructions": "Updated usage instructions",
+  "isActive": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "ECR template updated successfully",
+  "data": {
+    "id": "ecr-template-123",
+    "subjectName": "Mathematics",
+    "description": "Updated description",
+    "instructions": "Updated usage instructions",
+    "isActive": true
+  }
+}
+```
+
+#### GET Download ECR Template (Blank)
+**Endpoint:**
+```
+GET http://100.93.66.120:3000/api/ecr-templates/:id/download
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Response:** Binary Excel file (.xlsx)
+
+**Purpose:** Download the blank template (without auto-fill) for review or manual editing
+
+**Filename:** `ECR_{SubjectName}_{timestamp}.xlsx`
+
+#### DELETE ECR Template
+**Endpoint:**
+```
+DELETE http://100.93.66.120:3000/api/ecr-templates/:id
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "ECR template deleted successfully"
+}
+```
+
+**Note:** File is only deleted if no other templates reference it (reference-counted deletion)
+
+#### POST Generate Auto-Filled ECR (⭐ Main Feature)
+**Endpoint:**
+```
+POST http://100.93.66.120:3000/api/ecr-templates/generate/:classAssignmentId
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Parameters:**
+- `classAssignmentId` - The teacher's class assignment ID (in URL)
+
+**What It Does:**
+1. Fetches class assignment with teacher, subject, section, enrolled students
+2. Finds active ECR template for the subject
+3. Loads template Excel file with ExcelJS
+4. Replaces all placeholders with real data:
+   - `{{SCHOOL_NAME}}` → "Sample High School"
+   - `{{TEACHER_NAME}}` → "Ms. Jane Doe"
+   - `{{SUBJECT}}` → "Mathematics"
+   - `{{GRADE_LEVEL}}` → "Grade 7"
+   - `{{SECTION}}` → "Einstein"
+   - `{{SCHOOL_YEAR}}` → "2025-2026"
+5. Finds `{{STUDENT_LIST}}` placeholder row
+6. Inserts student rows with:
+   - Row number (1, 2, 3, ...)
+   - LRN
+   - Full name (Last Name, First Name Middle Name)
+7. Generates output Excel file
+8. Returns file for download
+
+**Response:** Binary Excel file (.xlsx)
+
+**Filename:** `ECR_{SubjectName}_{GradeLevel}_{Section}_{timestamp}.xlsx`
+
+**Example:**
+- Filename: `ECR_Mathematics_Grade_7_Einstein_1713353200000.xlsx`
+- Contains: Complete student roster auto-filled with names and LRNs
+- Ready to use: Teacher just needs to add grades
+
+**Error Responses:**
+```json
+{
+  "error": "Class assignment not found or access denied"
+}
+```
+
+```json
+{
+  "error": "No active ECR template found for subject: Mathematics"
+}
+```
+
+```json
+{
+  "error": "Template file not found on server"
+}
+```
+
+**Usage Example (React/TypeScript):**
+```typescript
+const downloadECR = async (classAssignmentId: string) => {
+  const token = sessionStorage.getItem('token');
+  const response = await fetch(
+    `${SERVER_URL}/api/ecr-templates/generate/${classAssignmentId}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `ECR_${Date.now()}.xlsx`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+```
+
+**Benefits:**
+- ✅ **Zero manual data entry** - All student info auto-populated
+- ✅ **Consistent formatting** - All teachers use same template
+- ✅ **Fast setup** - Download takes seconds, not hours
+- ✅ **Error-free** - No typos in student names or LRNs
+- ✅ **Easy updates** - Admin can update templates without code changes
 
 ---
 
