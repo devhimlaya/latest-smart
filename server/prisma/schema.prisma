@@ -342,9 +342,10 @@ model ExcelTemplate {
 // Admin uploads subject-specific ECR templates
 // Teachers download auto-filled versions with their class data
 model ECRTemplate {
-  id           String   @id @default(cuid())
-  subjectName  String   // e.g., "Mathematics", "English", "Science" - matches Subject.name
-  description  String?  // Optional description for the template
+  id           String       @id @default(cuid())
+  subjectName  String       // e.g., "Mathematics", "English", "Science" - matches Subject.name
+  subjectType  SubjectType? // Optional: tag template for a subject type (CORE, PE_HEALTH, TLE, MAPEH)
+  description  String?      // Optional description for the template
   filePath     String   // Path to uploaded Excel template file
   fileName     String   // Original filename
   fileSize     Int      // File size in bytes

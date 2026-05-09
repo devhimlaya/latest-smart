@@ -132,12 +132,16 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
       return;
     }
 
-    const { subjectName, description, instructions } = req.body;
+    const { subjectName, subjectType, description, instructions } = req.body;
 
     if (!subjectName) {
       res.status(400).json({ success: false, error: 'Subject name is required' });
       return;
     }
+
+    // Validate subjectType if provided
+    const validTypes = ['CORE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const parsedSubjectType = subjectType && validTypes.includes(subjectType) ? subjectType : null;
 
     // Check if template for this subject already exists
     const existingTemplate = await prisma.eCRTemplate.findFirst({
@@ -178,6 +182,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
     const template = await prisma.eCRTemplate.create({
       data: {
         subjectName,
+        subjectType: parsedSubjectType,
         description: description || null,
         filePath: req.file.path,
         fileName: req.file.originalname,
@@ -186,7 +191,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
         isActive: true,
         uploadedBy: req.user!.id,
         uploadedByName: req.user!.username
-      }
+      } as any
     });
 
     await createAuditLog(
@@ -224,7 +229,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
 router.put('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { description, instructions, isActive } = req.body;
+    const { subjectType, description, instructions, isActive } = req.body;
 
     const template = await prisma.eCRTemplate.findUnique({
       where: { id }
@@ -235,13 +240,17 @@ router.put('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Respon
       return;
     }
 
+    const validTypes = ['CORE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const parsedSubjectType = subjectType === '' ? null : (subjectType && validTypes.includes(subjectType) ? subjectType : undefined);
+
     const updatedTemplate = await prisma.eCRTemplate.update({
       where: { id },
       data: {
-        description: description !== undefined ? description : template.description,
-        instructions: instructions !== undefined ? instructions : template.instructions,
-        isActive: isActive !== undefined ? isActive : template.isActive
-      }
+        ...(parsedSubjectType !== undefined ? { subjectType: parsedSubjectType } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(instructions !== undefined ? { instructions } : {}),
+        ...(isActive !== undefined ? { isActive } : {}),
+      } as any
     });
 
     await createAuditLog(
@@ -396,26 +405,47 @@ router.post('/generate/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), 
     if (req.user!.role !== 'ADMIN' && req.user!.id !== classAssignment.teacher.userId) { res.status(403).json({ success: false, error: 'Not authorized' }); return; }
     console.log(`[ECR] Data fetched in ${Date.now() - startTime}ms`);
 
-    // Find template — try subject-specific first, then fall back to any active ECR template
+    // Find template — priority: exact subject name → subject type → any active
     const baseSubjectName = classAssignment.subject.name.replace(/\s+\d+$/, '').trim();
-    let ecrTemplate = await prisma.eCRTemplate.findFirst({
+    const subjectType = classAssignment.subject.type; // e.g. 'CORE', 'PE_HEALTH', 'TLE', 'MAPEH'
+    let ecrTemplate: { filePath: string; subjectName: string } | null = null;
+
+    // 1) Exact subject name match (most specific)
+    const nameMatch = await prisma.eCRTemplate.findFirst({
       where: { OR: [{ subjectName: baseSubjectName, isActive: true }, { subjectName: classAssignment.subject.name, isActive: true }] },
-      select: { filePath: true }
+      select: { filePath: true, subjectName: true },
+      orderBy: { updatedAt: 'desc' }
     });
-    
-    // Fallback: use any active ECR template (e.g. uploaded without specific subject name)
-    if (!ecrTemplate || !fs.existsSync(ecrTemplate.filePath)) {
-      console.log(`[ECR] No subject-specific template for "${baseSubjectName}", trying any active template...`);
+    if (nameMatch && fs.existsSync(nameMatch.filePath)) {
+      ecrTemplate = nameMatch;
+      console.log(`[ECR] Template: exact subject name match "${baseSubjectName}"`);
+    }
+
+    // 2) Subject type match (e.g. any CORE template, any PE_HEALTH template)
+    if (!ecrTemplate) {
+      const typeMatch = await prisma.eCRTemplate.findFirst({
+        where: { subjectType: subjectType as any, isActive: true },
+        select: { filePath: true, subjectName: true },
+        orderBy: { updatedAt: 'desc' }
+      });
+      if (typeMatch && fs.existsSync(typeMatch.filePath)) {
+        ecrTemplate = typeMatch;
+        console.log(`[ECR] Template: subject type match (${subjectType}) → "${typeMatch.subjectName}"`);
+      }
+    }
+
+    // 3) Any active template as last resort
+    if (!ecrTemplate) {
+      console.log(`[ECR] No name/type match for "${baseSubjectName}" (${subjectType}), trying any active template...`);
       const allTemplates = await prisma.eCRTemplate.findMany({
         where: { isActive: true },
         select: { filePath: true, subjectName: true },
         orderBy: { updatedAt: 'desc' }
       });
-      // Find first template file that actually exists and has Q1 sheet
       for (const t of allTemplates) {
         if (fs.existsSync(t.filePath)) {
           ecrTemplate = t;
-          console.log(`[ECR] Using fallback ECR template: ${t.filePath} (subject: ${t.subjectName})`);
+          console.log(`[ECR] Template: any-active fallback → "${t.subjectName}" (${t.filePath})`);
           break;
         }
       }

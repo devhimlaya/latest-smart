@@ -14,6 +14,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 interface ECRTemplate {
   id: string;
   subjectName: string;
+  subjectType: string | null;
   description: string | null;
   filePath: string;
   fileName: string;
@@ -31,6 +32,7 @@ interface BulkUploadItem {
   file: File;
   detectedSubject: string;
   editedSubject: string;
+  subjectType: string;
   description: string;
   status: 'pending' | 'uploading' | 'success' | 'error';
   error?: string;
@@ -69,6 +71,7 @@ export default function ECRTemplateManager() {
   
   // Single upload form state
   const [uploadSubjectName, setUploadSubjectName] = useState('');
+  const [uploadSubjectType, setUploadSubjectType] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
   const [uploadInstructions, setUploadInstructions] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -141,6 +144,7 @@ export default function ECRTemplateManager() {
       const formData = new FormData();
       formData.append('file', uploadFile);
       formData.append('subjectName', uploadSubjectName.trim());
+      if (uploadSubjectType) formData.append('subjectType', uploadSubjectType);
       if (uploadDescription) formData.append('description', uploadDescription);
       if (uploadInstructions) formData.append('instructions', uploadInstructions);
 
@@ -161,6 +165,7 @@ export default function ECRTemplateManager() {
       setTimeout(() => {
         setUploadDialogOpen(false);
         setUploadSubjectName('');
+        setUploadSubjectType('');
         setUploadDescription('');
         setUploadInstructions('');
         setUploadFile(null);
@@ -185,6 +190,7 @@ export default function ECRTemplateManager() {
       file,
       detectedSubject: extractSubjectName(file.name),
       editedSubject: extractSubjectName(file.name),
+      subjectType: '',
       description: '',
       status: 'pending'
     }));
@@ -195,7 +201,7 @@ export default function ECRTemplateManager() {
   };
 
   // Update bulk upload item
-  const updateBulkUploadItem = (index: number, field: 'editedSubject' | 'description', value: string) => {
+  const updateBulkUploadItem = (index: number, field: 'editedSubject' | 'subjectType' | 'description', value: string) => {
     setBulkUploadItems(prev => 
       prev.map((item, i) => i === index ? { ...item, [field]: value } : item)
     );
@@ -242,6 +248,7 @@ export default function ECRTemplateManager() {
           const formData = new FormData();
           formData.append('file', item.file);
           formData.append('subjectName', item.editedSubject.trim());
+          if (item.subjectType) formData.append('subjectType', item.subjectType);
           if (item.description) formData.append('description', item.description);
 
           await axios.post(`${SERVER_URL}/api/ecr-templates/upload`, formData, {
@@ -475,6 +482,7 @@ export default function ECRTemplateManager() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Subject</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>File Name</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Uploaded By</TableHead>
@@ -491,6 +499,15 @@ export default function ECRTemplateManager() {
                         <FileSpreadsheet className="w-5 h-5 text-green-600" />
                         <span className="font-medium text-slate-900">{template.subjectName}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {template.subjectType ? (
+                        <Badge variant="outline" className="text-xs">
+                          {template.subjectType === 'PE_HEALTH' ? 'PE/Health' : template.subjectType}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">{template.fileName}</TableCell>
                     <TableCell className="text-sm text-slate-600">{formatFileSize(template.fileSize)}</TableCell>
@@ -553,6 +570,7 @@ export default function ECRTemplateManager() {
           setUploadMode('single');
           setBulkUploadItems([]);
           setUploadSubjectName('');
+          setUploadSubjectType('');
           setUploadDescription('');
           setUploadInstructions('');
           setUploadFile(null);
@@ -631,6 +649,25 @@ export default function ECRTemplateManager() {
                   />
                   <p className="text-xs text-slate-500">
                     The subject name must match exactly with subjects in the system
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subjectType">Subject Type / Category</Label>
+                  <select
+                    id="subjectType"
+                    value={uploadSubjectType}
+                    onChange={(e) => setUploadSubjectType(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md text-sm bg-white"
+                  >
+                    <option value="">— None (use subject name match only) —</option>
+                    <option value="CORE">CORE — English, Math, Science, Filipino, AP (30/50/20)</option>
+                    <option value="PE_HEALTH">PE / Health (20/60/20)</option>
+                    <option value="MAPEH">MAPEH — Music, Arts, PE, Health (20/60/20)</option>
+                    <option value="TLE">TLE / TVL (20/60/20)</option>
+                  </select>
+                  <p className="text-xs text-slate-500">
+                    Tag this template so it is automatically used for all subjects of this type when no exact name match is found.
                   </p>
                 </div>
 
@@ -719,6 +756,21 @@ export default function ECRTemplateManager() {
                                   className="text-sm"
                                   disabled={item.status !== 'pending'}
                                 />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Subject Type</Label>
+                                <select
+                                  value={item.subjectType}
+                                  onChange={(e) => updateBulkUploadItem(index, 'subjectType', e.target.value)}
+                                  className="w-full px-2 py-1.5 border rounded-md text-sm bg-white mt-1"
+                                  disabled={item.status !== 'pending'}
+                                >
+                                  <option value="">— None —</option>
+                                  <option value="CORE">CORE (English, Math, Science, Filipino, AP)</option>
+                                  <option value="PE_HEALTH">PE / Health</option>
+                                  <option value="MAPEH">MAPEH</option>
+                                  <option value="TLE">TLE / TVL</option>
+                                </select>
                               </div>
                               <div>
                                 <Label className="text-xs">Description (Optional)</Label>
@@ -826,6 +878,16 @@ export default function ECRTemplateManager() {
                 <div>
                   <p className="text-slate-500 text-xs mb-1">Subject</p>
                   <p className="font-semibold text-slate-900">{selectedTemplate.subjectName}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs mb-1">Subject Type</p>
+                  {selectedTemplate.subjectType ? (
+                    <Badge variant="outline">
+                      {selectedTemplate.subjectType === 'PE_HEALTH' ? 'PE / Health' : selectedTemplate.subjectType}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-slate-500">Not set (name-only match)</span>
+                  )}
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs mb-1">Status</p>
