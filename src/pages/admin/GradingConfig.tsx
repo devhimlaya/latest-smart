@@ -14,8 +14,9 @@ import {
   Loader2,
   RefreshCw,
   AlertTriangle,
+  Calculator,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,38 +25,31 @@ import { adminApi } from "@/lib/api";
 import type { GradingConfig as GradingConfigType } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const subjectTypeInfo: Record<string, { subjects: string[]; icon: React.ElementType; color: string; opacity: string }> = {
+const subjectTypeInfo: Record<string, { label: string; subjects: string[]; icon: React.ElementType; defaultWeights: string }> = {
   CORE: {
+    label: "Core Academic Subjects",
     subjects: ["English", "Filipino", "Araling Panlipunan", "Edukasyon sa Pagpapakatao"],
     icon: BookOpen,
-    color: "theme",
-    opacity: "15",
+    defaultWeights: "30% WW · 50% PT · 20% QA",
   },
   MATH_SCIENCE: {
+    label: "Mathematics & Science",
     subjects: ["Mathematics", "Science"],
-    icon: BookOpen,
-    color: "theme",
-    opacity: "10",
+    icon: Calculator,
+    defaultWeights: "40% WW · 40% PT · 20% QA",
   },
   MAPEH: {
+    label: "MAPEH",
     subjects: ["Music", "Arts", "Physical Education", "Health"],
     icon: Music,
-    color: "theme",
-    opacity: "20",
+    defaultWeights: "20% WW · 60% PT · 20% QA",
   },
   TLE: {
+    label: "Technology & Livelihood Education",
     subjects: ["TLE", "Home Economics", "Industrial Arts", "Computer Education"],
     icon: Wrench,
-    color: "theme",
-    opacity: "25",
+    defaultWeights: "20% WW · 60% PT · 20% QA",
   },
-};
-
-const subjectTypeLabels: Record<string, string> = {
-  CORE: "Core Academic Subjects (English, Filipino, AP, EsP)",
-  MATH_SCIENCE: "Mathematics & Science",
-  MAPEH: "MAPEH (Music, Arts, PE, Health)",
-  TLE: "Technology & Livelihood Education",
 };
 
 export default function GradingConfig() {
@@ -228,14 +222,14 @@ export default function GradingConfig() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header */}
+      {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold" style={{ color: '#111827' }}>
             Grading Configuration
           </h1>
           <p style={{ color: '#6b7280' }} className="mt-1">
-            Configure grading component weights for different subject types
+            Configure grading component weights for each subject type
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -243,7 +237,7 @@ export default function GradingConfig() {
             variant="outline"
             className="gap-2 rounded-xl border-gray-200"
             onClick={handleReset}
-            disabled={!hasChanges && configs.every(c => c.isDepEdDefault) || resetting}
+            disabled={resetting}
           >
             {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
             Reset to Default
@@ -271,30 +265,34 @@ export default function GradingConfig() {
       {hasChanges && !allValid && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
           <AlertCircle className="w-5 h-5 text-amber-600" />
-          <p className="text-sm font-medium text-amber-700">Component weights must add up to 100% for each subject type.</p>
+          <p className="text-sm font-medium text-amber-700">All weights must add up to exactly 100% before saving.</p>
         </div>
       )}
 
-      {/* DepEd Guidelines Info */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-2xl overflow-hidden" style={{ backgroundColor: `${colors.primary}08` }}>
-        <CardContent className="p-6">
+      {/* DepEd Guidelines Info Banner */}
+      <Card className="p-0 gap-0 border-0 shadow-md overflow-hidden" style={{ backgroundColor: `${colors.primary}08` }}>
+        <CardContent className="p-5">
           <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl" style={{ backgroundColor: `${colors.primary}15` }}>
-              <Info className="w-6 h-6" style={{ color: colors.primary }} />
+            <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: `${colors.primary}18` }}>
+              <Info className="w-5 h-5" style={{ color: colors.primary }} />
             </div>
-            <div>
-              <h3 className="font-bold mb-1" style={{ color: '#111827' }}>DepEd Grading Guidelines (DO 8, s. 2015)</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                The Department of Education prescribes specific weights for each grading component based on subject type.
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm mb-1" style={{ color: '#111827' }}>DepEd Grading Guidelines (DO 8, s. 2015)</h3>
+              <p className="text-xs text-gray-500 mb-3">
+                The Department of Education prescribes specific component weights per subject type.
               </p>
-              <div className="flex flex-wrap gap-4">
-                <div className="bg-white/80 rounded-lg px-4 py-2">
-                  <span className="text-xs text-gray-500 font-medium">Core Subjects</span>
-                  <p className="text-sm font-semibold" style={{ color: '#111827' }}>WW 30% | PT 50% | QA 20%</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="bg-white rounded-lg px-3 py-2 border border-white/80">
+                  <span className="text-xs text-gray-500 font-medium block">Core Subjects</span>
+                  <span className="text-xs font-semibold" style={{ color: '#111827' }}>WW 30% · PT 50% · QA 20%</span>
                 </div>
-                <div className="bg-white/80 rounded-lg px-4 py-2">
-                  <span className="text-xs text-gray-500 font-medium">MAPEH & TLE</span>
-                  <p className="text-sm font-semibold" style={{ color: '#111827' }}>WW 20% | PT 60% | QA 20%</p>
+                <div className="bg-white rounded-lg px-3 py-2 border border-white/80">
+                  <span className="text-xs text-gray-500 font-medium block">Math &amp; Science</span>
+                  <span className="text-xs font-semibold" style={{ color: '#111827' }}>WW 40% · PT 40% · QA 20%</span>
+                </div>
+                <div className="bg-white rounded-lg px-3 py-2 border border-white/80">
+                  <span className="text-xs text-gray-500 font-medium block">MAPEH &amp; TLE</span>
+                  <span className="text-xs font-semibold" style={{ color: '#111827' }}>WW 20% · PT 60% · QA 20%</span>
                 </div>
               </div>
             </div>
@@ -303,58 +301,64 @@ export default function GradingConfig() {
       </Card>
 
       {/* Grading Weight Cards */}
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6">
         {configs.map((config) => {
           const isValid = validateWeights(config);
           const total = config.writtenWorkWeight + config.performanceTaskWeight + config.quarterlyAssessWeight;
-          const info = subjectTypeInfo[config.subjectType] || { subjects: [], icon: BookOpen, color: "theme", opacity: "15" };
+          const info = subjectTypeInfo[config.subjectType] || {
+            label: config.subjectType,
+            subjects: [],
+            icon: BookOpen,
+            defaultWeights: "",
+          };
           const Icon = info.icon;
 
           return (
-            <Card key={config.id} className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white overflow-hidden">
-              <CardHeader className="border-b border-gray-100" style={{ backgroundColor: `${colors.primary}${info.opacity}` }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl" style={{ backgroundColor: `${colors.primary}25`, color: colors.primary }}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg" style={{ color: '#111827' }}>{subjectTypeLabels[config.subjectType] || config.subjectType}</CardTitle>
-                      <CardDescription className="flex flex-wrap gap-1 mt-1">
-                        {info.subjects.map((subject) => (
-                          <Badge key={subject} variant="outline" className="text-xs">
-                            {subject}
-                          </Badge>
-                        ))}
-                      </CardDescription>
-                    </div>
+            <Card key={config.id} className="p-0 gap-0 border-0 shadow-lg overflow-hidden bg-white">
+              {/* Card Header — fills full width including corners */}
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between" style={{ backgroundColor: `${colors.primary}0d` }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${colors.primary}18`, color: colors.primary }}>
+                    <Icon className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center gap-3">
-                    {config.isDepEdDefault && (
-                      <Badge className="border-0 font-medium" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        DepEd Default
-                      </Badge>
-                    )}
-                    {!isValid && (
-                      <Badge className="bg-red-100 text-red-700 border-0 font-medium">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        Invalid ({total}%)
-                      </Badge>
-                    )}
-                    {isValid && !config.isDepEdDefault && (
-                      <Badge className="border-0 font-medium" style={{ backgroundColor: `${colors.accent}25`, color: colors.accent }}>
-                        Custom
-                      </Badge>
-                    )}
+                  <div>
+                    <h3 className="font-semibold text-sm" style={{ color: '#111827' }}>{info.label}</h3>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {info.subjects.map((subject) => (
+                        <Badge key={subject} variant="outline" className="text-xs py-0 h-5">
+                          {subject}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </CardHeader>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  {config.isDepEdDefault && (
+                    <Badge className="border-0 text-xs font-medium" style={{ backgroundColor: `${colors.primary}18`, color: colors.primary }}>
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      DepEd Default
+                    </Badge>
+                  )}
+                  {isValid && !config.isDepEdDefault && (
+                    <Badge className="border-0 text-xs font-medium bg-amber-100 text-amber-700">
+                      Custom
+                    </Badge>
+                  )}
+                  {!isValid && (
+                    <Badge className="border-0 text-xs font-medium bg-red-100 text-red-700">
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      {total}% / 100%
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Card Body */}
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
                   {/* Written Work */}
-                  <div className="space-y-3">
-                    <Label htmlFor={`${config.id}-ww`} className="text-sm font-semibold text-gray-700">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${config.id}-ww`} className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                       Written Work (WW)
                     </Label>
                     <div className="relative">
@@ -365,18 +369,16 @@ export default function GradingConfig() {
                         max="100"
                         value={config.writtenWorkWeight}
                         onChange={(e) => handleWeightChange(config.subjectType, "writtenWorkWeight", e.target.value)}
-                        className="pr-8 text-lg font-semibold rounded-xl border-gray-200"
+                        className="pr-9 text-xl font-bold border-gray-200 rounded-xl h-12"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">%</span>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      Quizzes, Unit Tests, Long Tests, Essays
-                    </p>
+                    <p className="text-xs text-gray-400">Quizzes, unit tests, essays</p>
                   </div>
 
                   {/* Performance Task */}
-                  <div className="space-y-3">
-                    <Label htmlFor={`${config.id}-pt`} className="text-sm font-semibold text-gray-700">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${config.id}-pt`} className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                       Performance Task (PT)
                     </Label>
                     <div className="relative">
@@ -387,18 +389,16 @@ export default function GradingConfig() {
                         max="100"
                         value={config.performanceTaskWeight}
                         onChange={(e) => handleWeightChange(config.subjectType, "performanceTaskWeight", e.target.value)}
-                        className="pr-8 text-lg font-semibold rounded-xl border-gray-200"
+                        className="pr-9 text-xl font-bold border-gray-200 rounded-xl h-12"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">%</span>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      Projects, Performances, Outputs
-                    </p>
+                    <p className="text-xs text-gray-400">Projects, performances, outputs</p>
                   </div>
 
                   {/* Quarterly Assessment */}
-                  <div className="space-y-3">
-                    <Label htmlFor={`${config.id}-qa`} className="text-sm font-semibold text-gray-700">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${config.id}-qa`} className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                       Quarterly Assessment (QA)
                     </Label>
                     <div className="relative">
@@ -409,50 +409,51 @@ export default function GradingConfig() {
                         max="100"
                         value={config.quarterlyAssessWeight}
                         onChange={(e) => handleWeightChange(config.subjectType, "quarterlyAssessWeight", e.target.value)}
-                        className="pr-8 text-lg font-semibold rounded-xl border-gray-200"
+                        className="pr-9 text-xl font-bold border-gray-200 rounded-xl h-12"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">%</span>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      Quarterly Examination
-                    </p>
+                    <p className="text-xs text-gray-400">Quarterly examination</p>
                   </div>
                 </div>
 
-                {/* Total Bar */}
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-gray-700">Total Weight Distribution</span>
-                    <span className={`text-lg font-bold ${isValid ? "" : "text-red-600"}`} style={isValid ? { color: colors.primary } : undefined}>
-                      {total}%
+                {/* Weight Distribution Bar */}
+                <div className="pt-5 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Weight Distribution</span>
+                    <span
+                      className={`text-sm font-bold ${!isValid ? "text-red-600" : ""}`}
+                      style={isValid ? { color: colors.primary } : undefined}
+                    >
+                      {total}% total
                     </span>
                   </div>
-                  <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex">
+                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
                     <div
-                      className="transition-all duration-300"
+                      className="transition-all duration-300 rounded-l-full"
                       style={{ width: `${config.writtenWorkWeight}%`, backgroundColor: colors.primary }}
                     />
                     <div
                       className="transition-all duration-300"
-                      style={{ width: `${config.performanceTaskWeight}%`, backgroundColor: colors.secondary }}
+                      style={{ width: `${config.performanceTaskWeight}%`, backgroundColor: colors.secondary || '#8b5cf6' }}
                     />
                     <div
-                      className="transition-all duration-300"
-                      style={{ width: `${config.quarterlyAssessWeight}%`, backgroundColor: colors.accent }}
+                      className="transition-all duration-300 rounded-r-full"
+                      style={{ width: `${config.quarterlyAssessWeight}%`, backgroundColor: colors.accent || '#f59e0b' }}
                     />
                   </div>
-                  <div className="flex items-center justify-center gap-6 mt-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.primary }} />
-                      <span className="text-xs text-gray-600">WW ({config.writtenWorkWeight}%)</span>
+                  <div className="flex items-center gap-5 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.primary }} />
+                      <span className="text-xs text-gray-500">WW {config.writtenWorkWeight}%</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.secondary }} />
-                      <span className="text-xs text-gray-600">PT ({config.performanceTaskWeight}%)</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.secondary || '#8b5cf6' }} />
+                      <span className="text-xs text-gray-500">PT {config.performanceTaskWeight}%</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.accent }} />
-                      <span className="text-xs text-gray-600">QA ({config.quarterlyAssessWeight}%)</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.accent || '#f59e0b' }} />
+                      <span className="text-xs text-gray-500">QA {config.quarterlyAssessWeight}%</span>
                     </div>
                   </div>
                 </div>
@@ -463,40 +464,36 @@ export default function GradingConfig() {
       </div>
 
       {/* Change History */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-2xl bg-white">
-        <CardHeader className="border-b border-gray-100">
-          <CardTitle className="text-lg flex items-center gap-2" style={{ color: '#111827' }}>
-            <History className="w-5 h-5" style={{ color: colors.primary }} />
-            Recent Configuration Changes
-          </CardTitle>
-          <CardDescription>History of grading configuration updates</CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {configHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <History className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No configuration changes recorded yet</p>
-              </div>
-            ) : (
-              configHistory.map((log, index) => (
-                <div key={index} className="flex items-start gap-4 p-4 rounded-xl bg-gray-50">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary}15` }}>
-                    <Sliders className="w-4 h-4" style={{ color: colors.primary }} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium" style={{ color: '#111827' }}>{log.change}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                      <span>{log.date}</span>
-                      <span>•</span>
-                      <span>by {log.user}</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </div>
-              ))
-            )}
+      <Card className="p-0 gap-0 border-0 shadow-lg bg-white overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3" style={{ backgroundColor: `${colors.primary}06` }}>
+          <History className="w-4 h-4" style={{ color: colors.primary }} />
+          <div>
+            <h3 className="font-semibold text-sm" style={{ color: '#111827' }}>Recent Configuration Changes</h3>
+            <p className="text-xs text-gray-500">History of grading weight updates this session</p>
           </div>
+        </div>
+        <CardContent className="p-6">
+          {configHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <History className="w-8 h-8 mx-auto mb-2 text-gray-200" />
+              <p className="text-sm text-gray-400">No configuration changes recorded yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {configHistory.map((log, index) => (
+                <div key={index} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50">
+                  <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: `${colors.primary}12` }}>
+                    <Sliders className="w-3.5 h-3.5" style={{ color: colors.primary }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{log.change}</p>
+                    <p className="text-xs text-gray-400">{log.date} · by {log.user}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

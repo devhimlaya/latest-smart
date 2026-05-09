@@ -631,10 +631,24 @@ export default function SystemSettings() {
                   <SelectValue>{settings.region}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Region IV-A (CALABARZON)">Region IV-A (CALABARZON)</SelectItem>
-                  <SelectItem value="NCR">NCR</SelectItem>
-                  <SelectItem value="Region III (Central Luzon)">Region III (Central Luzon)</SelectItem>
+                  <SelectItem value="NCR (National Capital Region)">NCR (National Capital Region)</SelectItem>
+                  <SelectItem value="CAR (Cordillera Administrative Region)">CAR (Cordillera Administrative Region)</SelectItem>
                   <SelectItem value="Region I (Ilocos Region)">Region I (Ilocos Region)</SelectItem>
+                  <SelectItem value="Region II (Cagayan Valley)">Region II (Cagayan Valley)</SelectItem>
+                  <SelectItem value="Region III (Central Luzon)">Region III (Central Luzon)</SelectItem>
+                  <SelectItem value="Region IV-A (CALABARZON)">Region IV-A (CALABARZON)</SelectItem>
+                  <SelectItem value="Region IV-B (MIMAROPA)">Region IV-B (MIMAROPA)</SelectItem>
+                  <SelectItem value="Region V (Bicol Region)">Region V (Bicol Region)</SelectItem>
+                  <SelectItem value="Region VI (Western Visayas)">Region VI (Western Visayas)</SelectItem>
+                  <SelectItem value="Negros Island Region (NIR)">Negros Island Region (NIR)</SelectItem>
+                  <SelectItem value="Region VII (Central Visayas)">Region VII (Central Visayas)</SelectItem>
+                  <SelectItem value="Region VIII (Eastern Visayas)">Region VIII (Eastern Visayas)</SelectItem>
+                  <SelectItem value="Region IX (Zamboanga Peninsula)">Region IX (Zamboanga Peninsula)</SelectItem>
+                  <SelectItem value="Region X (Northern Mindanao)">Region X (Northern Mindanao)</SelectItem>
+                  <SelectItem value="Region XI (Davao Region)">Region XI (Davao Region)</SelectItem>
+                  <SelectItem value="Region XII (SOCCSKSARGEN)">Region XII (SOCCSKSARGEN)</SelectItem>
+                  <SelectItem value="Region XIII (CARAGA)">Region XIII (CARAGA)</SelectItem>
+                  <SelectItem value="BARMM (Bangsamoro Autonomous Region)">BARMM (Bangsamoro Autonomous Region)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

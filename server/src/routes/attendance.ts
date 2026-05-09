@@ -327,6 +327,12 @@ router.get(
       // Get unique dates
       const dates = Array.from(new Set(attendanceRecords.map((r) => r.date.toISOString().split("T")[0]))).sort();
 
+      // Fetch school settings
+      const schoolSettings = await (prisma as any).systemSettings.findUnique({
+        where: { id: 'main' },
+        select: { schoolName: true, schoolId: true, division: true, region: true }
+      });
+
       // Check if SF2 template exists
       const template = await prisma.excelTemplate.findFirst({
         where: { formType: "SF2", isActive: true },
@@ -383,7 +389,10 @@ router.get(
         });
 
         const templateData = {
-          SCHOOL_NAME: "Sample High School", // TODO: Get from system settings
+          SCHOOL_NAME: schoolSettings?.schoolName || '',
+          SCHOOL_ID: schoolSettings?.schoolId || '',
+          DIVISION: schoolSettings?.division || '',
+          REGION: schoolSettings?.region || '',
           SECTION_NAME: section.name,
           GRADE_LEVEL: section.gradeLevel.replace("_", " "),
           SCHOOL_YEAR: section.schoolYear,
