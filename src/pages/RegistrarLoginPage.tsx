@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, LogIn, User, Lock, AlertCircle, CheckCircle, GraduationCap, BookOpen, ClipboardList, Users2, TrendingUp, MapPin, Building2, Globe } from "lucide-react";
+import { Eye, EyeOff, LogIn, User, Lock, AlertCircle, CheckCircle, GraduationCap, FileText, UserCheck, FolderOpen, ClipboardCheck, MapPin, Building2, Globe } from "lucide-react";
 import axios from "axios";
 import { useTheme } from "@/contexts/ThemeContext";
 import { SERVER_URL } from "@/lib/api";
@@ -22,7 +22,7 @@ interface LoginResponse {
   };
 }
 
-export default function LoginPage() {
+export default function RegistrarLoginPage() {
   const navigate = useNavigate();
   const { colors, logoUrl, schoolName, schoolAddress, schoolDivision, schoolRegion } = useTheme();
   const acronym = getAcronym(schoolName);
@@ -46,9 +46,9 @@ export default function LoginPage() {
         password,
       });
 
-      // Verify teacher role
-      if (response.data.user.role !== "TEACHER") {
-        setError("Access denied. This portal is for teachers only.");
+      // Verify registrar role
+      if (response.data.user.role !== "REGISTRAR") {
+        setError("Access denied. This portal is for registrars only.");
         setIsLoading(false);
         return;
       }
@@ -59,7 +59,7 @@ export default function LoginPage() {
       setSuccess(response.data);
 
       setTimeout(() => {
-        navigate("/teacher");
+        navigate("/registrar");
       }, 1000);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
@@ -74,7 +74,7 @@ export default function LoginPage() {
 
   return (
     <div className="h-screen w-full flex overflow-hidden" style={{ background: `linear-gradient(to bottom right, #f8fafc, ${colors.primary}08, ${colors.accent}06)` }}>
-      {/* Left Panel - Branding */}
+      {/* Left Panel - Registrar Branding */}
       <div className="hidden lg:flex lg:w-[55%] xl:w-3/5 relative overflow-hidden">
         {/* Animated gradient background */}
         <div className="absolute inset-0 animate-gradient" style={{ background: `linear-gradient(to bottom right, ${colors.primary}, ${colors.secondary}, ${colors.accent})`, backgroundSize: '200% 200%' }} />
@@ -83,7 +83,7 @@ export default function LoginPage() {
         <div className="absolute inset-0">
           {/* Floating orbs */}
           <div className="absolute top-20 left-20 w-96 h-96 rounded-full bg-white/10 blur-3xl animate-float" />
-          <div className="absolute bottom-32 right-16 w-80 h-80 rounded-full blur-3xl animate-float" style={{ backgroundColor: `${colors.accent}33` }} />
+          <div className="absolute bottom-32 right-16 w-80 h-80 rounded-full blur-3xl animate-float" style={{ backgroundColor: `${colors.accent}33`, animationDelay: '2s' }} />
           <div className="absolute top-1/2 left-1/4 w-64 h-64 rounded-full blur-2xl animate-float" style={{ backgroundColor: `${colors.primary}25`, animationDelay: '4s' }} />
           
           {/* Grid overlay */}
@@ -91,13 +91,10 @@ export default function LoginPage() {
             backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
             backgroundSize: '50px 50px'
           }} />
-          
-          {/* Gradient mesh */}
-          <div className="absolute -top-1/2 -right-1/4 w-full h-full bg-gradient-radial from-white/5 to-transparent rounded-full" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white w-full">
-          {/* Logo + Acronym section */}
+          {/* Logo + Registrar Badge */}
           <div className="flex items-center gap-4 mb-12">
             <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl overflow-hidden flex-shrink-0" style={{ backgroundColor: fullLogoUrl ? 'white' : 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)' }}>
               {fullLogoUrl ? (
@@ -107,8 +104,11 @@ export default function LoginPage() {
               )}
             </div>
             <div>
-              <h1 className="text-4xl font-bold tracking-tight">{acronym}</h1>
-              <p className="text-white/80 text-sm font-medium tracking-wide">Academic Records Management</p>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-4xl font-bold tracking-tight">{acronym}</h1>
+                <span className="px-2 py-0.5 text-xs font-bold rounded-md" style={{ backgroundColor: `${colors.secondary}`, color: 'white' }}>REGISTRAR</span>
+              </div>
+              <p className="text-white/80 text-sm font-medium tracking-wide">Registrar's Portal</p>
             </div>
           </div>
 
@@ -136,19 +136,16 @@ export default function LoginPage() {
                   <span>{schoolRegion}</span>
                 </div>
               )}
-              {!schoolAddress && !schoolDivision && !schoolRegion && (
-                <p className="text-white/60 text-sm">Department of Education • Philippines</p>
-              )}
             </div>
           </div>
 
-          {/* Teacher-specific Feature cards */}
+          {/* Registrar-specific Feature cards */}
           <div className="grid gap-4">
             {[
-              { icon: ClipboardList, title: "Class Records", desc: "Manage and input student grades" },
-              { icon: Users2, title: "Advisory Class", desc: "Monitor your advisee's progress" },
-              { icon: TrendingUp, title: "Grade Analytics", desc: "Track student performance trends" },
-              { icon: BookOpen, title: "DepEd-Compliant", desc: "K-12 curriculum aligned" }
+              { icon: UserCheck, title: "Student Records", desc: "Manage enrollment and student data" },
+              { icon: FileText, title: "School Forms", desc: "Generate official documents" },
+              { icon: FolderOpen, title: "Document Management", desc: "Organize academic records" },
+              { icon: ClipboardCheck, title: "Enrollment Processing", desc: "Handle student registrations" }
             ].map((feature, i) => (
               <div 
                 key={i}
@@ -169,9 +166,9 @@ export default function LoginPage() {
         {/* Footer attribution */}
         <div className="absolute bottom-8 left-12 xl:left-20 flex items-center gap-3 text-white/50 text-sm">
           <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-            <BookOpen className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
           </div>
-          <span>Teacher Portal • Academic Excellence</span>
+          <span>Registrar Office • Records Management</span>
         </div>
       </div>
 
@@ -188,8 +185,11 @@ export default function LoginPage() {
               )}
             </div>
             <div>
-              <span className="text-xl font-bold text-gray-900">{acronym}</span>
-              <p className="text-xs text-gray-500">{schoolName}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-gray-900">{acronym}</span>
+                <span className="px-2 py-0.5 text-xs font-bold rounded-md" style={{ backgroundColor: `${colors.secondary}`, color: 'white' }}>REGISTRAR</span>
+              </div>
+              <p className="text-xs text-gray-500">Registrar Portal</p>
             </div>
           </div>
 
@@ -200,14 +200,14 @@ export default function LoginPage() {
                 {fullLogoUrl ? (
                   <img src={fullLogoUrl} alt={schoolName} className="w-full h-full object-cover" />
                 ) : (
-                  <BookOpen className="w-6 h-6 text-white" />
+                  <FileText className="w-6 h-6 text-white" />
                 )}
               </div>
               <CardTitle className="text-xl font-bold text-gray-900 pt-2">
-                Welcome Back, Teacher
+                Registrar Office
               </CardTitle>
               <CardDescription className="text-gray-600 text-sm">
-                Sign in to manage your classes at <span className="font-semibold" style={{ color: colors.primary }}>{acronym}</span>
+                Sign in to manage student records at <span className="font-semibold" style={{ color: colors.primary }}>{acronym}</span>
               </CardDescription>
             </CardHeader>
             
@@ -229,8 +229,8 @@ export default function LoginPage() {
                     <CheckCircle className="w-4 h-4" style={{ color: colors.primary }} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: colors.primary }}>Welcome back!</p>
-                    <p className="text-xs" style={{ color: colors.secondary }}>Loading your classes...</p>
+                    <p className="text-sm font-semibold" style={{ color: colors.primary }}>Access granted!</p>
+                    <p className="text-xs" style={{ color: colors.secondary }}>Loading registrar tools...</p>
                   </div>
                 </div>
               )}
@@ -239,7 +239,7 @@ export default function LoginPage() {
                 {/* Username Field */}
                 <div className="space-y-1.5">
                   <Label htmlFor="username" className="text-gray-800 font-semibold text-sm pl-1">
-                    Teacher ID / Username
+                    Registrar ID / Username
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
@@ -305,7 +305,7 @@ export default function LoginPage() {
                         className="peer sr-only"
                       />
                       <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:border-transparent transition-all duration-200 flex items-center justify-center" style={{ ...(false ? { borderColor: colors.primary, backgroundColor: colors.primary } : {}) }}>
-                        <svg className="w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 peer-checked:[&]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <svg className="w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
@@ -341,10 +341,10 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              {/* Demo credentials - Teacher only */}
+              {/* Demo credentials - Registrar only */}
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <BookOpen className="w-3.5 h-3.5" style={{ color: colors.primary }} />
+                  <FileText className="w-3.5 h-3.5" style={{ color: colors.primary }} />
                   <p className="text-xs font-semibold text-gray-600">Quick Demo Access</p>
                 </div>
                 <div className="flex justify-center">
@@ -352,21 +352,21 @@ export default function LoginPage() {
                     type="button"
                     className="text-center py-2 px-4 rounded-lg border hover:scale-105 transition-transform cursor-pointer"
                     style={{ backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}20` }}
-                    onClick={() => { setUsername('teacher'); setPassword('teacher123'); }}
+                    onClick={() => { setUsername('registrar'); setPassword('registrar123'); }}
                   >
-                    <p className="font-bold text-sm" style={{ color: colors.primary }}>Demo Teacher</p>
-                    <p className="text-gray-500 text-xs mt-0.5 font-mono">teacher / teacher123</p>
+                    <p className="font-bold text-sm" style={{ color: colors.primary }}>Demo Registrar</p>
+                    <p className="text-gray-500 text-xs mt-0.5 font-mono">registrar / registrar123</p>
                   </button>
                 </div>
               </div>
 
               {/* Other portals link */}
               <div className="mt-4 text-center">
-                <p className="text-xs text-gray-500 mb-2">Not a teacher?</p>
+                <p className="text-xs text-gray-500 mb-2">Not a registrar?</p>
                 <div className="flex gap-2 justify-center">
                   <a href="/login/admin" className="text-xs font-semibold hover:underline" style={{ color: colors.primary }}>Admin Portal</a>
                   <span className="text-gray-300">•</span>
-                  <a href="/login/registrar" className="text-xs font-semibold hover:underline" style={{ color: colors.primary }}>Registrar Portal</a>
+                  <a href="/login" className="text-xs font-semibold hover:underline" style={{ color: colors.primary }}>Teacher Portal</a>
                 </div>
               </div>
 

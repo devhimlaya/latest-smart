@@ -1,13 +1,9 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient, GradeLevel, Quarter } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { GradeLevel, Quarter } from "@prisma/client";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-  }),
-});
+import { prisma } from "../lib/prisma";
+import templateService from "../services/templateService";
+import * as XLSX from "xlsx";
 
 const router = Router();
 
@@ -770,6 +766,166 @@ router.get("/sections", authenticateToken, async (req: AuthRequest, res: Respons
   } catch (error) {
     console.error("Error fetching sections:", error);
     res.status(500).json({ message: "Failed to fetch sections" });
+  }
+});
+
+// Export SF1 - School Register (Student Master List)
+router.get("/export/sf1/:sectionId", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user || (user.role !== "REGISTRAR" && user.role !== "ADMIN")) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const rawSectionId = req.params.sectionId;
+    const sectionId = Array.isArray(rawSectionId) ? rawSectionId[0] : rawSectionId;
+
+    if (!sectionId) {
+      res.status(400).json({ message: "Section ID is required" });
+      return;
+    }
+
+    // Get section with enrolled students
+    const section = await prisma.section.findUnique({
+      where: { id: sectionId },
+      include: {
+        enrollments: {
+          where: { status: "ENROLLED" },
+          include: { 
+            student: true 
+          },
+          orderBy: { 
+            student: { lastName: "asc" } 
+          }
+        },
+        adviser: {
+          include: {
+            user: true
+          }
+        }
+      }
+    }) as any;
+
+    if (!section) {
+      res.status(404).json({ message: "Section not found" });
+      return;
+    }
+
+    // Check if SF1 template exists
+    const template = await (prisma as any).excelTemplate.findFirst({
+      where: { formType: "SF1", isActive: true },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    let buffer: Buffer;
+
+    if (template) {
+      // USE TEMPLATE SYSTEM
+      console.log("Using SF1 template for school register export");
+
+      const students = section.enrollments.map((enrollment: any, index: number) => ({
+        INDEX: index + 1,
+        LRN: enrollment.student.lrn,
+        LAST_NAME: enrollment.student.lastName,
+        FIRST_NAME: enrollment.student.firstName,
+        MIDDLE_NAME: enrollment.student.middleName || "",
+        SUFFIX: enrollment.student.suffix || "",
+        BIRTH_DATE: enrollment.student.birthDate 
+          ? new Date(enrollment.student.birthDate).toLocaleDateString('en-US') 
+          : "",
+        GENDER: enrollment.student.gender || "",
+        ADDRESS: enrollment.student.address || "",
+        GUARDIAN_NAME: enrollment.student.guardianName || "",
+        GUARDIAN_CONTACT: enrollment.student.guardianContact || "",
+      }));
+
+      const templateData = {
+        SCHOOL_NAME: "Sample High School", // TODO: Get from system settings
+        SECTION_NAME: section.name,
+        GRADE_LEVEL: section.gradeLevel.replace("_", " "),
+        SCHOOL_YEAR: section.schoolYear,
+        ADVISER: section.adviser 
+          ? `${section.adviser.user.firstName} ${section.adviser.user.lastName}`
+          : "Not Assigned",
+        TOTAL_STUDENTS: students.length,
+        STUDENTS: students,
+        DATE_GENERATED: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      };
+
+      buffer = await templateService.fillTemplate(template.filePath, templateData, {
+        targetSheetName: template.sheetName || undefined,
+        keepOnlyTargetSheet: Boolean(template.sheetName)
+      });
+    } else {
+      // FALLBACK TO HARDCODED FORMAT
+      console.log("No SF1 template found, using hardcoded format");
+
+      const worksheetData: any[] = [
+        ["SCHOOL FORM 1 - SCHOOL REGISTER"],
+        [],
+        [`Section: ${section.name}`, `Grade Level: ${section.gradeLevel.replace("_", " ")}`],
+        [`School Year: ${section.schoolYear}`, `Adviser: ${section.adviser ? `${section.adviser.user.firstName} ${section.adviser.user.lastName}` : "Not Assigned"}`],
+        [],
+        ["No.", "LRN", "Last Name", "First Name", "Middle Name", "Suffix", "Birth Date", "Gender", "Address", "Guardian Name", "Guardian Contact"],
+      ];
+
+      section.enrollments.forEach((enrollment: any, index: number) => {
+        const student = enrollment.student;
+        worksheetData.push([
+          index + 1,
+          student.lrn,
+          student.lastName,
+          student.firstName,
+          student.middleName || "",
+          student.suffix || "",
+          student.birthDate ? new Date(student.birthDate).toLocaleDateString('en-US') : "",
+          student.gender || "",
+          student.address || "",
+          student.guardianName || "",
+          student.guardianContact || "",
+        ]);
+      });
+
+      worksheetData.push([]);
+      worksheetData.push([`Total Students: ${section.enrollments.length}`]);
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+      // Set column widths
+      worksheet["!cols"] = [
+        { wch: 5 },  // No
+        { wch: 15 }, // LRN
+        { wch: 15 }, // Last Name
+        { wch: 15 }, // First Name
+        { wch: 15 }, // Middle Name
+        { wch: 8 },  // Suffix
+        { wch: 12 }, // Birth Date
+        { wch: 10 }, // Gender
+        { wch: 30 }, // Address
+        { wch: 20 }, // Guardian Name
+        { wch: 15 }, // Guardian Contact
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "School Register");
+
+      buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    }
+
+    // Set response headers
+    res.setHeader("Content-Disposition", `attachment; filename="SF1_School_Register_${section.name}_${section.schoolYear}.xlsx"`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    res.send(buffer);
+  } catch (error: any) {
+    console.error("Error exporting SF1:", error);
+    res.status(500).json({ message: "Failed to export school register", error: error.message });
   }
 });
 

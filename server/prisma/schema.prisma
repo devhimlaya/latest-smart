@@ -75,6 +75,7 @@ model Student {
   guardianContact String?
   enrollments  Enrollment[]
   grades       Grade[]
+  attendance   Attendance[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -88,6 +89,7 @@ model Section {
   adviser     Teacher?     @relation("SectionAdviser", fields: [adviserId], references: [id])
   enrollments Enrollment[]
   classAssignments ClassAssignment[]
+  attendance  Attendance[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -173,6 +175,33 @@ model Grade {
   updatedAt         DateTime @updatedAt
 
   @@unique([studentId, classAssignmentId, quarter])
+}
+
+// Attendance tracking
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  studentId  String
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sectionId  String
+  section    Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  date       DateTime         @db.Date
+  status     AttendanceStatus @default(PRESENT)
+  remarks    String?          // Optional notes (e.g., "Doctor's appointment", "Family emergency")
+  recordedBy String?          // Teacher ID who recorded the attendance
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([studentId, sectionId, date])
+  @@index([sectionId, date])
+  @@index([studentId])
+  @@index([date])
 }
 
 // Audit Log for tracking all system activities
@@ -264,4 +293,47 @@ model GradingConfig {
   isDepEdDefault        Boolean     @default(true)
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
+}
+
+// DepEd School Form Templates (SF1, SF2, etc.)
+enum FormType {
+  SF1  // School Register (Student Master List)
+  SF2  // Daily Attendance Record
+  SF3  // Individual Learner Monitoring Form
+  SF4  // Quarterly Assessment Report
+  SF5  // Report on Promotion/Completion
+  SF6  // Learner Information System
+  SF7  // School Personnel Assignment List and Basic Profile
+  SF8  // Report on Learning Progress and Achievement (JHS)
+  SF9  // Progress Report (JHS/SHS)
+  SF10 // Learner's Permanent Record
+}
+
+model ExcelTemplate {
+  id           String    @id @default(cuid())
+  formType     FormType  @unique
+  formName     String    // e.g., "School Form 2 - Daily Attendance Record"
+  description  String?   // Optional description
+  filePath     String    // Path to uploaded Excel template file
+  fileName     String    // Original filename
+  fileSize     Int       // File size in bytes
+  sheetName    String?   // Worksheet name for bundled workbooks (e.g., SF1-SF7 all-in-one)
+  
+  // Metadata
+  placeholders Json?     // Available placeholders in this template
+  instructions String?   // How to use this template
+  
+  // Status
+  isActive     Boolean   @default(true)
+  
+  // Tracking
+  uploadedBy   String    // User ID who uploaded
+  uploadedByName String  // Cached name for display
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  @@index([formType])
+  @@index([isActive])
+  @@index([filePath])
 }

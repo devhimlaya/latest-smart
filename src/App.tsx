@@ -1,12 +1,16 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import LoginPage from './pages/LoginPage'
+import AdminLoginPage from './pages/AdminLoginPage'
+import RegistrarLoginPage from './pages/RegistrarLoginPage'
 import TeacherLayout from './layouts/TeacherLayout'
 import TeacherDashboard from './pages/teacher/Dashboard'
 import ClassRecordsList from './pages/teacher/ClassRecordsList'
 import ClassRecordView from './pages/teacher/ClassRecordView'
 import MyAdvisory from './pages/teacher/MyAdvisory'
 import StudentGradeProfile from './pages/teacher/StudentGradeProfile'
+import Attendance from './pages/teacher/Attendance'
+import AttendanceReports from './pages/teacher/AttendanceReports'
 import RegistrarLayout from './layouts/RegistrarLayout'
 import RegistrarDashboard from './pages/registrar/Dashboard'
 import StudentRecords from './pages/registrar/StudentRecords'
@@ -18,13 +22,16 @@ import UserManagement from './pages/admin/UserManagement'
 import AuditLogs from './pages/admin/AuditLogs'
 import GradingConfig from './pages/admin/GradingConfig'
 import SystemSettings from './pages/admin/SystemSettings'
+import TemplateManager from './pages/admin/TemplateManager'
 
 function App() {
   return (
     <ThemeProvider>
       <Routes>
-        {/* Public routes */}
+        {/* Public routes - Login pages */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/admin" element={<AdminLoginPage />} />
+        <Route path="/login/registrar" element={<RegistrarLoginPage />} />
       
       {/* Teacher routes */}
       <Route path="/teacher" element={<TeacherLayout />}>
@@ -34,6 +41,8 @@ function App() {
         <Route path="records/:classAssignmentId" element={<ClassRecordView />} />
         <Route path="advisory" element={<MyAdvisory />} />
         <Route path="advisory/student/:studentId" element={<StudentGradeProfile />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="attendance-reports" element={<AttendanceReports />} />
       </Route>
 
       {/* Registrar routes */}
@@ -51,6 +60,7 @@ function App() {
         <Route path="logs" element={<AuditLogs />} />
         <Route path="grading" element={<GradingConfig />} />
         <Route path="settings" element={<SystemSettings />} />
+        <Route path="templates" element={<TemplateManager />} />
       </Route>
 
       {/* Default redirect */}

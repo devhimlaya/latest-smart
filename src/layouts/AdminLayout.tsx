@@ -10,6 +10,7 @@ import {
   Shield,
   Activity,
   Sliders,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getAcronym } from "@/lib/utils";
@@ -30,6 +31,7 @@ const navigation = [
   { name: "User Management", href: "/admin/users", icon: Users },
   { name: "Audit Logs", href: "/admin/logs", icon: Activity },
   { name: "Grading Config", href: "/admin/grading", icon: Sliders },
+  { name: "Template Manager", href: "/admin/templates", icon: FileSpreadsheet },
   { name: "System Settings", href: "/admin/settings", icon: Settings },
 ];
 

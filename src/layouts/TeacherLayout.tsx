@@ -8,6 +8,8 @@ import {
   X,
   GraduationCap,
   Users,
+  ClipboardCheck,
+  FileText,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getAcronym } from "@/lib/utils";
@@ -27,6 +29,8 @@ const navigation = [
   { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
   { name: "Class Records", href: "/teacher/classes", icon: BookOpen },
   { name: "My Advisory", href: "/teacher/advisory", icon: Users },
+  { name: "Attendance", href: "/teacher/attendance", icon: ClipboardCheck },
+  { name: "Attendance Reports", href: "/teacher/attendance-reports", icon: FileText },
 ];
 
 export default function TeacherLayout() {

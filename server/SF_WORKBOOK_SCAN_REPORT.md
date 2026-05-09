@@ -1,0 +1,920 @@
+# DepEd SF Workbook Scan Report
+
+Generated: 2026-05-08T08:25:55.703Z
+
+---
+
+## File: School Forms (1-7).xls
+Path: C:/Users/Sean/Downloads/School Forms (1-7).xls
+
+Workbook sheets: 7
+
+Sheet list:
+1. School Form 1 (SF1)
+2. School Form 2 (SF2)
+3. School Form 3 (SF3)
+4. School Form 4 (SF 4)
+5. School Form 5 (SF5)
+6. School Form 6 (SF6)
+7. School Form 7 (SF7)
+
+### Sheet: School Form 1 (SF1)
+- Range: A1:AA80
+- Merged regions: 270
+- Row metadata entries: 63
+- Column metadata entries: 0
+- Used size estimate: 80 rows x 27 cols
+- Non-empty cells (within !ref): 76
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - Z8:Z9
+  - I8:I9
+  - J8:K9
+  - J10:K10
+  - J11:K11
+  - R9:S9
+  - R10:S10
+  - R11:S11
+  - R12:S12
+  - U4:X4
+  - C10:F10
+  - C11:F11
+  - C12:F12
+  - T9:U9
+  - V9:W9
+  - T10:U10
+  - V10:W10
+  - T11:U11
+  - V11:W11
+  - X8:Y8
+- Key text markers:
+  - Row 1, A: School Form 1 (SF 1) School Register
+  - Row 60, S: REGISTERED
+  - Row 63, K: Learner With Dissability
+- Top structured preview rows:
+  - Row 1: A:School Form 1 (SF 1) School Register
+  - Row 2: A:(This replaces Form 1, Master List & STS Form 2-Family Background and Profile)
+  - Row 4: D:School ID | H:Region VIII | L:Division | S:District
+  - Row 6: C:School Name | M:School Year | S:Grade Level | W:Section
+  - Row 8: B:LRN | C:NAME (Last Name, First Name, Middle Name) | G:Sex (M/F) | H:BIRTH DATE (mm/dd/ yyyy) | I:AGE as of 1st Friday June | J:BIRTH PLACE (Province) | L:MOTHER TONGUE | M:IP (Ethnic Group) | N:RELIGION | O:ADDRESS | T:PARENTS | X:GUARDIAN (If not Parent) | Z:Contact Number of Parent or Guardian | AA:REMARKS
+  - Row 9: O:House #/ Street/ Sitio/ Purok | P:Barangay | Q:Municipality/ City | R:Province | T:Father's Name (Last Name, First Name, Middle Name) | V:Mother's Maiden Name (Last Name, First Name, Middle Name) | X:Name | Y:Relation-ship | AA:(Please refer to the legend on last page)
+  - Row 59: A:List and Code of Indicators under REMARKS column | W:Prepared by: | Z:Certified Correct:
+  - Row 60: A:Indicator | C:Code | E:Required Information | K:Indicator | M:Code | N:Required Information | S:REGISTERED | T:BoSY | U:EoSY
+  - Row 61: A:Transferred Out | C:T/O | D:Name of Public (P) Private (PR) School & Effectivity Date | K:CCT Recipient | M:CCT | N:CCT Control/reference number & Effectivity Date | S:MALE
+  - Row 62: A:Transferred IN | C:T/I | D:Name of Public (P) Private (PR) School & Effectivity Date | K:Balik-Aral | M:B/A | N:Name of school last attended & Year | S:FEMALE | W:(Signature of Adviser over Printed Name) | Z:(Signature of School Head over Printed Name)
+  - Row 63: A:Dropped | C:DRP | D:Reason and Effectivity Date | K:Learner With Dissability | M:LWD | N:Specify | S:TOTAL
+  - Row 64: A:Late Enrollment | C:LE | D:Reason (Enrollment beyond 1st Friday of June) | K:Accelarated | M:ACL | N:Specify Level & Effectivity Data | W:BoSY Date: EoSYDate: | Z:BoSY Date: EoSYDate:
+
+### Sheet: School Form 2 (SF2)
+- Range: A1:AJ93
+- Merged regions: 179
+- Row metadata entries: 92
+- Column metadata entries: 0
+- Used size estimate: 93 rows x 36 cols
+- Non-empty cells (within !ref): 113
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - AI73:AI74
+  - AJ73:AJ74
+  - AE41:AJ41
+  - AE42:AJ42
+  - AE47:AJ47
+  - AE48:AJ48
+  - AE51:AJ51
+  - AE52:AJ52
+  - AE53:AJ53
+  - AE54:AJ54
+  - AE60:AJ60
+  - AE57:AJ57
+  - AE58:AJ58
+  - AE61:AJ61
+  - AH63:AJ63
+  - AE63:AF64
+  - AI71:AI72
+  - AJ71:AJ72
+  - AI65:AI66
+  - AJ65:AJ66
+- Key text markers:
+  - Row 2, A: School Form 2 (SF2) Daily Attendance Report of Learners
+  - Row 10, A: LEARNER'S NAME (Last Name, First Name, Middle Name)
+  - Row 63, Q: 1. CODES FOR CHECKING ATTENDANCE
+  - Row 64, A: 1. The attendance shall be accomplished daily. Refer to the codes for checking learners' attendance.
+  - Row 65, A: 2. Dates shall be written in the columns after Learner's Name.
+  - Row 67, D: Registered Learners as of end of the month
+  - Row 69, B: Average Daily Attendance =
+  - Row 69, D: Total Daily Attendance
+  - Row 69, AB: Registered Learners as of end of the month
+  - Row 71, B: Percentage of Attendance for the month =
+  - Row 71, D: Average daily attendance
+  - Row 72, D: Registered Learners as of end of the month
+  - Row 73, AB: Average Daily Attendance
+  - Row 74, A: 4. Every end of the month, the class adviser will submit this form to the office of the principal for recording of summary table into School
+  - Row 75, AB: Percentage of Attendance for the month
+  - Row 76, A: 5. The adviser will provide neccessary interventions including but not limited to home visitation to learner/s who were absent for 5 consecu
+  - Row 77, Q: b.5. Poor academic performance
+  - Row 78, A: 6. Attendance performance of learners will be reflected in Form 137 and Form 138 every grading period.
+  - Row 79, Q: b.7. Hunger/Malnutrition
+  - Row 91, A: School Form 2 : Page ___ of ________
+- Top structured preview rows:
+  - Row 2: A:School Form 2 (SF2) Daily Attendance Report of Learners
+  - Row 3: A:(This replaces Form 1, Form 2 & STS Form 4 - Absenteeism and Dropout Profile)
+  - Row 6: B:School ID | H:School Year | Q:Report for the Month of
+  - Row 8: B:Name of School | T:Grade Level | Z:Section
+  - Row 10: A:LEARNER'S NAME (Last Name, First Name, Middle Name) | D:(1st row for date) | AC:Total for the Month | AE:REMARKS (If DROPPED OUT, state reason, please refer to legend number 2. If TRANSFERRED IN/
+  - Row 12: D:M | E:T | F:W | G:TH | H:F | I:M | J:T | K:W | L:TH | M:F | N:M | O:T | P:W | Q:TH | R:F | S:M | T:T | U:W | V:TH | W:F | X:M | Y:T | Z:W | AA:TH | AB:F | AC:ABSENT | AD:TARDY
+  - Row 34: A:MALE | TOTAL Per Day
+  - Row 60: A:FEMALE | TOTAL Per Day
+  - Row 61: A:Combined TOTAL PER DAY
+  - Row 63: A:GUIDELINES: | Q:1. CODES FOR CHECKING ATTENDANCE | AB:Month: | AE:No. of Days of Classes:
+  - Row 64: A:1. The attendance shall be accomplished daily. Refer to the codes for checking learners' a | Q:(blank) - Present; (x)- Absent; Tardy (half shaded= Upper for Late Commer, Lower for Cutti
+  - Row 65: A:2. Dates shall be written in the columns after Learner's Name. | AB:* Enrolment as of (1st Friday of June)
+  - Row 66: A:3. To compute the following: | Q:2. REASONS/CAUSES FOR DROPPING OUT
+  - Row 67: A:a. | B:Percentage of Enrolment = | D:Registered Learners as of end of the month | N:x 100 | Q:a. Domestic-Related Factors | AB:Late Enrollment during the month (beyond cut-off)
+  - Row 68: D:Enrolment as of 1st Friday of the school year | Q:a.1. Had to take care of siblings
+  - Row 69: A:b. | B:Average Daily Attendance = | D:Total Daily Attendance | Q:a.2. Early marriage/pregnancy | AB:Registered Learners as of end of the month
+  - Row 70: D:Number of School Days in reporting month | Q:a.3. Parents' attitude toward schooling
+  - Row 71: A:c. | B:Percentage of Attendance for the month = | D:Average daily attendance | N:x 100 | Q:a.4. Family problems | AB:Percentage of Enrolment as of end of the month
+  - Row 72: D:Registered Learners as of end of the month | Q:b. Individual-Related Factors
+  - Row 73: Q:b.1. Illness | AB:Average Daily Attendance
+  - Row 74: A:4. Every end of the month, the class adviser will submit this form to the office of the pr | Q:b.2. Overage
+  - Row 75: Q:b.3. Death | AB:Percentage of Attendance for the month
+  - Row 76: A:5. The adviser will provide neccessary interventions including but not limited to home vis | Q:b.4. Drug Abuse
+  - Row 77: Q:b.5. Poor academic performance | AB:Number of students absent for 5 consecutive days:
+  - Row 78: A:6. Attendance performance of learners will be reflected in Form 137 and Form 138 every gra | Q:b.6. Lack of interest/Distractions
+  - Row 79: A:* | B:Beginning of School Year cut-off report is every 1st Friday of the School Year | Q:b.7. Hunger/Malnutrition | AB:Drop out
+  - Row 80: Q:c. School-Related Factors
+  - Row 81: Q:c.1. Teacher Factor | AB:Transferred out
+  - Row 82: Q:c.2. Physical condition of classroom
+  - Row 83: Q:c.3. Peer influence | AB:Transferred in
+  - Row 84: Q:d. Geographic/Environmental
+  - Row 85: Q:d.1. Distance between home and school
+  - Row 86: Q:d.2. Armed conflict (incl. Tribal wars & clanfeuds) | AB:I certify that this is a true and correct report.
+  - Row 87: Q:d.3. Calamities/Disasters
+  - Row 88: Q:e. Financial-Related
+  - Row 89: Q:e.1. Child labor, work | AC:(Signature of Teacher over Printed Name)
+  - Row 90: Q:f. Others (Specify)
+  - Row 91: A:School Form 2 : Page ___ of ________ | AB:Attested by:
+
+### Sheet: School Form 3 (SF3)
+- Range: A2:AC68
+- Merged regions: 74
+- Row metadata entries: 65
+- Column metadata entries: 0
+- Used size estimate: 67 rows x 29 cols
+- Non-empty cells (within !ref): 58
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - B58:C58
+  - B59:C59
+  - B53:C53
+  - B54:C54
+  - B55:C55
+  - B56:C56
+  - B57:C57
+  - B48:C48
+  - B49:C49
+  - B50:C50
+  - B51:C51
+  - B52:C52
+  - B41:C41
+  - B44:C44
+  - B45:C45
+  - B46:C46
+  - B47:C47
+  - B35:C35
+  - B37:C37
+  - B38:C38
+- Key text markers:
+  - Row 2, A: School Form 3 (SF3) Books Issued and Returned
+  - Row 9, B: LEARNER'S NAME (Last Name, First Name, Middle Name)
+  - Row 61, B: TOTAL LEARNERS | TOTAL COPIES
+  - Row 63, A: 1. Title of Books Issued to each learner must be recorded by the class adviser.
+  - Row 65, H: B. In Column Remark/Action Taken, codes are: LLTR=Secured Letter from Learner duly signed by parent/guardian (for code FM), TLTR=Teacher pre
+  - Row 68, T: School Form 3: Page ___ of ________
+- Top structured preview rows:
+  - Row 2: A:School Form 3 (SF3) Books Issued and Returned
+  - Row 3: A:(This replaces Form 1 & Inventory of Textbooks)
+  - Row 5: B:School ID | I:School Year
+  - Row 7: B:School Name | I:Grade Level | L:Section
+  - Row 9: A:NO. | B:LEARNER'S NAME (Last Name, First Name, Middle Name) | D:Subject Area & Title | F:Subject Area & Title | H:Subject Area & Title | J:Subject Area & Title | L:Subject Area & Title | N:Subject Area & Title | P:Subject Area & Title | R:Subject Area & Title | T:REMARKS/ACTION TAKEN (Please refer to the legend on last page)
+  - Row 10: D:Date | F:Date | H:Date | J:Date | L:Date | N:Date | P:Date | R:Date
+  - Row 11: D:Issued | E:Returned | F:Issued | G:Returned | H:Issued | I:Returned | J:Issued | K:Returned | L:Issued | M:Returned | N:Issued | O:Returned | P:Issued | Q:Returned | R:Issued | S:Returned
+  - Row 36: B:TOTAL FOR MALE | TOTAL COPIES
+  - Row 60: B:TOTAL FOR FEMALE | TOTAL COPIES
+  - Row 61: B:TOTAL LEARNERS | TOTAL COPIES
+  - Row 62: A:GUIDELINES: | H:In case of lost/unreturned books, please provide information with the following code: | R:Prepared By:
+  - Row 63: A:1. Title of Books Issued to each learner must be recorded by the class adviser. | H:A. In Column Date Returned, codes are: FM=Force Majeure, TDO: Transferred/Dropout, NEG=Neg
+  - Row 64: A:2. The Date of Issuance and the Date of Return shall be reflected in the form.
+  - Row 65: A:3. The Total Number of Copies issued at BoSY shall be reflected in the form. | H:B. In Column Remark/Action Taken, codes are: LLTR=Secured Letter from Learner duly signed  | R:(Signature over printed name)
+  - Row 66: A:4. The Total Number of Copies of Books Returned at the EoSYshall be reflected in the form. | R:Date BoSY:____________ Date EoSY: ___________
+  - Row 67: A:5. All textbooks being used must be included. Additional copies of this form may be used i
+  - Row 68: T:School Form 3: Page ___ of ________
+
+### Sheet: School Form 4 (SF 4)
+- Range: A1:AN45
+- Merged regions: 62
+- Row metadata entries: 44
+- Column metadata entries: 0
+- Used size estimate: 45 rows x 40 cols
+- Non-empty cells (within !ref): 80
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - C22:D22
+  - C23:D23
+  - C24:D24
+  - B1:AN1
+  - I5:J5
+  - N5:U5
+  - D5:F5
+  - AJ7:AN7
+  - Y7:AC7
+  - C7:P7
+  - A3:AN3
+  - A7:B7
+  - G5:H5
+  - L5:M5
+  - W5:X5
+  - U7:X7
+  - AE7:AI7
+  - A2:AN2
+  - N9:V9
+  - W9:AE9
+- Key text markers:
+  - Row 2, A: School Form 4 (SF4) Monthly Learner's Movement and Attendance
+  - Row 9, E: REGISTERED LEARNERS (As of End of the Month)
+  - Row 9, H: ATTENDANCE
+- Top structured preview rows:
+  - Row 2: A:School Form 4 (SF4) Monthly Learner's Movement and Attendance
+  - Row 3: A:(This replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)
+  - Row 5: C:School ID | G:Region | L:Division | W:District
+  - Row 7: A:School Name | U:School Year | AE:Report for the Month of
+  - Row 9: A:GRADE/ YEAR LEVEL | B:SECTION | C:NAME OF ADVISER | E:REGISTERED LEARNERS (As of End of the Month) | H:ATTENDANCE | N:DROPPED OUT | W:TRANSFERRED OUT
+  - Row 10: H:Daily Average | K:Percentage for the Month | N:(A) Cumulative as of Previous Month | Q:(B) For the Month | T:(A+B) Cumulative as of End of the Month | W:(A) Cumulative as of Previous Month | Z:(B) For the Month | AC:(A+B) Cumulative as of End of the Month
+  - Row 11: E:M | F:F | G:T | H:M | I:F | J:T | K:M | L:F | M:T | N:M | O:F | P:T | Q:M | R:F | S:T | T:M | U:F | V:T | W:M | X:F | Y:T | Z:M | AA:F | AB:T | AC:M | AD:F | AE:T
+  - Row 30: A:ELEMENTARY/SECONDARY:
+  - Row 31: A:KINDER
+  - Row 32: A:GRADE 1/GRADE 7
+  - Row 33: A:GRADE 2/GRADE 8
+  - Row 34: A:GRADE 3/GRADE 9
+  - Row 35: A:GRADE 4/GRADE 10
+  - Row 36: A:GRADE 5/GRADE 11
+  - Row 37: A:GRADE 6/GRADE 12
+  - Row 38: A:TOTAL FOR NON-GRADED
+  - Row 39: A:TOTAL
+  - Row 40: A:GUIDELINES: | Y:Prepared and Submitted by:
+  - Row 41: A:1. This form shall be accomplished every end of the month using the summary box of SF2 sub
+  - Row 42: A:2. Furnish the Division Office with a copy a week after June 30, October 30 & March 31
+  - Row 44: A:Page _____ of _____ pages
+
+### Sheet: School Form 5 (SF5)
+- Range: A1:Y61
+- Merged regions: 210
+- Row metadata entries: 61
+- Column metadata entries: 0
+- Used size estimate: 61 rows x 25 cols
+- Non-empty cells (within !ref): 54
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - B35:E35
+  - H35:I35
+  - J35:K35
+  - B36:E36
+  - B33:E33
+  - B42:E42
+  - H43:I43
+  - H44:I44
+  - H45:I45
+  - J45:K45
+  - J36:K36
+  - M19:M20
+  - N19:N20
+  - O19:O20
+  - H42:I42
+  - H24:I24
+  - H25:I25
+  - J42:K42
+  - J43:K43
+  - J44:K44
+- Key text markers:
+  - Row 1, A: School Form 5 (SF 5) Report on Promotion & Level of Proficiency
+  - Row 9, B: LEARNER'S NAME (Last Name, First Name, Middle Name)
+  - Row 9, F: GENERAL AVERAGE (Numerical Value in 2 decimal places and 3 decimal places for honor learners, and Descriptive Letter)
+  - Row 54, M: 3. On the summary table, reflect the total number of learners promoted, retained and *irregular (*for grade 7 onwards only) and the level of
+  - Row 61, M: School Form 5: Page ____ of ________
+- Top structured preview rows:
+  - Row 1: A:School Form 5 (SF 5) Report on Promotion & Level of Proficiency
+  - Row 2: A:(This replaces Forms 18-E1, 18-E2, 18A and List of Graduates)
+  - Row 3: B:Region | D:Division | I:District
+  - Row 5: A:School ID | E:School Year | I:Curriculum
+  - Row 7: A:School Name | I:Grade Level | K:Section
+  - Row 9: A:LRN | B:LEARNER'S NAME (Last Name, First Name, Middle Name) | F:GENERAL AVERAGE (Numerical Value in 2 decimal places and 3 decimal places for honor learne | G:ACTION TAKEN: PROMOTED, IRREGULAR or RETAINED | H:INCOMPLETE SUBJECT/S (This column is for K to 12 Curriculum and remaining RBEC in High Sch
+  - Row 10: H:From previous school years completed as of end of current School Year | J:As of end of current School Year
+  - Row 13: M:SUMMARY TABLE
+  - Row 14: M:STATUS | N:MALE | O:FEMALE | P:TOTAL
+  - Row 15: M:PROMOTED
+  - Row 17: M:IRREGULAR
+  - Row 19: M:RETAINED
+  - Row 22: M:LEVEL OF PROFICIENCY
+  - Row 23: N:MALE | O:FEMALE | P:TOTAL
+  - Row 24: M:BEGINNNING (B: 74% and below)
+  - Row 26: M:DEVELOPING (D: 75%-79%)
+  - Row 28: M:APPROACHING PROFICIENCY (AP: 80%-84%)
+  - Row 30: M:PROFICIENT (P: 85% -89%)
+  - Row 32: M:ADVANCED (A: 90% and above)
+  - Row 33: B:TOTAL MALE
+  - Row 35: M:PREPARED BY:
+  - Row 37: M:Class Adviser
+  - Row 38: M:(Name and Signature)
+  - Row 40: M:CERTIFIED CORRECT & SUBMITTED:
+  - Row 42: M:School Head
+  - Row 43: M:(Name and Signature)
+  - Row 45: M:REVIEWED BY:
+  - Row 47: M:(Name and Signature)
+  - Row 48: M:Division Representative
+  - Row 49: M:GUIDELINES:
+  - Row 50: M:1. For All Grade/Year Levels
+  - Row 51: M:2. To be prepared by the Adviser. Final rating per subject area should be taken from the r
+  - Row 54: M:3. On the summary table, reflect the total number of learners promoted, retained and *irre
+  - Row 57: M:4. Must tally with the total enrollment report as of End of School Year GESP /GSSP (EBEIS)
+  - Row 59: M:5. Protocols of validation & submission is under the discretion of the Schools Division Su
+  - Row 60: C:TOTAL FEMALE
+  - Row 61: C:COMBINED | M:School Form 5: Page ____ of ________
+
+### Sheet: School Form 6 (SF6)
+- Range: A1:W36
+- Merged regions: 139
+- Row metadata entries: 34
+- Column metadata entries: 0
+- Used size estimate: 36 rows x 23 cols
+- Non-empty cells (within !ref): 80
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - A11:B11
+  - A13:B13
+  - T7:U7
+  - V7:W7
+  - O7:S7
+  - J5:L5
+  - D7:L7
+  - B7:C7
+  - H5:I5
+  - M5:N5
+  - O5:S5
+  - M7:N7
+  - F9:H9
+  - I9:K9
+  - L9:N9
+  - O9:Q9
+  - R9:T9
+  - U9:W9
+  - A9:B10
+  - E5:G5
+- Key text markers:
+  - Row 1, A: School Form 6 (SF6)
+  - Row 2, A: Summarized Report on Promotion and Level of Proficiency
+  - Row 33, B: 1. After receiving and validating the Report for Promotion submitted by the class adviser, the School Head shall compute the grade level tot
+  - Row 34, B: 2. This report together with the copy of Report for Promotion submitted by the class adviser shall be forwarded to the Division Office by th
+  - Row 35, B: 3. The Report on Promotion per grade level is reflected in the End of School Year Report of GESP/GSSP.
+- Top structured preview rows:
+  - Row 1: A:School Form 6 (SF6)
+  - Row 2: A:Summarized Report on Promotion and Level of Proficiency
+  - Row 3: A:(This replaces Form 20)
+  - Row 5: B:School ID | H:Region | M:Division
+  - Row 7: B:School Name | M:District | T:School Year
+  - Row 9: A:SUMMARY TABLE | C:GRADE 1 /GRADE 7 | F:GRADE 2 / GRADE 8 | I:GRADE 3 / GRADE 9 | L:GRADE 4 / GRADE 10 | O:GRADE 5 / GRADE 11 | R:GRADE 6 / GRADE 12 | U:TOTAL
+  - Row 10: C:MALE | D:FEMALE | E:TOTAL | F:MALE | G:FEMALE | H:TOTAL | I:MALE | J:FEMALE | K:TOTAL | L:MALE | M:FEMALE | N:TOTAL | O:MALE | P:FEMALE | Q:TOTAL | R:MALE | S:FEMALE | T:TOTAL | U:MALE | V:FEMALE | W:TOTAL
+  - Row 11: A:PROMOTED
+  - Row 12: A:IRREGULAR
+  - Row 13: A:RETAINED
+  - Row 14: A:LEVEL OF PROFICIENCY | C:MALE | D:FEMALE | E:TOTAL | F:MALE | G:FEMALE | H:TOTAL | I:MALE | J:FEMALE | K:TOTAL | L:MALE | M:FEMALE | N:TOTAL | O:MALE | P:FEMALE | Q:TOTAL | R:MALE | S:FEMALE | T:TOTAL | U:MALE | V:FEMALE | W:TOTAL
+  - Row 15: A:BEGINNNING (B: 74% and below)
+  - Row 17: A:DEVELOPING (D: 75%-79%)
+  - Row 19: A:APPROACHING PROFICIENCY (AP: 80%-84%)
+  - Row 22: A:PROFICIENT (P: 85% -89%)
+  - Row 24: A:ADVANCED (A: 90% and above)
+  - Row 26: A:TOTAL
+  - Row 30: A:Prepared and Submitted by: | G:Reviewed & Validated by: | N:Noted by:
+  - Row 31: D:SCHOOL HEAD | J:DIVISION REPRESENTATIVE | Q:SCHOOLS DIVISION SUPERINTENDENT
+  - Row 32: A:GUIDELINES:
+  - Row 33: B:1. After receiving and validating the Report for Promotion submitted by the class adviser,
+  - Row 34: B:2. This report together with the copy of Report for Promotion submitted by the class advis
+  - Row 35: B:3. The Report on Promotion per grade level is reflected in the End of School Year Report o
+  - Row 36: B:4. Protocols of validation & submission is under the discretion of the Schools Division Su
+
+### Sheet: School Form 7 (SF7)
+- Range: A1:S79
+- Merged regions: 142
+- Row metadata entries: 77
+- Column metadata entries: 0
+- Used size estimate: 79 rows x 19 cols
+- Non-empty cells (within !ref): 55
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - A76:M76
+  - K12:M12
+  - K13:M13
+  - K14:M14
+  - K15:M15
+  - K16:M16
+  - F9:I9
+  - C13:D13
+  - K10:M11
+  - F12:H12
+  - F13:H13
+  - F14:H14
+  - F16:H16
+  - A9:D9
+  - C12:D12
+  - A12:B12
+  - C16:D16
+  - I10:I11
+  - F10:H11
+  - K9:S9
+- Key text markers:
+  - Row 1, A: School Form 7 (SF7) School Personnel Assignment List and Basic Profile
+  - Row 79, O: School Form 7, Page ___ of ________
+- Top structured preview rows:
+  - Row 1: A:School Form 7 (SF7) School Personnel Assignment List and Basic Profile
+  - Row 2: A:(This replaces Form 12-Monthly Status Report for Teachers, Form 19-Assignment List,
+  - Row 3: A:Form 29-Teacher Program and Form 31-Summary Information of Teachers)
+  - Row 5: B:School ID | G:Region | I:Division
+  - Row 7: B:School Name | I:District | P:School Year
+  - Row 9: A:(A) Nationally-Funded Teaching & Teaching Related Items | F:(B) Nationally-Funded Non Teaching Items | K:(C ) Other Appointments and Funding Sources
+  - Row 10: A:Title of Plantilla Position (as it appears in the appointment document/PSIPOP) | C:Number of Incumbent | F:Title of Plantilla Position (as it appears in the appointment document/PSIPOP) | I:Number of Incumbent | K:Title of Designation (as it appears in the contract/document: Teacher, Clerk, Security Gua | N:Appointment: (Contractual, Substitute, Volunteer, others specify) | P:Fund Source (SEF, PTA, NGO's etc.) | R:Number of Incumbent
+  - Row 11: R:Teaching | S:Non-Teaching
+  - Row 18: A:Employee No. (or Tax Identification Number -T.I.N.) | B:Name of School Personnel (Arrange by Position, Descending) | C:Sex | D:Fund Source | F:Position/ Designation | G:Nature of Appointment/ Employment Status | H:EDUCATIONAL QUALIFICATION | M:Subject Taught (include Grade & Section), Advisory Class & Other Ancillary Assignments | N:Daily Program (time duration) | R:Remarks (For Detailed Items, Indicate name of school/office, For IP's -Ethnicity)
+  - Row 19: H:Degree / Post Graduate | I:Major/ Specialization | K:Minor | N:DAY (M/T/W/TH/F) | O:From (00:00) | P:To (00:00) | Q:Total Actual Teaching Minutes per Week
+  - Row 28: M:Ave. Minutes per Day
+  - Row 36: M:Ave. Minutes per Day
+  - Row 43: M:Ave. Minutes per Day
+  - Row 50: M:Ave. Minutes per Day
+  - Row 57: M:Ave. Minutes per Day
+  - Row 64: M:Ave. Minutes per Day
+  - Row 71: M:Ave. Minutes per Day
+  - Row 73: A:GUIDELINES: | O:Submitted by:
+  - Row 74: A:1. This form shall be accomplished at the beginning of the school year by the school head.
+  - Row 76: A:2. All school personnel, regardless of position/nature of appointment should be included i | Q:(Signature of School Head over Printed Name)
+  - Row 77: A:3. Please reflect subjects being taught and if teacher handling advisory class or Ancillar
+  - Row 78: A:4. Daily Program Column is for teaching personnel only. | O:Updated as of: ___________________________
+  - Row 79: O:School Form 7, Page ___ of ________
+
+---
+
+## File: SF 8 Learner Basic Health and Nutrition Report.xlsx
+Path: C:/Users/Sean/Downloads/SF 8 Learner Basic Health and Nutrition Report.xlsx
+
+Workbook sheets: 2
+
+Sheet list:
+1. Sir Wedz Helper Tables
+2. Nutritional Status
+
+### Sheet: Sir Wedz Helper Tables
+- Range: A1:DD273
+- Merged regions: 265
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 273 rows x 108 cols
+- Non-empty cells (within !ref): 12671
+- Formula cells: 7433
+- Placeholder tokens found: 0
+- Merge samples:
+  - BE223:BF223
+  - BE216:BF216
+  - BE217:BF217
+  - BE218:BF218
+  - BE220:BF220
+  - BE221:BF221
+  - BE222:BF222
+  - BB208:BE208
+  - BB209:BE209
+  - BB210:BE210
+  - BB211:BE211
+  - BB212:BE212
+  - BE215:BF215
+  - BB202:BE202
+  - BB203:BE203
+  - BB204:BE204
+  - BB205:BE205
+  - BB206:BE206
+  - BB207:BE207
+  - BB196:BE196
+- Key text markers:
+  - Row 5, BA: School Nutritional Status Record
+  - Row 10, BA: Learner's Name
+  - Row 10, BL: Nutritional Status
+- Top structured preview rows:
+  - Row 1: A:Reference | E:BMI AGE: | F:BOYS | N:BMI AGE: | O:GIRLS | AA:3 | AB:4 | AC:5 | AD:6 | AE:7
+  - Row 2: E:5 - 19 Years Old | N:5 - 19 Years Old | AA:12 | AB:13 | AC:14 | AD:15 | AE:16
+  - Row 3: A:Year | B:Month | C:Months | E:Severely Wasted | F:Wasted | H:Normal | J:Overweight | L:Obese | N:Severely Wasted | O:Wasted | Q:Normal | S:Overweight | U:Obese | AA:Severely Wasted | AB:Wasted | AD:Normal
+  - Row 4: F:from | G:to | H:from | I:to | J:from | K:to | O:from | P:to | Q:from | R:to | S:from | T:to | AB:from | AC:to | AD:from | AE:to
+  - Row 5: A:5.00 | B:0 | C:60 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.2 | L:20.3 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:18.9 | S:19 | T:21.2 | U:21.3 | Y:1 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 6: A:5.01 | B:1 | C:61 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.2 | L:20.3 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:18.9 | S:19 | T:21.3 | U:21.4 | Y:2
+  - Row 7: A:5.02 | B:2 | C:62 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.2 | L:20.3 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:18.9 | S:19 | T:21.4 | U:21.5 | W:#REF! | Y:3 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 8: A:5.03 | B:3 | C:63 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.2 | L:20.3 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:18.9 | S:19 | T:21.5 | U:21.6 | Y:4 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 9: A:5.04 | B:4 | C:64 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.3 | L:20.4 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:18.9 | S:19 | T:21.5 | U:21.6 | Y:5 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 10: A:5.05 | B:5 | C:65 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.3 | J:18.4 | K:20.3 | L:20.4 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19 | S:19.1 | T:21.6 | U:21.7 | Y:6 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 11: A:5.06 | B:6 | C:66 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.4 | J:18.5 | K:20.4 | L:20.5 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19 | S:19.1 | T:21.7 | U:21.8 | Y:7 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 12: A:5.07 | B:7 | C:67 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.4 | J:18.5 | K:20.4 | L:20.5 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19 | S:19.1 | T:21.7 | U:21.8 | Y:8 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 13: A:5.08 | B:8 | C:68 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.4 | J:18.5 | K:20.5 | L:20.6 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.1 | S:19.2 | T:21.8 | U:21.9 | Y:9 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 14: A:5.09 | B:9 | C:69 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.4 | J:18.5 | K:20.5 | L:20.6 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.1 | S:19.2 | T:21.9 | U:22 | Y:10 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 15: A:5.10 | B:10 | C:70 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.5 | J:18.6 | K:20.6 | L:20.7 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.1 | S:19.2 | T:22 | U:22.1 | Y:11 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 16: A:5.11 | B:11 | C:71 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.5 | J:18.6 | K:20.6 | L:20.7 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.2 | S:19.3 | T:22.1 | U:22.2 | Y:12 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 17: A:6.00 | B:0 | C:72 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.5 | J:18.6 | K:20.7 | L:20.8 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.2 | S:19.3 | T:22.1 | U:22.2 | Y:13 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 18: A:6.01 | B:1 | C:73 | E:12.0 | F:12.1 | G:12.9 | H:13.0 | I:18.6 | J:18.7 | K:20.8 | L:20.9 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.3 | S:19.4 | T:22.2 | U:22.3 | Y:14 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 19: A:6.02 | B:2 | C:74 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.6 | J:18.7 | K:20.8 | L:20.9 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.3 | S:19.4 | T:22.3 | U:22.4 | Y:15 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 20: A:6.03 | B:3 | C:75 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.6 | J:18.7 | K:20.9 | L:21 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.4 | S:19.5 | T:22.4 | U:22.5 | Y:16 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 21: A:6.04 | B:4 | C:76 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.7 | J:18.8 | K:21 | L:21.1 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.4 | S:19.5 | T:22.5 | U:22.6 | Y:17 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 22: A:6.05 | B:5 | C:77 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.7 | J:18.8 | K:21 | L:21.1 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.5 | S:19.6 | T:22.6 | U:22.7 | Y:18 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 23: A:6.06 | B:6 | C:78 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.7 | J:18.8 | K:21.1 | L:21.2 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.5 | S:19.6 | T:22.7 | U:22.8 | Y:19 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 24: A:6.07 | B:7 | C:79 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.8 | J:18.9 | K:21.2 | L:21.3 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.6 | S:19.7 | T:22.8 | U:22.9 | Y:20 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 25: A:6.08 | B:8 | C:80 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.8 | J:18.9 | K:21.3 | L:21.4 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.6 | S:19.7 | T:22.9 | U:23 | Y:21 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 26: A:6.09 | B:9 | C:81 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.9 | J:19.0 | K:21.3 | L:21.4 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.7 | S:19.8 | T:23 | U:23.1 | Y:22 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 27: A:6.10 | B:10 | C:82 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:18.9 | J:19.0 | K:21.4 | L:21.5 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.7 | S:19.8 | T:23.1 | U:23.2 | Y:23 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 28: A:6.11 | B:11 | C:83 | E:12.1 | F:12.2 | G:13.0 | H:13.1 | I:19.0 | J:19.1 | K:21.5 | L:21.6 | N:11.6 | O:11.7 | P:12.6 | Q:12.7 | R:19.8 | S:19.9 | T:23.2 | U:23.3 | Y:24
+  - Row 29: A:7.00 | B:0 | C:84 | E:12.2 | F:12.3 | G:13.0 | H:13.1 | I:19.0 | J:19.1 | K:21.6 | L:21.7 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:19.8 | S:19.9 | T:23.3 | U:23.4 | Y:25 | Z:#REF! | AA:#REF! | AB:#REF! | AC:#REF! | AD:#REF! | AE:#REF!
+  - Row 30: A:7.01 | B:1 | C:85 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.1 | J:19.2 | K:21.7 | L:21.8 | N:11.7 | O:11.8 | P:12.6 | Q:12.7 | R:19.9 | S:20 | T:23.4 | U:23.5 | Y:26
+  - Row 31: A:7.02 | B:2 | C:86 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.1 | J:19.2 | K:21.8 | L:21.9 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20 | S:20.1 | T:23.5 | U:23.6 | Y:27
+  - Row 32: A:7.03 | B:3 | C:87 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.2 | J:19.3 | K:21.9 | L:22 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20 | S:20.1 | T:23.6 | U:23.7 | Y:28
+  - Row 33: A:7.04 | B:4 | C:88 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.2 | J:19.3 | K:22 | L:22.1 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.1 | S:20.2 | T:23.7 | U:23.8 | Y:29
+  - Row 34: A:7.05 | B:5 | C:89 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.3 | J:19.4 | K:22 | L:22.1 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.1 | S:20.2 | T:23.9 | U:24 | Y:30
+  - Row 35: A:7.06 | B:6 | C:90 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.3 | J:19.4 | K:22.1 | L:22.2 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.2 | S:20.3 | T:24 | U:24.1 | Y:31
+  - Row 36: A:7.07 | B:7 | C:91 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.4 | J:19.5 | K:22.2 | L:22.3 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.3 | S:20.4 | T:24.1 | U:24.2 | Y:32
+  - Row 37: A:7.08 | B:8 | C:92 | E:12.2 | F:12.3 | G:13.1 | H:13.2 | I:19.4 | J:19.5 | K:22.4 | L:22.5 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.3 | S:20.4 | T:24.2 | U:24.3 | Y:33
+  - Row 38: A:7.09 | B:9 | C:93 | E:12.3 | F:12.4 | G:13.2 | H:13.3 | I:19.5 | J:19.6 | K:22.5 | L:22.6 | N:11.7 | O:11.8 | P:12.7 | Q:12.8 | R:20.4 | S:20.5 | T:24.4 | U:24.5 | Y:34
+  - Row 39: A:7.10 | B:10 | C:94 | E:12.3 | F:12.4 | G:13.2 | H:13.3 | I:19.6 | J:19.7 | K:22.6 | L:22.7 | N:11.8 | O:11.9 | P:12.8 | Q:12.9 | R:20.5 | S:20.6 | T:24.5 | U:24.6 | Y:35
+  - Row 40: A:7.11 | B:11 | C:95 | E:12.3 | F:12.4 | G:13.2 | H:13.3 | I:19.6 | J:19.7 | K:22.7 | L:22.8 | N:11.8 | O:11.9 | P:12.8 | Q:12.9 | R:20.6 | S:20.7 | T:24.6 | U:24.7 | Y:36
+
+### Sheet: Nutritional Status
+- Range: A1:O121
+- Merged regions: 132
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 121 rows x 15 cols
+- Non-empty cells (within !ref): 51
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - N113:O113
+  - N114:O114
+  - N115:O115
+  - N116:O116
+  - J112:O112
+  - A4:O4
+  - A110:O110
+  - C62:F62
+  - C64:F64
+  - C18:F18
+  - C19:F19
+  - C20:F20
+  - C21:F21
+  - C22:F22
+  - C23:F23
+  - C12:F12
+  - C113:D113
+  - C114:D114
+  - C115:D115
+  - C116:D116
+- Key text markers:
+  - Row 3, A: School Form 8 Learner's Basic Health and Nutrition Report (SF8)
+  - Row 9, C: Learner's Name (Last Name, First Name, Name Extension, Middle Name)
+  - Row 9, L: Nutritional Status
+  - Row 112, C: Nutritional Status Summary Table
+- Top structured preview rows:
+  - Row 1: A:SF 8
+  - Row 2: A:Department of Education
+  - Row 3: A:School Form 8 Learner's Basic Health and Nutrition Report (SF8)
+  - Row 4: A:(For All Grade Levels)
+  - Row 5: C:School Name | H:District | K:Division | N:Region
+  - Row 7: A:School ID | E:Grade | G:Section | J:Track/Strand (SHS) | N:School Year
+  - Row 9: A:No. | B:LRN | C:Learner's Name (Last Name, First Name, Name Extension, Middle Name) | G:Birthdate (MM/DD/YYYY) | H:Age | I:Weight (kg) | J:Height (m) | K:Height² (m²) | L:Nutritional Status | N:Height for Age (HFA) | O:Remarks
+  - Row 10: L:BMI (kg/m²) | M:BMI Category
+  - Row 11: A:MALE
+  - Row 64: A:FEMALE
+  - Row 110: A:SUMMARY TABLE
+  - Row 112: A:SEX | C:Nutritional Status Summary Table | J:Height for Age (HFA) Summary Table
+  - Row 113: C:Severely Wasted | E:Wasted | F:Normal | G:Overweight | H:Obese | I:TOTAL | J:Severely Stunted | K:Stunted | L:Normal | M:Tall | N:Total
+  - Row 114: A:MALE
+  - Row 115: A:FEMALE
+  - Row 116: A:TOTAL
+  - Row 118: A:Date of Assessment: | E:Conducted/Assessed By: | I:Certified Correct By: | M:Reviewed By:
+  - Row 121: N:SFRT 2017
+
+---
+
+## File: SF 9 - JHS (Learner's Progress Report Card B).xlsx
+Path: C:/Users/Sean/Downloads/SF 9 - JHS (Learner's Progress Report Card B).xlsx
+
+Workbook sheets: 3
+
+Sheet list:
+1. Sheet2
+2. Sheet1
+3. Sheet3
+
+### Sheet: Sheet2
+- Range: A5:V43
+- Merged regions: 79
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 39 rows x 22 cols
+- Non-empty cells (within !ref): 62
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - P36:Q36
+  - A39:N39
+  - J35:L35
+  - B35:D35
+  - P43:R43
+  - S43:U43
+  - Q14:T14
+  - P19:U19
+  - A36:F36
+  - H36:N36
+  - A38:N38
+  - P42:R42
+  - S42:U42
+  - L14:L15
+  - M14:M15
+  - B14:B15
+  - C14:C15
+  - D14:D15
+  - E14:E15
+  - A18:M18
+- Key text markers:
+  - Row 5, A: ATTENDANCE RECORD
+  - Row 19, P: LEARNER'S PROGRESS REPORT CARD
+  - Row 26, P: Learner's Reference Number:_________________________________
+  - Row 35, P: This report card shows the ability and progress your child has
+  - Row 36, P: Dear Parent: This report card shows the ability and progress your child has made in the different learning areas as well his/her core values
+  - Row 37, P: This report card shows the ability and progress your child has made in
+- Top structured preview rows:
+  - Row 5: A:ATTENDANCE RECORD | P:SF 9 - JHS
+  - Row 6: B:JUNE | C:JULY | D:AUGUST | E:SEPTEMBER | F:OCTOBER | G:NOVEMBER | H:DECEMBER | I:JANUARY | J:FEBRUARY | K:MARCH | L:APRIL | M:TOTAL | Q:Republic of the Phlippines
+  - Row 7: Q:Department of Education
+  - Row 8: Q:Region I
+  - Row 9: A:No. of School Days | Q:Division of _______
+  - Row 10: Q:____________________
+  - Row 11: A:No. of Days Present
+  - Row 12: Q:District
+  - Row 13: Q:____________________________
+  - Row 14: A:No. of Days Absent | Q:School
+  - Row 18: A:PARENT / GUARDIAN’S SIGNATURE
+  - Row 19: P:LEARNER'S PROGRESS REPORT CARD
+  - Row 20: B:1st Quarter
+  - Row 22: B:2nd Quarter
+  - Row 24: B:3rd Quarter | P:Name: ______________________________________________________
+  - Row 26: B:4th Quarter | P:Learner's Reference Number:_________________________________
+  - Row 28: B:Certificate of Transfer | P:Age: ______________________________ Sex: ___________________
+  - Row 30: A:Admitted to Grade: _________ Section: __________________________ | P:Grade: ___________________ Section: __________________________
+  - Row 31: A:Eligibility for Admission to Grade:_________________________________
+  - Row 32: P:School Year: __________________________
+  - Row 33: A:Approved:
+  - Row 34: A:______________________________ | H:__________________________ | P:Dear Parent,
+  - Row 35: B:Principal | J:Teacher | P:This report card shows the ability and progress your child has
+  - Row 36: A:Principal | H:Teacher | P:Dear Parent: This report card shows the ability and progress your child has made in the di
+  - Row 37: P:This report card shows the ability and progress your child has made in
+  - Row 38: P:made in different learning areas as well as his/her core values.
+  - Row 39: A:Cancellation of Eligibility to Transfer | P:The school welcomes you should you desire to know more
+  - Row 40: P:about your childs progress.
+  - Row 41: A:Admitted in: ___________________
+  - Row 42: A:Date: _________________________ | H:_________________________ | P:___________________________ | S:________________________
+  - Row 43: K:Principal | P:Principal | S:Teacher
+
+### Sheet: Sheet1
+- Range: A5:R31
+- Merged regions: 88
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 27 rows x 18 cols
+- Non-empty cells (within !ref): 65
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - H31:I31
+  - D26:G26
+  - D27:G27
+  - D28:G28
+  - D29:G29
+  - D30:G30
+  - D31:G31
+  - H26:I26
+  - H27:I27
+  - H28:I28
+  - H29:I29
+  - H30:I30
+  - R24:R25
+  - Q24:Q25
+  - O24:O25
+  - P24:P25
+  - P15:P17
+  - O15:O17
+  - O18:O19
+  - P18:P19
+- Key text markers:
+  - Row 5, K: REPORT ON LEARNER'S OBSERVES VALUES
+- Top structured preview rows:
+  - Row 5: A:REPORT ON LEARNING PROGRESS AND ACHIEVEMENT | K:REPORT ON LEARNER'S OBSERVES VALUES
+  - Row 7: A:Learning Areas | D:Quarter | H:Final Rating | I:Remarks | K:Core Values | L:Behavior Statements | O:Quarter
+  - Row 8: D:1 | E:2 | F:3 | G:4 | O:1 | P:2 | Q:3 | R:4
+  - Row 9: A:Filipino | K:1. Maka- Diyos | L:Expresses one’s spiritual beliefs while respecting the spiritual beliefs of others.
+  - Row 10: A:English
+  - Row 11: A:Mathematics
+  - Row 12: L:Shows adherence to ethical principles by upholding truth in all undertakings.
+  - Row 13: A:Science
+  - Row 14: A:Araling Panlipunan (AP)
+  - Row 15: A:Edukasyon sa Pagpapakatao (EsP) | K:2.Makatao | L:In sensitive to individual, social, and cultural diffrences;
+  - Row 17: A:Edukasyong Pantahanan at Pangkabuhayan
+  - Row 18: L:Demonstrates contributions towards solidarity.
+  - Row 19: A:MAPEH Music Arts Physical Education Health
+  - Row 20: K:3. Maka-Kalikasan | L:Cares for environment and utilizes resources wisely, judiciosly and economically.
+  - Row 22: K:4. Maka-Bansa | L:Demonstrates pride in being a Filipino;exercises the rights and responsibilities of a Fili
+  - Row 24: D:General Average | L:Demonstrate appropriate behavior in carrying out activities in school, community and count
+  - Row 26: A:Descriptors | D:Grading Scale | H:Remarks
+  - Row 27: A:Outstanding | D:90-100 | H:Passed | L:Marking | N:Non- Numerical Rating
+  - Row 28: A:Very Satisfactory | D:85-89 | H:Passed | L:AO | N:Always Observed
+  - Row 29: A:Satisfactory | D:80-84 | H:Passed | L:SO | N:Sometimes Observed
+  - Row 30: A:Fairly Satisfactory | D:75-79 | H:Passed | L:RO | N:Rarely Observed
+  - Row 31: A:Did Not Meet Expectations | D:Below 75 | H:Failed | L:NO | N:Not Observed
+
+### Sheet: Sheet3
+- Range: N/A
+- Merged regions: 0
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Empty sheet (no !ref)
+
+---
+
+## File: SF 10 Learner_s Permanent Academic Record for Junior High School_3.xlsx
+Path: C:/Users/Sean/Downloads/SF 10 Learner_s Permanent Academic Record for Junior High School_3.xlsx
+
+Workbook sheets: 3
+
+Sheet list:
+1. front
+2. back
+3. Sheet3
+
+### Sheet: front
+- Range: B1:AC79
+- Merged regions: 80
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 79 rows x 28 cols
+- Non-empty cells (within !ref): 93
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - B79:D79
+  - E79:I79
+  - B10:M10
+  - B18:M18
+  - B4:M4
+  - B71:D71
+  - E71:F71
+  - G71:I71
+  - J71:K71
+  - L71:M71
+  - L61:M61
+  - L62:M62
+  - L64:M64
+  - L63:M63
+  - G65:J65
+  - L65:M65
+  - B2:M2
+  - B3:M3
+  - B5:M5
+  - B6:M6
+- Key text markers:
+  - Row 4, B: Learner's Permanent Academic Record for Junior High School (SF10-JHS)
+  - Row 6, B: LEARNER'S INFORMATION
+  - Row 8, B: Learner Reference Number (LRN): ______________
+- Top structured preview rows:
+  - Row 1: B:SF 10 -JHS
+  - Row 2: B:Republic of the Philippines
+  - Row 3: B:Department of Education
+  - Row 4: B:Learner's Permanent Academic Record for Junior High School (SF10-JHS)
+  - Row 5: B:(Formerly Form 137)
+  - Row 6: B:LEARNER'S INFORMATION
+  - Row 7: B:LAST NAME: ________________________ | F:FIRST NAME: ____________________ NAME EXTN. (Jr,I,II): _______ | L:MIDDLE NAME: ___________________
+  - Row 8: B:Learner Reference Number (LRN): ______________ | G:Birthdate (mm/dd/yyyy): _____________________ | L:Sex: _____________________________
+  - Row 10: B:ELIGIBILITY FOR JHS ENROLMENT
+  - Row 12: C:Elementary School Completer | G:General Average: | I:________ | K:Citation: (If Any)
+  - Row 13: C:Name of Elementary School: | I:School ID: | K:Adress of School:
+  - Row 14: B:Other Credential Presented
+  - Row 15: B:PEPT Passer Rating: _________ ALS A & E Passer Rating: _____________ Others (Pls. Specify)
+  - Row 16: B:Date of Examination/Assessment (mm/dd/yyyy): ____________ Name and Address of Testing Cent
+  - Row 18: B:SCHOLASTIC RECORD
+  - Row 20: B:School: ______________________ School ID: ________ District: ___________________ Division:
+  - Row 21: B:Classified as Grade: ____ Section: ___ School Year: _____ Name of Adviser/Teacher: _______
+  - Row 23: B:LEARNING AREAS | G:Quarterly Rating | K:FINAL | L:REMARKS
+  - Row 24: G:1 | H:2 | I:3 | J:4 | K:RATING
+  - Row 25: B:Filipino
+  - Row 26: B:English
+  - Row 27: B:Mathematics
+  - Row 28: B:Science
+  - Row 29: B:Araling Panlipunan (AP)
+  - Row 30: B:Edukasyon sa Pagpapakatao (EsP)
+  - Row 31: B:Technology and Livelihood Education (TLE)
+  - Row 32: B:MAPEH
+  - Row 33: B:Music
+  - Row 34: B:Arts
+  - Row 35: B:Physical Education
+  - Row 36: B:Health
+  - Row 39: G:General Average
+  - Row 41: B:Remedial Classes | E:Conducted from (mm/dd/yyyy) ____________________ to (mm/dd/yyyy) __________________
+  - Row 42: B:Learning Areas | E:Final Rating | G:Remedial Class Mark | J:Recomputed Final Grade | L:Remarks
+  - Row 46: B:School: ______________________ School ID: ________ District: ___________________ Division:
+  - Row 47: B:Classified as Grade: ____ Section: ___ School Year: _____ Name of Adviser/Teacher: _______
+  - Row 49: B:LEARNING AREAS | G:QUARTER | K:FINAL | L:REMARKS
+  - Row 50: G:1 | H:2 | I:3 | J:4 | K:RATING
+  - Row 51: B:Filipino
+  - Row 52: B:English
+
+### Sheet: back
+- Range: A1:L86
+- Merged regions: 105
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Used size estimate: 86 rows x 12 cols
+- Non-empty cells (within !ref): 105
+- Formula cells: 0
+- Placeholder tokens found: 0
+- Merge samples:
+  - K64:L64
+  - A48:C48
+  - A49:C49
+  - D49:E49
+  - F49:H49
+  - I49:J49
+  - K70:L70
+  - K44:L44
+  - A51:C51
+  - D51:E51
+  - F51:H51
+  - I51:J51
+  - K51:L51
+  - A50:C50
+  - D50:E50
+  - F50:H50
+  - I50:J50
+  - K50:L50
+  - K49:L49
+  - A56:E57
+- Top structured preview rows:
+  - Row 1: A:SF 10-JHS | L:Pag 2 of ________
+  - Row 3: A:School: ______________________ School ID: ________ District: ___________________ Division:
+  - Row 4: A:Classified as Grade: ____ Section: ___ School Year: _____ Name of Adviser/Teacher: _______
+  - Row 6: A:LEARNING AREAS | F:QUARTER | J:FINAL | K:REMARKS
+  - Row 7: F:1 | G:2 | H:3 | I:4 | J:RATING
+  - Row 8: A:Filipino
+  - Row 9: A:English
+  - Row 10: A:Mathematics
+  - Row 11: A:Science
+  - Row 12: A:Araling Panlipunan (AP)
+  - Row 13: A:Edukasyon sa Pagpapakatao (EsP)
+  - Row 14: A:Technology and Livelihood Education (TLE)
+  - Row 15: A:MAPEH
+  - Row 16: A:Music
+  - Row 17: A:Arts
+  - Row 18: A:Physical Education
+  - Row 19: A:Health
+  - Row 21: F:General Average
+  - Row 23: A:Remedial Classes | D:Conducted from (mm/dd/yyyy) ____________________ to (mm/dd/yyyy) _______________
+  - Row 24: A:Subject | D:Final Rating | F:Remedial Class Mark | I:Recomputed Final Grade | K:Remarks
+  - Row 28: A:School: ______________________ School ID: ________ District: ___________________ Division:
+  - Row 29: A:Classified as Grade: ____ Section: ___ School Year: _____ Name of Adviser/Teacher: _______
+  - Row 30: A:LEARNING AREAS | F:QUARTER | J:FINAL | K:REMARKS
+  - Row 31: F:1 | G:2 | H:3 | I:4 | J:RATING
+  - Row 32: A:Filipino
+  - Row 33: A:English
+  - Row 34: A:Mathematics
+  - Row 35: A:Science
+  - Row 36: A:Araling Panlipunan (AP)
+  - Row 37: A:Edukasyon sa Pagpapakatao (EsP)
+  - Row 38: A:Technology and Livelihood Education (TLE)
+  - Row 39: A:MAPEH
+  - Row 40: A:Music
+  - Row 41: A:Arts
+  - Row 42: A:Physical Education
+  - Row 43: A:Health
+  - Row 46: F:General Average
+  - Row 48: A:Remedial Classes | D:Conducted from (mm/dd/yyyy) ____________________ to (mm/dd/yyyy) _______________
+  - Row 49: A:Learning Areas | D:Final Rating | F:Remedial Class Mark | I:Recomputed Final Grade | K:Remarks
+  - Row 53: A:School: ______________________ School ID: ________ District: ___________________ Division:
+
+### Sheet: Sheet3
+- Range: N/A
+- Merged regions: 0
+- Row metadata entries: 0
+- Column metadata entries: 0
+- Empty sheet (no !ref)

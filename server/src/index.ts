@@ -11,6 +11,8 @@ import gradesRoutes from "./routes/grades";
 import advisoryRoutes from "./routes/advisory";
 import registrarRoutes from "./routes/registrar";
 import adminRoutes from "./routes/admin";
+import attendanceRoutes from "./routes/attendance";
+import templateRoutes from "./routes/templates";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +33,8 @@ app.use("/api/grades", gradesRoutes);
 app.use("/api/advisory", advisoryRoutes);
 app.use("/api/registrar", registrarRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/templates", templateRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

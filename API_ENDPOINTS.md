@@ -153,6 +153,326 @@ GET http://100.93.66.120:3000/api/class-records/:classAssignmentId
 
 ---
 
+### 4. Daily Attendance Tracking & Reporting
+```
+GET http://100.93.66.120:3000/api/attendance/section/:sectionId?date=YYYY-MM-DD
+POST http://100.93.66.120:3000/api/attendance/bulk
+GET http://100.93.66.120:3000/api/attendance/summary/:sectionId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+GET http://100.93.66.120:3000/api/attendance/student/:studentId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&sectionId=xxx
+GET http://100.93.66.120:3000/api/attendance/export/:sectionId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+```
+
+**Purpose:** Track daily student attendance (Present, Absent, Late, Excused) with reporting and Excel export (SF2 format)
+
+**Note:** SF2 export now supports **template-based generation**! Upload custom SF2 template in Admin → Template Manager.
+
+#### GET Attendance for Section by Date
+**Parameters:**
+- `sectionId` - Section ID (in URL)
+- `date` - Date in YYYY-MM-DD format (query parameter)
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "section": {
+      "id": "section-123",
+      "name": "Einstein",
+      "gradeLevel": "GRADE_7"
+    },
+    "date": "2026-05-08",
+    "attendance": [
+      {
+        "studentId": "student-abc",
+        "lrn": "123456789012",
+        "firstName": "Juan",
+        "middleName": "Cruz",
+        "lastName": "Dela Cruz",
+        "status": "PRESENT",
+        "remarks": null,
+        "attendanceId": "att-xyz-123"
+      },
+      {
+        "studentId": "student-def",
+        "lrn": "123456789013",
+        "firstName": "Maria",
+        "middleName": "Santos",
+        "lastName": "Garcia",
+        "status": "ABSENT",
+        "remarks": "Sick leave",
+        "attendanceId": "att-xyz-456"
+      }
+    ]
+  }
+}
+```
+
+#### POST Bulk Save Attendance
+**Request Body:**
+```json
+{
+  "sectionId": "section-123",
+  "date": "2026-05-08",
+  "attendance": [
+    {
+      "studentId": "student-abc",
+      "status": "PRESENT",
+      "remarks": null
+    },
+    {
+      "studentId": "student-def",
+      "status": "ABSENT",
+      "remarks": "Doctor's appointment"
+    },
+    {
+      "studentId": "student-ghi",
+      "status": "LATE",
+      "remarks": "Traffic"
+    },
+    {
+      "studentId": "student-jkl",
+      "status": "EXCUSED",
+      "remarks": "School event"
+    }
+  ]
+}
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance saved successfully"
+}
+```
+
+#### GET Attendance Summary (Date Range)
+**Parameters:**
+- `sectionId` - Section ID (in URL)
+- `startDate` - Start date YYYY-MM-DD (query parameter)
+- `endDate` - End date YYYY-MM-DD (query parameter)
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sectionId": "section-123",
+    "startDate": "2026-05-01",
+    "endDate": "2026-05-08",
+    "summary": [
+      {
+        "studentId": "student-abc",
+        "lrn": "123456789012",
+        "firstName": "Juan",
+        "middleName": "Cruz",
+        "lastName": "Dela Cruz",
+        "present": 6,
+        "absent": 1,
+        "late": 1,
+        "excused": 0,
+        "total": 8
+      }
+    ]
+  }
+}
+```
+
+#### GET Student Attendance History
+**Parameters:**
+- `studentId` - Student ID (in URL)
+- `startDate` - Optional start date (query parameter)
+- `endDate` - Optional end date (query parameter)
+- `sectionId` - Optional section filter (query parameter)
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "records": [
+      {
+        "id": "att-xyz-123",
+        "date": "2026-05-08",
+        "status": "PRESENT",
+        "remarks": null,
+        "section": {
+          "id": "section-123",
+          "name": "Einstein",
+          "gradeLevel": "GRADE_7"
+        }
+      }
+    ],
+    "summary": {
+      "present": 20,
+      "absent": 2,
+      "late": 1,
+      "excused": 1,
+      "total": 24
+    }
+  }
+}
+```
+
+#### GET Export Attendance to Excel (SF2 Format)
+**Purpose:** Download attendance report as Excel file (Daily Attendance Record - School Form 2)
+
+**Parameters:**
+- `sectionId` - Section ID (in URL)
+- `startDate` - Start date YYYY-MM-DD (query parameter)
+- `endDate` - End date YYYY-MM-DD (query parameter)
+
+**Response:** Binary Excel file (.xlsx)
+
+**Excel Format:**
+- Header: Daily Attendance Record (SF2)
+- Section info: Name, Grade Level, School Year, Date Range
+- Columns: No., LRN, Last Name, First Name, Middle Name, [Date columns], Present, Absent, Late, Excused, Total, Attendance %
+- Date columns show: P (Present), A (Absent), L (Late), E (Excused)
+- Summary statistics per student
+
+**Usage Example:**
+```typescript
+// Frontend download implementation
+const response = await axios.get(
+  `${SERVER_URL}/api/attendance/export/${sectionId}`,
+  {
+    params: { startDate: '2026-05-01', endDate: '2026-05-31' },
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'blob'
+  }
+);
+
+// Create download
+const url = window.URL.createObjectURL(new Blob([response.data]));
+const link = document.createElement('a');
+link.href = url;
+link.setAttribute('download', 'Attendance_Report.xlsx');
+document.body.appendChild(link);
+link.click();
+link.remove();
+```
+
+---
+
+### 5. DepEd School Form Templates (SF1-SF10)
+```
+GET http://100.93.66.120:3000/api/templates
+GET http://100.93.66.120:3000/api/templates/:formType
+POST http://100.93.66.120:3000/api/templates/upload
+DELETE http://100.93.66.120:3000/api/templates/:id
+POST http://100.93.66.120:3000/api/templates/:id/toggle
+GET http://100.93.66.120:3000/api/templates/:formType/download
+```
+
+**Purpose:** Manage Excel templates for DepEd School Forms (SF1, SF2, SF3, etc.)
+
+**Benefits:**
+- ✅ **Zero code changes** when DepEd updates forms
+- ✅ Admin uploads templates with placeholders (`{{SCHOOL_NAME}}`, `{{#STUDENTS}}...{{/STUDENTS}}`)
+- ✅ System automatically fills templates with real data
+- ✅ Perfect formatting preserved (colors, borders, fonts)
+
+**Supported Form Types:**
+- SF1 - School Register (Student Master List)
+- SF2 - Daily Attendance Record
+- SF3 - Individual Learner Monitoring
+- SF4 - Quarterly Assessment Report
+- SF5 - Promotion/Completion Report
+- SF6 - Learner Information System
+- SF8 - Progress Report (Elementary)
+- SF9 - Progress Report (JHS/SHS)
+- SF10 - Learner's Permanent Record
+
+**How It Works:**
+1. Admin creates Excel file with placeholders (see [TEMPLATE_GUIDE.md](TEMPLATE_GUIDE.md))
+2. Upload via Admin → Template Manager
+3. System validates and extracts placeholders
+4. When users download reports, system fills template with real data
+5. Original formatting preserved!
+
+#### POST Upload Template
+**Request:** multipart/form-data
+```
+file: [Excel file .xlsx/.xls]
+formType: "SF1" | "SF2" | "SF3" | ... | "SF10" | "SF1_7_BUNDLE"
+uploadMode: "single" | "bundle"
+formTypes: ["SF1","SF2",... ] (JSON string, required for bundle mode)
+sheetMappings: { "SF1": "Sheet Name", "SF2": "Sheet Name" } (optional JSON string)
+formName: "School Form 2 - Daily Attendance Record"
+description: "Optional description"
+instructions: "Optional usage instructions"
+```
+
+**Bundle Mode (All-in-One Workbooks):**
+- Upload one file containing multiple sheets (for example, School Forms 1-7 in one workbook)
+- Use `formType="SF1_7_BUNDLE"` and `uploadMode="bundle"`
+- If `sheetMappings` is not provided, the system auto-detects matching sheets by names like `School Form 1 (SF1)`, `School Form 2 (SF2)`, etc.
+- Each form is saved as its own template record, all pointing to the same uploaded workbook file
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Template uploaded successfully",
+  "data": {
+    "id": "template-123",
+    "formType": "SF2",
+    "formName": "School Form 2 - Daily Attendance Record",
+    "placeholders": ["SCHOOL_NAME", "SECTION_NAME", "STUDENTS", "DATE", ...],
+    "isActive": true
+  }
+}
+```
+
+---
+
+### 6. SF1 - School Register Export
+```
+GET http://100.93.66.120:3000/api/registrar/export/sf1/:sectionId
+```
+
+**Purpose:** Generate SF1 School Register (complete student roster for a section)
+
+**Parameters:**
+- `sectionId` - Section ID (in URL)
+
+**Response:** Binary Excel file (.xlsx)
+
+**Excel Contents:**
+- School and section information
+- Complete student roster with:
+  - LRN, Name (Last, First, Middle, Suffix)
+  - Birth Date, Gender
+  - Address
+  - Guardian information
+- Total student count
+- Adviser name
+
+**Template Support:** ✅ Uses SF1 template if uploaded, otherwise uses default format
+
+**Usage Example:**
+```typescript
+const response = await axios.get(
+  `${SERVER_URL}/api/registrar/export/sf1/${sectionId}`,
+  {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'blob'
+  }
+);
+
+const url = window.URL.createObjectURL(new Blob([response.data]));
+const link = document.createElement('a');
+link.href = url;
+link.setAttribute('download', 'SF1_School_Register.xlsx');
+document.body.appendChild(link);
+link.click();
+link.remove();
+```
+
+---
+
 ## 🟢 APIs YOU NEED (What you will call from other teams)
 
 ### Team Member IPs (from Tailscale):
