@@ -346,6 +346,295 @@ router.get('/:id/download', authorizeRoles('ADMIN', 'TEACHER'), async (req: Auth
 });
 
 /**
+ * POST /api/ecr-templates/sync/:classAssignmentId
+ * Sync grades from uploaded ECR file back to database
+ */
+router.post('/sync/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const classAssignmentId = Array.isArray(req.params.classAssignmentId) ? req.params.classAssignmentId[0] : req.params.classAssignmentId;
+    const quarter: string = req.body.quarter || 'Q1';
+    console.log(`[ECR-SYNC] Starting sync for: ${classAssignmentId}, quarter: ${quarter}`);
+
+    // Fetch class assignment
+    const classAssignment = await prisma.classAssignment.findUnique({
+      where: { id: classAssignmentId },
+      include: {
+        teacher: { include: { user: true } },
+        subject: true,
+        section: {
+          include: {
+            enrollments: {
+              where: { status: 'ENROLLED' },
+              include: { student: true }
+            }
+          }
+        }
+      }
+    }) as any;
+
+    if (!classAssignment) {
+      res.status(404).json({ success: false, error: 'Class not found' });
+      return;
+    }
+
+    // Auth check
+    if (req.user!.role !== 'ADMIN' && req.user!.id !== classAssignment.teacher.userId) {
+      res.status(403).json({ success: false, error: 'Not authorized' });
+      return;
+    }
+
+    // Load uploaded workbook
+    const workbook = await XlsxPopulate.fromFileAsync(req.file.path);
+    
+    // Find quarter sheet
+    const quarterNum = quarter.replace('Q', '');
+    const qPattern = new RegExp(`Q${quarterNum}`, 'i');
+    const baseSubject = classAssignment.subject.name.split(' ')[0].toUpperCase();
+    
+    let gradeSheet: any = null;
+    const allSheets: string[] = [];
+    let sheetIndex = 0;
+    while (true) {
+      try {
+        const s = workbook.sheet(sheetIndex);
+        allSheets.push(s.name());
+        sheetIndex++;
+      } catch {
+        break;
+      }
+    }
+
+    // Find sheet by subject + quarter
+    for (const sheetName of allSheets) {
+      const upperName = sheetName.toUpperCase().replace(/\s+/g, '');
+      const normalizedSubject = baseSubject.replace(/\s+/g, '');
+      if (upperName.includes(normalizedSubject) && qPattern.test(sheetName)) {
+        gradeSheet = workbook.sheet(sheetName);
+        console.log(`[ECR-SYNC] Found sheet: ${sheetName}`);
+        break;
+      }
+    }
+
+    if (!gradeSheet) {
+      // Fallback: any sheet matching quarter
+      for (const sheetName of allSheets) {
+        const upper = sheetName.toUpperCase().replace(/\s+/g, '');
+        if (qPattern.test(sheetName) && upper !== 'SUMMARYOFQUARTERLYGRADES') {
+          gradeSheet = workbook.sheet(sheetName);
+          console.log(`[ECR-SYNC] Found sheet (fallback): ${sheetName}`);
+          break;
+        }
+      }
+    }
+
+    if (!gradeSheet) {
+      fs.unlinkSync(req.file.path);
+      res.status(400).json({ success: false, error: `No ${quarter} sheet found in uploaded file` });
+      return;
+    }
+
+    // Find MALE/FEMALE sections
+    let maleStartRow = -1;
+    let femaleStartRow = -1;
+    const usedRange = gradeSheet.usedRange();
+    if (usedRange) {
+      const endRow = usedRange.endCell().rowNumber();
+      for (let r = 1; r <= Math.min(endRow, 100); r++) {
+        for (let c = 1; c <= 10; c++) {
+          const val = gradeSheet.row(r).cell(c).value();
+          if (typeof val === 'string') {
+            const upper = val.toUpperCase().trim();
+            if (upper === 'MALE' && maleStartRow === -1) maleStartRow = r + 1;
+            if (upper === 'FEMALE' && femaleStartRow === -1) femaleStartRow = r + 1;
+          }
+        }
+      }
+    }
+
+    if (maleStartRow === -1) maleStartRow = 12;
+    if (femaleStartRow === -1) femaleStartRow = 62;
+
+    console.log(`[ECR-SYNC] MALE section: row ${maleStartRow}, FEMALE section: row ${femaleStartRow}`);
+
+    // Parse student data from Excel
+    const studentsFromExcel: Array<{
+      name: string;
+      wwScores: Array<{ score: number; maxScore: number }>;
+      ptScores: Array<{ score: number; maxScore: number }>;
+      qaScore: number;
+    }> = [];
+
+    // Read HPS row (2 rows before MALE section typically)
+    const hpsRow = maleStartRow - 2;
+    const wwHPS: number[] = [];
+    const ptHPS: number[] = [];
+    for (let w = 0; w < 10; w++) {
+      const val = gradeSheet.row(hpsRow).cell(6 + w).value();
+      wwHPS[w] = (typeof val === 'number' && val > 0) ? val : 0;
+    }
+    for (let p = 0; p < 10; p++) {
+      const val = gradeSheet.row(hpsRow).cell(19 + p).value();
+      ptHPS[p] = (typeof val === 'number' && val > 0) ? val : 0;
+    }
+    const qaMax = gradeSheet.row(hpsRow).cell(32).value();
+    const qaHPS = (typeof qaMax === 'number' && qaMax > 0) ? qaMax : 100;
+
+    console.log(`[ECR-SYNC] HPS: WW=[${wwHPS.join(',')}] PT=[${ptHPS.join(',')}] QA=${qaHPS}`);
+
+    // Parse MALE students
+    for (let r = maleStartRow; r < femaleStartRow && r < maleStartRow + 50; r++) {
+      const name = gradeSheet.row(r).cell(2).value();
+      if (!name || typeof name !== 'string' || name.trim() === '') continue;
+
+      const wwScores: Array<{ score: number; maxScore: number }> = [];
+      for (let w = 0; w < 10; w++) {
+        const scoreVal = gradeSheet.row(r).cell(6 + w).value();
+        const score = (typeof scoreVal === 'number') ? scoreVal : 0;
+        if (score > 0 || wwHPS[w] > 0) {
+          wwScores.push({ score, maxScore: wwHPS[w] });
+        }
+      }
+
+      const ptScores: Array<{ score: number; maxScore: number }> = [];
+      for (let p = 0; p < 10; p++) {
+        const scoreVal = gradeSheet.row(r).cell(19 + p).value();
+        const score = (typeof scoreVal === 'number') ? scoreVal : 0;
+        if (score > 0 || ptHPS[p] > 0) {
+          ptScores.push({ score, maxScore: ptHPS[p] });
+        }
+      }
+
+      const qaVal = gradeSheet.row(r).cell(32).value();
+      const qaScore = (typeof qaVal === 'number') ? qaVal : 0;
+
+      studentsFromExcel.push({ name: name.trim(), wwScores, ptScores, qaScore });
+    }
+
+    // Parse FEMALE students
+    for (let r = femaleStartRow; r < femaleStartRow + 50; r++) {
+      const name = gradeSheet.row(r).cell(2).value();
+      if (!name || typeof name !== 'string' || name.trim() === '') continue;
+
+      const wwScores: Array<{ score: number; maxScore: number }> = [];
+      for (let w = 0; w < 10; w++) {
+        const scoreVal = gradeSheet.row(r).cell(6 + w).value();
+        const score = (typeof scoreVal === 'number') ? scoreVal : 0;
+        if (score > 0 || wwHPS[w] > 0) {
+          wwScores.push({ score, maxScore: wwHPS[w] });
+        }
+      }
+
+      const ptScores: Array<{ score: number; maxScore: number }> = [];
+      for (let p = 0; p < 10; p++) {
+        const scoreVal = gradeSheet.row(r).cell(19 + p).value();
+        const score = (typeof scoreVal === 'number') ? scoreVal : 0;
+        if (score > 0 || ptHPS[p] > 0) {
+          ptScores.push({ score, maxScore: ptHPS[p] });
+        }
+      }
+
+      const qaVal = gradeSheet.row(r).cell(32).value();
+      const qaScore = (typeof qaVal === 'number') ? qaVal : 0;
+
+      studentsFromExcel.push({ name: name.trim(), wwScores, ptScores, qaScore });
+    }
+
+    console.log(`[ECR-SYNC] Parsed ${studentsFromExcel.length} students from Excel`);
+
+    // Match with DB students by name
+    const students = classAssignment.section.enrollments.map((e: any) => e.student);
+    const nameMap = new Map<string, any>();
+    students.forEach((s: any) => {
+      const fullName = `${s.lastName}, ${s.firstName}${s.middleName ? ' ' + s.middleName.charAt(0) + '.' : ''}`.trim();
+      nameMap.set(fullName.toLowerCase(), s);
+    });
+
+    let updated = 0;
+    let created = 0;
+    let notFound = 0;
+
+    for (const excelStudent of studentsFromExcel) {
+      const student = nameMap.get(excelStudent.name.toLowerCase());
+      if (!student) {
+        console.log(`[ECR-SYNC] ⚠ Student not found in DB: ${excelStudent.name}`);
+        notFound++;
+        continue;
+      }
+
+      // Upsert Grade record
+      const existingGrade = await prisma.grade.findFirst({
+        where: {
+          classAssignmentId,
+          studentId: student.id,
+          quarter: quarter as any
+        }
+      });
+
+      const gradeData = {
+        writtenWorkScores: excelStudent.wwScores,
+        perfTaskScores: excelStudent.ptScores,
+        quarterlyAssessScore: excelStudent.qaScore,
+        quarterlyAssessMax: qaHPS,
+        quarterlyAssessPS: qaHPS > 0 ? Math.round((excelStudent.qaScore / qaHPS) * 100) : 0
+      };
+
+      if (existingGrade) {
+        await prisma.grade.update({
+          where: { id: existingGrade.id },
+          data: gradeData as any
+        });
+        updated++;
+      } else {
+        await prisma.grade.create({
+          data: {
+            classAssignmentId,
+            studentId: student.id,
+            quarter: quarter as any,
+            ...gradeData
+          } as any
+        });
+        created++;
+      }
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
+
+    console.log(`[ECR-SYNC] ✅ Sync complete: ${updated} updated, ${created} created, ${notFound} not found`);
+
+    await createAuditLog(
+      AuditAction.UPDATE,
+      buildAuditUser(req),
+      `ECR Synced: ${classAssignment.subject.name} ${quarter}`,
+      'ECR',
+      `Synced ${updated + created} grades from uploaded file`,
+      req.ip,
+      AuditSeverity.INFO
+    );
+
+    res.json({
+      success: true,
+      message: 'Grades synced successfully',
+      stats: { updated, created, notFound }
+    });
+  } catch (error: any) {
+    console.error('[ECR-SYNC] Failed:', error);
+    
+    // Clean up file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * POST /api/ecr-templates/generate/:classAssignmentId  
  * Generate ECR - Uses xlsx-populate (FAST + preserves all formatting)
  */
@@ -486,6 +775,75 @@ router.post('/generate/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), 
     console.log(`[ECR] Grade records fetched: Q1=${allGradeArrays[0]?.length ?? 0} Q2=${allGradeArrays[1]?.length ?? 0} Q3=${allGradeArrays[2]?.length ?? 0} Q4=${allGradeArrays[3]?.length ?? 0}`);
 
     const teacherName = `${classAssignment.teacher.user.firstName || ''} ${classAssignment.teacher.user.lastName || ''}`.trim() || classAssignment.teacher.user.username;
+    const gradeSection = `${classAssignment.section.gradeLevel.replace('GRADE_', 'Grade ')} - ${classAssignment.section.name}`;
+
+    // ── Fill ECR header fields via formula-reference discovery ─────────────────
+    // Quarter sheets pull header data from INPUT DATA via formulas (e.g. 'INPUT DATA'!G4).
+    // We scan the first quarter sheet to find which INPUT DATA cells are the targets,
+    // then write values there — all quarter sheets update automatically via their formulas.
+    if (inputDataSheet) {
+      const headerValues: Record<string, string> = {
+        'REGION': settings?.region || '',
+        'DIVISION': settings?.division || '',
+        'SCHOOL NAME': settings?.schoolName || '',
+        'SCHOOL ID': settings?.schoolId || '',
+        'SCHOOL YEAR': classAssignment.schoolYear,
+        'GRADE & SECTION': gradeSection,
+        'TEACHER': teacherName,
+        'SUBJECT': classAssignment.subject.name,
+      };
+
+      // Find first quarter sheet to use as reference for formula discovery
+      const firstQSheet = allSheets
+        .filter(n => /Q[1-4]/i.test(n) && !n.toUpperCase().includes('SUMMARY'))
+        .map(n => { try { return workbook.sheet(n); } catch { return null; } })
+        .find(s => s !== null);
+
+      if (firstQSheet) {
+        // Scan rows 1-10 for label cells, then scan right for formula referencing INPUT DATA
+        for (let r = 1; r <= 10; r++) {
+          for (let c = 1; c <= 40; c++) {
+            const cellVal = firstQSheet.row(r).cell(c).value();
+            if (typeof cellVal !== 'string') continue;
+            const upper = cellVal.toUpperCase().trim().replace(/:\s*$/, '');
+            for (const [label, value] of Object.entries(headerValues)) {
+              if (upper === label || upper.startsWith(label)) {
+                // Scan right for a cell with formula referencing INPUT DATA
+                for (let dc = c + 1; dc <= c + 15; dc++) {
+                  const formula = (firstQSheet.row(r).cell(dc) as any).formula();
+                  if (formula && formula.includes("'INPUT DATA'!")) {
+                    const match = formula.match(/'INPUT DATA'!([A-Z]+)(\d+)/);
+                    if (match) {
+                      const colLetters = match[1];
+                      const rowNum = parseInt(match[2]);
+                      let colNum = 0;
+                      for (let i = 0; i < colLetters.length; i++) {
+                        colNum = colNum * 26 + (colLetters.charCodeAt(i) - 64);
+                      }
+                      inputDataSheet.row(rowNum).cell(colNum).value(value);
+                      console.log(`[ECR] Header: wrote ${label}="${value}" → INPUT DATA R${rowNum}C${colNum}`);
+                    }
+                    break;
+                  }
+                }
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback: standard DepEd ECR template fixed positions
+        console.log(`[ECR] No quarter sheet found — writing header at fixed positions`);
+        inputDataSheet.row(4).cell(7).value(settings?.region || '');
+        inputDataSheet.row(4).cell(15).value(settings?.division || '');
+        inputDataSheet.row(5).cell(7).value(settings?.schoolName || '');
+        inputDataSheet.row(5).cell(24).value(settings?.schoolId || '');
+        inputDataSheet.row(5).cell(33).value(classAssignment.schoolYear);
+        inputDataSheet.row(7).cell(11).value(gradeSection);
+        inputDataSheet.row(7).cell(19).value(teacherName);
+        inputDataSheet.row(7).cell(33).value(classAssignment.subject.name);
+      }
+    }
 
     // Separate students by gender — same for all quarters
     const maleStudents: any[] = [];

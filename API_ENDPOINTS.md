@@ -574,6 +574,7 @@ POST http://100.93.66.120:3000/api/ecr-templates/upload
 PUT http://100.93.66.120:3000/api/ecr-templates/:id
 DELETE http://100.93.66.120:3000/api/ecr-templates/:id
 POST http://100.93.66.120:3000/api/ecr-templates/generate/:classAssignmentId
+POST http://100.93.66.120:3000/api/ecr-templates/sync/:classAssignmentId
 ```
 
 **Purpose:** Manage Electronic Class Record (ECR) templates that auto-fill with student data
@@ -894,6 +895,106 @@ const downloadECR = async (classAssignmentId: string) => {
 - ✅ **Fast setup** - Download takes seconds, not hours
 - ✅ **Error-free** - No typos in student names or LRNs
 - ✅ **Easy updates** - Admin can update templates without code changes
+
+#### POST Sync Grades from ECR (⭐ Upload & Import)
+**Endpoint:**
+```
+POST http://100.93.66.120:3000/api/ecr-templates/sync/:classAssignmentId
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: multipart/form-data
+```
+
+**Parameters:**
+- `classAssignmentId` - The teacher's class assignment ID (in URL)
+
+**Request Body (FormData):**
+- `file` - Excel file (.xlsx, .xls) with grades - **Required**
+- `quarter` - Quarter to sync (Q1, Q2, Q3, Q4) - **Required**
+
+**What It Does:**
+1. Teacher downloads ECR → enters grades in Excel → uploads edited file
+2. System loads uploaded Excel and finds quarter sheet
+3. Parses student names and scores:
+   - Columns 6-15: Written Work (WW) scores
+   - Columns 19-28: Performance Task (PT) scores
+   - Column 32: Quarterly Assessment (QA) score
+4. Matches students by full name (Last, First M.)
+5. Updates/creates Grade records in database with parsed scores
+6. Returns sync stats (updated/created/not found)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Grades synced successfully",
+  "stats": {
+    "updated": 28,
+    "created": 2,
+    "notFound": 0
+  }
+}
+```
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "error": "No file uploaded"
+}
+```
+
+```json
+{
+  "success": false,
+  "error": "No Q1 sheet found in uploaded file"
+}
+```
+
+```json
+{
+  "success": false,
+  "error": "Class not found"
+}
+```
+
+**Student Matching:**
+- System matches by full name: `LastName, FirstName MiddleInitial.`
+- Names not matching any enrolled student are logged as `notFound`
+- Case-insensitive matching
+
+**Usage Example:**
+```typescript
+const syncGrades = async (classAssignmentId: string, quarter: string, file: File) => {
+  const token = sessionStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('quarter', quarter);
+
+  const response = await fetch(
+    `${SERVER_URL}/api/ecr-templates/sync/${classAssignmentId}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    }
+  );
+
+  const result = await response.json();
+  if (result.success) {
+    console.log(`Synced ${result.stats.updated + result.stats.created} grades`);
+  }
+};
+```
+
+**Workflow:**
+1. Download ECR → `POST /generate/:classAssignmentId`
+2. Teacher fills in grades offline in Excel
+3. Upload edited ECR → `POST /sync/:classAssignmentId` with `quarter=Q1`
+4. Grades imported into database automatically
 
 ---
 
