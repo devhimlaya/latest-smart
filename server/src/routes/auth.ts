@@ -11,27 +11,27 @@ const router = Router();
 // Login route
 router.post("/login", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
     const ipAddress = req.ip || req.socket.remoteAddress;
 
-    if (!username || !password) {
-      res.status(400).json({ message: "Username and password are required" });
+    if (!email || !password) {
+      res.status(400).json({ message: "Email and password are required" });
       return;
     }
 
-    // Find user by username
-    const user = await prisma.user.findUnique({
-      where: { username },
+    // Find user by email
+    const user = await prisma.user.findFirst({
+      where: { email },
     });
 
     if (!user) {
       // Log failed login attempt (unknown user)
       await createAuditLog(
         AuditAction.LOGIN,
-        { id: "unknown", firstName: username, lastName: null, role: "UNKNOWN" },
-        `Login attempt: ${username}`,
+        { id: "unknown", firstName: email, lastName: null, role: "UNKNOWN" },
+        `Login attempt: ${email}`,
         "Auth",
-        `Failed login attempt for username: ${username} — user not found`,
+        `Failed login attempt for email: ${email} — user not found`,
         ipAddress,
         AuditSeverity.WARNING
       );
@@ -47,7 +47,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       await createAuditLog(
         AuditAction.LOGIN,
         { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role },
-        `Login attempt: ${username}`,
+        `Login attempt: ${email}`,
         "Auth",
         `Failed login attempt for ${user.firstName || ""} ${user.lastName || ""} (${user.role}) — incorrect password`,
         ipAddress,
@@ -61,7 +61,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     const token = jwt.sign(
       {
         id: user.id,
-        username: user.username,
+        email: user.email,
         role: user.role,
       },
       process.env.JWT_SECRET || "fallback-secret",
@@ -72,7 +72,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     await createAuditLog(
       AuditAction.LOGIN,
       { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role },
-      `Login: ${user.username}`,
+        `Login: ${user.email}`,
       "Auth",
       `${user.firstName || ""} ${user.lastName || ""} (${user.role}) logged in successfully`,
       ipAddress,
@@ -84,6 +84,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       token,
       user: {
         id: user.id,
+        email: user.email,
         username: user.username,
         role: user.role,
         firstName: user.firstName,

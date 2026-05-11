@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Upload, FileSpreadsheet, Download, Trash2, Power, Info, AlertCircle, CheckCircle2, Search, RefreshCw, BookOpen, Edit, X } from 'lucide-react';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || '';
 
 interface ECRTemplate {
   id: string;

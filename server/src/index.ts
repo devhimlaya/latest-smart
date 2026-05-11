@@ -14,9 +14,10 @@ import adminRoutes from "./routes/admin";
 import attendanceRoutes from "./routes/attendance";
 import templateRoutes from "./routes/templates";
 import ecrTemplatesRoutes from "./routes/ecrTemplates";
+import { startAtlasSyncScheduler } from "./lib/atlasSync";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5004;
 
 // Middleware
 app.use(cors({
@@ -43,7 +44,17 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Serve React frontend (production build)
+const distPath = path.join(__dirname, "../../dist");
+app.use(express.static(distPath));
+app.get("*splat", (_req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  // Start ATLAS teaching load auto-sync
+  const intervalMin = parseInt(process.env.ATLAS_SYNC_INTERVAL_MINUTES ?? '30', 10);
+  startAtlasSyncScheduler(intervalMin);
 });

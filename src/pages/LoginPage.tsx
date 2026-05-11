@@ -10,7 +10,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { SERVER_URL } from "@/lib/api";
 import { getAcronym } from "@/lib/utils";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "/api";
 
 interface LoginResponse {
   message: string;
@@ -28,7 +28,7 @@ export default function LoginPage() {
   const acronym = getAcronym(schoolName);
   const fullLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${SERVER_URL}${logoUrl}`) : null;
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function LoginPage() {
 
     try {
       const response = await axios.post<LoginResponse>(`${API_URL}/auth/login`, {
-        username,
+        email,
         password,
       });
 
@@ -236,10 +236,10 @@ export default function LoginPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Username Field */}
+                {/* Email Field */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="username" className="text-gray-800 font-semibold text-sm pl-1">
-                    Teacher ID / Username
+                  <Label htmlFor="email" className="text-gray-800 font-semibold text-sm pl-1">
+                    Email Address
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
@@ -248,11 +248,11 @@ export default function LoginPage() {
                       </div>
                     </div>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="Enter your username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      id="email"
+                      type="email"
+                      placeholder="Enter your DepEd email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="pl-12 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
                       style={{ '--tw-ring-color': `${colors.primary}18` } as React.CSSProperties}
                       onFocus={(e) => { e.currentTarget.style.borderColor = colors.primary; }}
@@ -352,10 +352,10 @@ export default function LoginPage() {
                     type="button"
                     className="text-center py-2 px-4 rounded-lg border hover:scale-105 transition-transform cursor-pointer"
                     style={{ backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}20` }}
-                    onClick={() => { setUsername('teacher'); setPassword('teacher123'); }}
+                    onClick={() => { setEmail('miguel.valdez@deped.edu.ph'); setPassword('DepEd2026!'); }}
                   >
                     <p className="font-bold text-sm" style={{ color: colors.primary }}>Demo Teacher</p>
-                    <p className="text-gray-500 text-xs mt-0.5 font-mono">teacher / teacher123</p>
+                    <p className="text-gray-500 text-xs mt-0.5 font-mono">miguel.valdez@ / DepEd2026!</p>
                   </button>
                 </div>
               </div>

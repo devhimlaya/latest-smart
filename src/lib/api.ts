@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "/api";
 
 // Export server URL for constructing upload URLs
-export const SERVER_URL = "http://localhost:3000";
+export const SERVER_URL = "";
 
 // Create axios instance with auth header
 const api = axios.create({

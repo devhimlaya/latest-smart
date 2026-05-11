@@ -140,7 +140,7 @@ export default function AuditLogs() {
     const token = sessionStorage.getItem("token");
     if (!token) return;
 
-    const url = `http://localhost:3000/api/admin/logs/stream`;
+    const url = `/api/admin/logs/stream`;
     const es = new EventSource(url + `?token=${encodeURIComponent(token)}`);
     eventSourceRef.current = es;
 

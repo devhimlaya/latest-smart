@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import axios from "axios";
 
-const SETTINGS_URL = "http://localhost:3000/api/admin/settings";
+const SETTINGS_URL = "/api/admin/settings";
 
 interface ThemeColors {
   primary: string;
@@ -208,7 +208,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const token = sessionStorage.getItem("token");
     if (!token) return;
 
-    const url = `http://localhost:3000/api/admin/settings/stream?token=${encodeURIComponent(token)}`;
+    const url = `/api/admin/settings/stream?token=${encodeURIComponent(token)}`;
     const es = new EventSource(url);
 
     es.onmessage = (event) => {

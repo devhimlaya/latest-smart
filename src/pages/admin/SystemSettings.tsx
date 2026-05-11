@@ -312,7 +312,7 @@ export default function SystemSettings() {
     const token = sessionStorage.getItem("token");
     if (!token) return;
 
-    const url = `http://localhost:3000/api/admin/settings/stream`;
+    const url = `/api/admin/settings/stream`;
     const es = new EventSource(url + `?token=${encodeURIComponent(token)}`);
 
     es.onmessage = (event) => {

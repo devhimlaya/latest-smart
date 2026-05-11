@@ -8,6 +8,7 @@ import fs from "fs";
 import { prisma } from "../lib/prisma";
 import { createAuditLog } from "../lib/audit";
 import { addSseClient, removeSseClient, addSettingsSseClient, removeSettingsSseClient, broadcastSettingsUpdate } from "../lib/sseManager";
+import { runAtlasSync, getSyncStatus } from "../lib/atlasSync";
 
 const router = Router();
 
@@ -970,6 +971,21 @@ router.post("/grading-config/reset", authenticateToken, requireAdmin, async (req
     console.error("Error resetting grading configs:", error);
     res.status(500).json({ message: "Failed to reset grading configurations" });
   }
+});
+
+// ── ATLAS Sync endpoints ─────────────────────────────────────────────────────
+
+// GET /api/admin/atlas-sync/status — current sync state
+router.get("/atlas-sync/status", authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
+  res.json(getSyncStatus());
+});
+
+// POST /api/admin/atlas-sync/run — manually trigger sync
+router.post("/atlas-sync/run", authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
+  const result = await runAtlasSync();
+  res.json({ message: "Sync complete", result });
 });
 
 export default router;

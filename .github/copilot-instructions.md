@@ -2,6 +2,16 @@
 
 These instructions define how coding tasks should be handled in this repository.
 
+## ⚠️ HIGHEST PRIORITY — External Systems Are Read-Only
+
+**NEVER write to, modify, or delete data on any external system.**
+This applies to EnrollPro, ATLAS, and any other integrated third-party database or API.
+- Only READ from external systems (GET requests, SELECT queries, integration fetch endpoints).
+- Never perform INSERT, UPDATE, DELETE, POST, PUT, or PATCH operations against external systems.
+- Never run migration scripts, seed scripts, or any data-mutation code against external databases.
+- SMART may only write to its own local database (`smart_db`).
+- If a task seems to require writing to an external system, stop and ask the user first.
+
 ## User Preferences
 
 - Always implement requests end-to-end when possible. Do not stop at partial setup.

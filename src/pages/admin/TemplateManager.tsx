@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Upload, FileSpreadsheet, Download, Trash2, Power, Info, AlertCircle, CheckCircle2, Eye, Search, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import ExcelRenderer from '@/components/ExcelRenderer';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || '';
 
 interface ExcelTemplate {
   id: string;
