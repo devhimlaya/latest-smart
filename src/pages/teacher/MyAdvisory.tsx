@@ -3,18 +3,18 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Users,
   GraduationCap,
-  Calendar,
   ChevronRight,
   Search,
   UserCircle,
-  BookOpen,
   ClipboardList,
   SplitSquareHorizontal,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -41,18 +41,39 @@ export default function MyAdvisory() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [separateByGender, setSeparateByGender] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  const fetchAdvisory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await advisoryApi.syncFromEnrollPro();
+      const { studentsFound, advisorySection: foundSection } = (res.data as any);
+      if (!foundSection) {
+        setSyncMessage("Sync complete — no advisory section found. If you are assigned an advisory class, please contact the admin.");
+      } else {
+        setSyncMessage(`Sync complete — ${studentsFound} student${studentsFound !== 1 ? 's' : ''} found for ${foundSection}.`);
+      }
+      await fetchAdvisory();
+    } catch {
+      setSyncMessage("Sync failed. Please try again.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const fetchAdvisory = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError(null);
     try {
       const res = await advisoryApi.getMyAdvisory();
       setData(res.data);
     } catch (err) {
-      setError("Failed to load advisory data");
+      if (!silent) setError("Failed to load advisory data");
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -61,21 +82,28 @@ export default function MyAdvisory() {
     fetchAdvisory();
   }, [fetchAdvisory, location.key]);
 
+  // Silent background sync on every page load — pulls fresh data from EnrollPro
+  // then re-fetches advisory so new students appear automatically
+  useEffect(() => {
+    advisoryApi.syncFromEnrollPro()
+      .then(() => fetchAdvisory(true)) // silent=true: no spinner, no error toast
+      .catch(() => {/* silent — manual button still available */});
+  }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
           <div 
             className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
-            style={{ backgroundColor: `${colors.primary}15` }}
+            style={{ backgroundColor: `${colors.primary}10` }}
           >
             <div 
               className="w-10 h-10 border-[3px] border-t-transparent rounded-full animate-spin"
               style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}
             />
           </div>
-          <p className="text-gray-500 font-medium">Loading your advisory...</p>
-          <p className="text-gray-400 text-sm mt-1">Please wait a moment</p>
+          <p className="text-slate-500 font-medium text-lg">Loading advisory records...</p>
         </div>
       </div>
     );
@@ -83,19 +111,18 @@ export default function MyAdvisory() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center max-w-sm">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-100 to-rose-100 flex items-center justify-center shadow-lg">
-            <span className="text-4xl">😕</span>
+      <div className="flex items-center justify-center h-[60vh] p-4">
+        <div className="text-center max-w-sm p-10 bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-rose-50 flex items-center justify-center">
+            <UserCircle className="w-10 h-10 text-rose-500" />
           </div>
-          <h3 className="font-semibold text-gray-900 text-lg mb-2">Something went wrong</h3>
-          <p className="text-gray-500 mb-6">{error}</p>
+          <h3 className="font-black text-slate-900 text-2xl mb-2">Access Denied</h3>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed">{error}</p>
           <Button 
             onClick={() => window.location.reload()} 
-            className="shadow-lg"
-            style={{ backgroundColor: colors.primary }}
+            className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all"
           >
-            Try Again
+            Try to Reconnect
           </Button>
         </div>
       </div>
@@ -104,20 +131,32 @@ export default function MyAdvisory() {
 
   if (!data?.hasAdvisory) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center max-w-md">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-100 to-slate-100 flex items-center justify-center shadow-lg">
-            <ClipboardList className="w-12 h-12 text-gray-400" />
+      <div className="flex items-center justify-center h-[60vh] p-4">
+        <div className="text-center max-w-md p-10 bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-300">
+            <ClipboardList className="w-10 h-10" />
           </div>
-          <h3 className="font-bold text-gray-900 text-xl mb-2">No Advisory Section Assigned</h3>
-          <p className="text-gray-500 mb-6">
-            You don't have an advisory section yet. Please contact your school administrator to be assigned as a class adviser.
+          <h3 className="font-black text-slate-900 text-2xl mb-3">No Advisory Assigned</h3>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+            You are not currently designated as an adviser for any section. Please contact the registrar or system administrator for assignment.
           </p>
-          <Link to="/teacher">
-            <Button variant="outline" className="rounded-xl">
-              Back to Dashboard
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={handleSync}
+              disabled={syncing}
+              className="w-full h-12 rounded-2xl font-bold transition-all"
+              style={{ backgroundColor: syncing ? undefined : colors.primary }}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing from EnrollPro...' : 'Sync from EnrollPro'}
             </Button>
-          </Link>
+            {syncMessage && <p className="text-xs text-slate-500 text-center">{syncMessage}</p>}
+            <Link to="/teacher" className="w-full">
+              <Button variant="outline" className="w-full h-12 rounded-2xl border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all">
+                Return to Dashboard
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -156,395 +195,226 @@ export default function MyAdvisory() {
   });
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div 
-        className="relative overflow-hidden rounded-3xl p-8 lg:p-10 text-white shadow-2xl"
-        style={{ backgroundColor: colors.primary }}
-      >
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 animate-float" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 animate-float" style={{ backgroundColor: `${colors.secondary}30`, animationDelay: '2s' }} />
-        </div>
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto pb-12">
+      {/* Header Section - Refined Glass Style */}
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 p-8 shadow-xl shadow-slate-200/50">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         
-        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-white/80" />
-              </div>
-              <span className="text-sm text-white/70 font-semibold tracking-wide uppercase">Advisory Class</span>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-200">
+              <GraduationCap className="w-10 h-10" />
             </div>
-            <h1 className="text-3xl lg:text-4xl font-bold mb-3 tracking-tight !text-white">
-              {gradeLevelLabels[data.section?.gradeLevel || ""] || data.section?.gradeLevel} - {data.section?.name}
-            </h1>
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge variant="secondary" className="bg-white/20 text-white border-0 font-semibold px-3 py-1 backdrop-blur-sm">
-                <Users className="w-4 h-4 mr-1.5" />
-                {data.stats?.totalStudents} Students
-              </Badge>
-              <Badge variant="secondary" className="bg-white/20 text-white border-0 font-semibold px-3 py-1 backdrop-blur-sm">
-                <Calendar className="w-4 h-4 mr-1.5" />
-                S.Y. {data.section?.schoolYear}
-              </Badge>
+            <div>
+              <div className="flex items-center gap-3 mb-1.5">
+                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black uppercase tracking-widest px-3">
+                  Class Adviser
+                </Badge>
+                <div className="h-4 w-px bg-slate-200" />
+                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">S.Y. {data.section?.schoolYear}</span>
+              </div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                {gradeLevelLabels[data.section?.gradeLevel || ""] || data.section?.gradeLevel} &mdash; {data.section?.name}
+              </h1>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                {data.stats?.totalStudents || 0} Learners Managed
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-              <UserCircle className="w-7 h-7 text-white/80" />
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-4 bg-slate-50/80 backdrop-blur-sm px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
+               <Avatar className="w-12 h-12 border-2 border-white shadow-md">
+                 <AvatarFallback className="bg-indigo-600 text-white font-black text-lg">
+                   {data.teacher.name.charAt(0)}
+                 </AvatarFallback>
+               </Avatar>
+               <div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Assigned Teacher</p>
+                 <p className="text-base font-black text-slate-800 tracking-tight">{data.teacher.name}</p>
+               </div>
             </div>
-            <div>
-              <p className="text-xs text-white/60 uppercase tracking-wider font-semibold">Class Adviser</p>
-              <p className="text-xl font-bold mt-0.5">{data.teacher.name}</p>
-              <p className="text-sm text-white/70 mt-0.5">{data.teacher.employeeId}</p>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="h-10 px-5 rounded-2xl border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'SYNCING...' : 'SYNC FROM ENROLLPRO'}
+            </Button>
+            {syncMessage && (
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{syncMessage}</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-        <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+      {/* Quick Insights Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+          { label: "TOTAL CLASS", value: data.stats?.totalStudents || 0, icon: Users, color: "indigo" },
+          { label: "MALE LEARNERS", value: data.stats?.maleCount || 0, icon: UserCircle, color: "blue" },
+          { label: "FEMALE LEARNERS", value: data.stats?.femaleCount || 0, icon: UserCircle, color: "pink" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-0 shadow-lg shadow-slate-200/50 overflow-hidden rounded-[2rem] bg-white group hover:-translate-y-1 transition-all duration-300">
+            <CardContent className="p-6 flex items-center gap-5">
+              <div className={`p-3.5 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600 group-hover:scale-110 transition-transform`}>
+                <stat.icon className="w-6 h-6" />
+              </div>
               <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Total Students</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{data.stats?.totalStudents || 0}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900 leading-none">{stat.value}</p>
               </div>
-              <div 
-                className="p-3.5 rounded-2xl text-white shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Users className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Male</p>
-                <p className="text-3xl font-bold text-blue-600 mt-1">{data.stats?.maleCount || 0}</p>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
-                <UserCircle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Female</p>
-                <p className="text-3xl font-bold text-pink-600 mt-1">{data.stats?.femaleCount || 0}</p>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 text-white shadow-lg">
-                <UserCircle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg shadow-gray-200/50 bg-white overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Subjects</p>
-                <p className="text-3xl font-bold mt-1" style={{ color: colors.primary }}>{data.subjects?.length || 0}</p>
-              </div>
-              <div className="p-3.5 rounded-2xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
-                <BookOpen className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Subject Teachers */}
-      {data.subjects && data.subjects.length > 0 && (
-        <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-bold text-gray-900">Subject Teachers</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Teachers handling this section</CardDescription>
-              </div>
+      {/* Main Directory Table */}
+      <Card className="border-0 shadow-2xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="border-b border-slate-50 p-8 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Student Directory</h2>
+            <div className="h-6 w-px bg-slate-100 hidden sm:block" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSeparateByGender(!separateByGender)}
+              className={`h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all border ${
+                separateByGender ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50 border-slate-100'
+              }`}
+            >
+              <SplitSquareHorizontal className="w-4 h-4 mr-2" />
+              {separateByGender ? "GENDER SEPARATED" : "BY GENDER"}
+            </Button>
+          </div>
+          
+          <div className="relative w-full sm:w-80 group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-slate-100 text-slate-400 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-all">
+              <Search className="w-3.5 h-3.5" />
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {data.subjects.map((subject) => (
-                <div key={subject.id} className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary}15` }}>
-                    <BookOpen className="w-5 h-5" style={{ color: colors.primary }} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">{subject.name}</p>
-                    <p className="text-xs text-gray-500">{subject.teacher}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Student List */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
-        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-5">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div 
-                className="p-2.5 rounded-xl text-white shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-bold text-gray-900">Class List</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Click on a student to view their complete grades</CardDescription>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant={separateByGender ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSeparateByGender(!separateByGender)}
-                className={`rounded-xl font-medium ${
-                  separateByGender 
-                    ? "text-white" 
-                    : ""
-                }`}
-                style={separateByGender ? { backgroundColor: colors.primary } : { borderColor: `${colors.primary}40`, color: colors.primary }}
-              >
-                <SplitSquareHorizontal className="w-4 h-4 mr-2" />
-                {separateByGender ? "Gender Separated" : "Group by Gender"}
-              </Button>
-              
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search by name or LRN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 rounded-xl border-gray-200"
-                />
-              </div>
-            </div>
+            <Input
+              type="text"
+              placeholder="Search by name or LRN..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-14 h-12 text-xs font-bold bg-slate-50 border-0 rounded-2xl focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-400"
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">{separateByGender ? (
-              // Gender-separated view
-              <>
-                {/* Male Students */}
-                {maleStudents.length > 0 && (
-                  <>
-                    <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-blue-500 text-white">
-                          Male
-                        </Badge>
-                        <span className="text-sm font-semibold text-blue-900">
-                          {maleStudents.length} {maleStudents.length === 1 ? 'Student' : 'Students'}
-                        </span>
-                      </div>
-                    </div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-blue-50/50">
-                          <TableHead className="w-16 text-center font-bold">#</TableHead>
-                          <TableHead className="font-bold">LRN</TableHead>
-                          <TableHead className="font-bold">Student Name</TableHead>
-                          <TableHead className="font-bold">Guardian</TableHead>
-                          <TableHead className="w-24 text-center font-bold">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {maleStudents.map((student, index) => (
-                          <TableRow key={student.id} className="hover:bg-blue-50/30 transition-colors">
-                            <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
-                            <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white bg-gradient-to-br from-blue-500 to-indigo-600">
-                                  {student.lastName.charAt(0)}
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">
-                                    {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
-                                  </p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-gray-600 text-sm">
-                              {student.guardianName || "-"}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Link to={`/teacher/advisory/student/${student.id}`}>
-                                <Button 
-                                  size="sm" 
-                                  className="rounded-lg shadow-md"
-                                  style={{ backgroundColor: colors.primary }}
-                                >
-                                  View
-                                  <ChevronRight className="w-4 h-4 ml-1" />
-                                </Button>
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </>
-                )}
-
-                {/* Female Students */}
-                {femaleStudents.length > 0 && (
-                  <>
-                    <div className="px-6 py-3 bg-pink-50 border-b border-pink-100">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-pink-500 text-white">
-                          Female
-                        </Badge>
-                        <span className="text-sm font-semibold text-pink-900">
-                          {femaleStudents.length} {femaleStudents.length === 1 ? 'Student' : 'Students'}
-                        </span>
-                      </div>
-                    </div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-pink-50/50">
-                          <TableHead className="w-16 text-center font-bold">#</TableHead>
-                          <TableHead className="font-bold">LRN</TableHead>
-                          <TableHead className="font-bold">Student Name</TableHead>
-                          <TableHead className="font-bold">Guardian</TableHead>
-                          <TableHead className="w-24 text-center font-bold">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {femaleStudents.map((student, index) => (
-                          <TableRow key={student.id} className="hover:bg-pink-50/30 transition-colors">
-                            <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
-                            <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white bg-gradient-to-br from-pink-500 to-rose-600">
-                                  {student.lastName.charAt(0)}
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">
-                                    {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
-                                  </p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-gray-600 text-sm">
-                              {student.guardianName || "-"}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Link to={`/teacher/advisory/student/${student.id}`}>
-                                <Button 
-                                  size="sm" 
-                                  className="rounded-lg shadow-md"
-                                  style={{ backgroundColor: colors.primary }}
-                                >
-                                  View
-                                  <ChevronRight className="w-4 h-4 ml-1" />
-                                </Button>
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </>
-                )}
-
-                {maleStudents.length === 0 && femaleStudents.length === 0 && (
-                  <div className="text-center py-12 text-gray-500">
-                    {searchQuery ? "No students found matching your search." : "No students enrolled in this section."}
-                  </div>
-                )}
-              </>
-            ) : (
-              // Combined view
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/50">
-                    <TableHead className="w-16 text-center font-bold">#</TableHead>
-                    <TableHead className="font-bold">LRN</TableHead>
-                    <TableHead className="font-bold">Student Name</TableHead>
-                    <TableHead className="font-bold text-center">Gender</TableHead>
-                    <TableHead className="font-bold">Guardian</TableHead>
-                    <TableHead className="w-24 text-center font-bold">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedStudents.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-gray-500">
-                        {searchQuery ? "No students found matching your search." : "No students enrolled in this section."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedStudents.map((student, index) => (
-                      <TableRow key={student.id} className="hover:bg-gray-50/30 transition-colors">
-                        <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
-                        <TableCell className="font-mono text-sm text-gray-600">{student.lrn}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-white" style={{ backgroundColor: colors.primary }}>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/50 hover:bg-transparent border-0">
+                  <TableHead className="w-16 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest px-8">#</TableHead>
+                  <TableHead className="w-40 text-[10px] font-black text-slate-400 uppercase tracking-widest">Learner Reference (LRN)</TableHead>
+                  <TableHead className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Legal Name</TableHead>
+                  {!separateByGender && <TableHead className="text-center w-32 text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</TableHead>}
+                  <TableHead className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parent / Guardian</TableHead>
+                  <TableHead className="w-32 text-right pr-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(() => {
+                  const renderRow = (student: any, idx: number) => (
+                    <TableRow key={student.id} className="hover:bg-slate-50/50 transition-all border-slate-50 group">
+                      <TableCell className="text-center text-slate-300 font-black text-[10px] px-8">{idx + 1}</TableCell>
+                      <TableCell className="font-mono text-xs text-slate-400 font-bold tracking-tighter group-hover:text-slate-900 transition-colors">{student.lrn}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-4">
+                          <Avatar className="w-9 h-9 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarFallback className={`text-white font-black text-xs ${student.gender?.toLowerCase() === 'male' ? 'bg-blue-500' : 'bg-pink-500'}`}>
                               {student.lastName.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">
-                                {student.lastName}, {student.firstName} {student.middleName ? `${student.middleName.charAt(0)}.` : ""} {student.suffix || ""}
-                              </p>
-                            </div>
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-black text-slate-900 text-sm tracking-tight">{student.lastName}, {student.firstName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{student.middleName || ""}</p>
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
+                      {!separateByGender && (
                         <TableCell className="text-center">
-                          <Badge className={`${
-                            student.gender?.toLowerCase() === "male"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-pink-100 text-pink-700"
-                          }`}>
-                            {student.gender || "N/A"}
+                          <Badge variant="secondary" className={`text-[9px] font-black uppercase px-3 h-6 rounded-lg border-0 ${student.gender?.toLowerCase() === 'male' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>
+                            {student.gender || 'N/A'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-gray-600 text-sm">
-                          {student.guardianName || "-"}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Link to={`/teacher/advisory/student/${student.id}`}>
-                            <Button 
-                              size="sm" 
-                              className="rounded-lg shadow-md"
-                              style={{ backgroundColor: colors.primary }}
-                            >
-                              View
-                              <ChevronRight className="w-4 h-4 ml-1" />
-                            </Button>
-                          </Link>
+                      )}
+                      <TableCell className="text-xs text-slate-500 font-bold italic">
+                        {student.guardianName || <span className="text-slate-200">UNSPECIFIED</span>}
+                      </TableCell>
+                      <TableCell className="text-right pr-8">
+                        <Link to={`/teacher/advisory/student/${student.id}`}>
+                          <Button size="sm" variant="ghost" className="h-10 px-4 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 font-black text-[10px] tracking-widest uppercase transition-all">
+                            PROFILE
+                            <ChevronRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  );
+
+                  if (separateByGender) {
+                    return (
+                      <>
+                        {maleStudents.length > 0 && (
+                          <>
+                            <TableRow className="bg-blue-50/20 hover:bg-blue-50/20 border-y border-blue-100/30">
+                              <TableCell colSpan={6} className="py-3 px-8">
+                                <span className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                  MALE STUDENTS ({maleStudents.length})
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                            {maleStudents.map((s, i) => renderRow(s, i))}
+                          </>
+                        )}
+                        {femaleStudents.length > 0 && (
+                          <>
+                            <TableRow className="bg-pink-50/20 hover:bg-pink-50/20 border-y border-pink-100/30">
+                              <TableCell colSpan={6} className="py-3 px-8">
+                                <span className="text-[11px] font-black text-pink-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-pink-500" />
+                                  FEMALE STUDENTS ({femaleStudents.length})
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                            {femaleStudents.map((s, i) => renderRow(s, i))}
+                          </>
+                        )}
+                      </>
+                    );
+                  }
+
+                  if (sortedStudents.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-24 text-center">
+                          <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                            <Search className="w-8 h-8 text-slate-200" />
+                          </div>
+                          <p className="text-slate-400 font-black text-xs uppercase tracking-widest">
+                            {searchQuery ? "No matching records found" : "No enrolled students yet"}
+                          </p>
+                          {!searchQuery && (
+                            <p className="text-slate-300 text-xs mt-2">
+                              Enrollment for this school year has not yet opened in EnrollPro.
+                            </p>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            )}
+                    );
+                  }
+
+                  return sortedStudents.map((s, i) => renderRow(s, i));
+                })()}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

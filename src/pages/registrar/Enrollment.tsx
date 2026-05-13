@@ -182,7 +182,7 @@ export default function Enrollment() {
               </div>
               <div>
                 <CardTitle className="text-lg font-bold text-gray-900">Enrollment Applications</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">S.Y. 2025-2026</CardDescription>
+                <CardDescription className="text-gray-500 text-sm">S.Y. 2026-2027</CardDescription>
               </div>
             </div>
             

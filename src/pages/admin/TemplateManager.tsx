@@ -102,6 +102,7 @@ export default function TemplateManager() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     fetchTemplates();
@@ -129,6 +130,7 @@ export default function TemplateManager() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const token = sessionStorage.getItem('token');
       const response = await axios.get(`${SERVER_URL}/api/templates`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -136,6 +138,13 @@ export default function TemplateManager() {
       setTemplates(response.data.data || []);
     } catch (error: any) {
       console.error('Failed to fetch templates:', error);
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.response?.data?.error;
+      if (status === 401 || status === 403) {
+        setLoadError('Session expired or invalid token. Please log out and log in again, then refresh this page.');
+      } else {
+        setLoadError(message || 'Failed to load SF templates from server.');
+      }
     } finally {
       setLoading(false);
     }
@@ -587,6 +596,15 @@ export default function TemplateManager() {
 
       {/* Templates Table */}
       <Card className="overflow-hidden">
+        {loadError && (
+          <div className="m-4 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold">Could not load templates</p>
+              <p>{loadError}</p>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
         <Table>
           <TableHeader>

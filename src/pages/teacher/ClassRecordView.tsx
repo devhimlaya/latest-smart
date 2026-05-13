@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -6,6 +6,7 @@ import {
   Edit,
   Trash2,
   Plus,
+  Minus,
   AlertCircle,
   CheckCircle,
   BookOpen,
@@ -20,18 +21,16 @@ import {
   FileSpreadsheet,
   Upload,
   RefreshCw,
-  FileUp,
   X,
-  Check,
-  AlertTriangle,
   SplitSquareHorizontal,
   Download,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -45,17 +44,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   gradesApi,
+  advisoryApi,
   SERVER_URL,
   type ClassAssignment,
   type ClassRecord,
@@ -71,70 +71,252 @@ const gradeLevelLabels: Record<string, string> = {
   GRADE_10: "Grade 10",
 };
 
-const gradeLevelColors: Record<string, string> = {
-  GRADE_7: "theme",
-  GRADE_8: "theme",
-  GRADE_9: "theme",
-  GRADE_10: "theme",
-};
-
 const quarters = ["Q1", "Q2", "Q3", "Q4"] as const;
 
 function getGradeColor(grade: number | null): string {
-  if (grade === null) return "text-gray-400";
-  if (grade >= 90) return "text-emerald-600 font-bold";
-  if (grade >= 85) return "text-blue-600 font-semibold";
-  if (grade >= 80) return "text-amber-600 font-medium";
+  if (grade === null) return "text-slate-300";
+  if (grade >= 90) return "text-emerald-600";
+  if (grade >= 85) return "text-blue-600";
+  if (grade >= 80) return "text-amber-600";
   if (grade >= 75) return "text-orange-600";
-  return "text-red-600 font-semibold";
+  return "text-rose-600";
 }
 
-function getGradeBgColor(grade: number | null): string {
-  if (grade === null) return "bg-gray-50";
-  if (grade >= 90) return "bg-emerald-50";
-  if (grade >= 85) return "bg-blue-50";
-  if (grade >= 80) return "bg-amber-50";
-  if (grade >= 75) return "bg-orange-50";
-  return "bg-red-50";
+function transmuteGrade(initialGrade: number): number {
+  const transmutationTable: [number, number, number][] = [
+    [100, 100, 100],
+    [98.4, 99.99, 99],
+    [96.8, 98.39, 98],
+    [95.2, 96.79, 97],
+    [93.6, 95.19, 96],
+    [92, 93.59, 95],
+    [90.4, 91.99, 94],
+    [88.8, 90.39, 93],
+    [87.2, 88.79, 92],
+    [85.6, 87.19, 91],
+    [84, 85.59, 90],
+    [82.4, 83.99, 89],
+    [80.8, 82.39, 88],
+    [79.2, 80.79, 87],
+    [77.6, 79.19, 86],
+    [76, 77.59, 85],
+    [74.4, 75.99, 84],
+    [72.8, 74.39, 83],
+    [71.2, 72.79, 82],
+    [69.6, 71.19, 81],
+    [68, 69.59, 80],
+    [66.4, 67.99, 79],
+    [64.8, 66.39, 78],
+    [63.2, 64.79, 77],
+    [61.6, 63.19, 76],
+    [60, 61.59, 75],
+    [56, 59.99, 74],
+    [52, 55.99, 73],
+    [48, 51.99, 72],
+    [44, 47.99, 71],
+    [40, 43.99, 70],
+    [36, 39.99, 69],
+    [32, 35.99, 68],
+    [28, 31.99, 67],
+    [24, 27.99, 66],
+    [20, 23.99, 65],
+    [16, 19.99, 64],
+    [12, 15.99, 63],
+    [8, 11.99, 62],
+    [4, 7.99, 61],
+    [0, 3.99, 60],
+  ];
+
+  for (const [min, max, grade] of transmutationTable) {
+    if (initialGrade >= min && initialGrade <= max) {
+      return grade;
+    }
+  }
+
+  return Math.round(Math.max(60, Math.min(100, initialGrade)));
 }
 
-function getGradeRemarks(grade: number | null): string {
-  if (grade === null) return "-";
-  if (grade >= 90) return "Outstanding";
-  if (grade >= 85) return "Very Satisfactory";
-  if (grade >= 80) return "Satisfactory";
-  if (grade >= 75) return "Fairly Satisfactory";
-  return "Did Not Meet";
+// ─── Optimized Ledger Row Component ───────────────────────────────────────
+
+interface LedgerRowProps {
+  record: ClassRecord | null;
+  idx: number;
+  isHps?: boolean;
+  hpsData?: { wwScores: ScoreItem[]; ptScores: ScoreItem[]; qaMax: number };
+  selectedQuarter: string;
+  wwCount: number;
+  ptCount: number;
+  weights: { ww: number; pt: number; qa: number };
+  onScoreUpdate: (sid: string, cat: 'WW' | 'PT' | 'QA', idx: number, val: number) => void;
+  onHpsUpdate: (cat: 'WW' | 'PT' | 'QA', idx: number, val: number) => void;
 }
+
+const LedgerRow = React.memo(({ 
+  record, idx, isHps = false, hpsData, selectedQuarter, wwCount, ptCount, weights, onScoreUpdate, onHpsUpdate 
+}: LedgerRowProps) => {
+  const studentId = record?.student.id || "HPS";
+  const grade = record?.grades?.find(g => g.quarter === selectedQuarter);
+  
+  const wwScores = isHps
+    ? (hpsData?.wwScores || [])
+    : ((grade?.writtenWorkScores || []) as ScoreItem[]);
+  const ptScores = isHps
+    ? (hpsData?.ptScores || [])
+    : ((grade?.perfTaskScores || []) as ScoreItem[]);
+
+  // Helper for safe number display
+  const formatNum = (val: number | undefined | null, fallback = "—") => {
+    if (val === undefined || val === null) return fallback;
+    return Number(val).toFixed(1);
+  };
+
+  // Client-side calculation fallbacks for instant feedback and robustness
+  const calcTotal = (scores: ScoreItem[]) => scores.reduce((acc, curr) => acc + (Number(curr.score) || 0), 0);
+  const calcMax = (scores: ScoreItem[]) => scores.reduce((acc, curr) => acc + (Number(curr.maxScore) || 0), 0);
+  const calcPS = (total: number, max: number) => max > 0 ? (total / max) * 100 : 0;
+
+  const wwTotal = calcTotal(wwScores);
+  const wwMaxTotal = calcMax(wwScores);
+  const displayWWPS = grade?.writtenWorkPS ?? (wwMaxTotal > 0 ? calcPS(wwTotal, wwMaxTotal) : null);
+  const displayWWWS = displayWWPS !== null ? (displayWWPS * (weights.ww / 100)) : null;
+
+  const ptTotal = calcTotal(ptScores);
+  const ptMaxTotal = calcMax(ptScores);
+  const displayPTPS = grade?.perfTaskPS ?? (ptMaxTotal > 0 ? calcPS(ptTotal, ptMaxTotal) : null);
+  const displayPTWS = displayPTPS !== null ? (displayPTPS * (weights.pt / 100)) : null;
+
+  const qaScore = Number(grade?.quarterlyAssessScore) || 0;
+  const qaMax = isHps
+    ? (hpsData?.qaMax ?? 100)
+    : (Number(grade?.quarterlyAssessMax) || 100);
+  const displayQAPS = grade?.quarterlyAssessPS ?? (qaMax > 0 ? calcPS(qaScore, qaMax) : null);
+  const displayQAWS = displayQAPS !== null ? (displayQAPS * (weights.qa / 100)) : null;
+
+  const computedInitialGrade =
+    displayWWWS !== null && displayPTWS !== null && displayQAWS !== null
+      ? displayWWWS + displayPTWS + displayQAWS
+      : null;
+  const displayInitialGrade = grade?.initialGrade ?? computedInitialGrade;
+  const displayQuarterlyGrade =
+    grade?.quarterlyGrade ??
+    (displayInitialGrade !== null ? transmuteGrade(displayInitialGrade) : null);
+
+  const cellClass = "text-center text-[10px] font-bold border-r border-slate-100 p-0 h-9";
+  const inputClass = "w-full h-full bg-transparent text-center focus:bg-white focus:ring-1 focus:ring-inset focus:ring-indigo-500/30 outline-none transition-all px-1 font-bold";
+
+  return (
+    <TableRow className={`${isHps ? 'bg-slate-800 text-white border-y border-slate-700 sticky top-0 z-20 shadow-lg' : 'hover:bg-indigo-50/10'} transition-all border-b border-slate-100 group h-9`}>
+      <TableCell className={`text-center font-bold text-[9px] border-r border-slate-100 ${isHps ? 'text-indigo-300' : 'text-slate-300'}`}>{isHps ? "MAX" : idx + 1}</TableCell>
+      <TableCell className={`font-mono text-[9px] font-medium border-r border-slate-100 px-3 truncate ${isHps ? 'text-slate-500' : 'text-slate-400'}`}>{isHps ? "—" : record?.student.lrn}</TableCell>
+      <TableCell className="border-r border-slate-200 px-3 min-w-[200px]">
+        <p className={`font-bold text-[10px] tracking-tight uppercase truncate ${isHps ? 'text-indigo-300' : 'text-slate-700'}`}>
+          {isHps ? "HIGHEST POSSIBLE SCORE" : `${record?.student.lastName}, ${record?.student.firstName}`}
+        </p>
+      </TableCell>
+      
+      {/* WW Individual */}
+      {Array.from({ length: wwCount }).map((_, i) => (
+        <TableCell key={`ww-${i}`} className={cellClass}>
+          <input 
+            type="number"
+            defaultValue={isHps ? (wwScores[i]?.maxScore || 0) : (wwScores[i]?.score || '')}
+            placeholder="0"
+            className={`${inputClass} ${isHps ? 'text-indigo-300 font-black' : 'text-slate-600'}`}
+            onBlur={(e) => {
+              const val = e.target.value === '' ? 0 : Number(e.target.value);
+              if (isHps) onHpsUpdate('WW', i, val);
+              else onScoreUpdate(studentId, 'WW', i, val);
+            }}
+          />
+        </TableCell>
+      ))}
+      <TableCell className={`text-center text-[10px] font-black border-r border-slate-100 ${isHps ? 'bg-slate-700' : 'bg-slate-50/50 text-slate-500'}`}>
+        {isHps ? wwMaxTotal : wwTotal}
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-indigo-600 border-r border-slate-100 bg-indigo-50/5">
+        {isHps ? "100.0" : formatNum(displayWWPS)}
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-indigo-700 border-r border-slate-200 bg-indigo-50/10">
+        {isHps ? weights.ww.toFixed(1) : formatNum(displayWWWS)}
+      </TableCell>
+      
+      {/* PT Individual */}
+      {Array.from({ length: ptCount }).map((_, i) => (
+        <TableCell key={`pt-${i}`} className={cellClass}>
+          <input 
+            type="number"
+            defaultValue={isHps ? (ptScores[i]?.maxScore || 0) : (ptScores[i]?.score || '')}
+            placeholder="0"
+            className={`${inputClass} ${isHps ? 'text-purple-300 font-black' : 'text-slate-600'}`}
+            onBlur={(e) => {
+              const val = e.target.value === '' ? 0 : Number(e.target.value);
+              if (isHps) onHpsUpdate('PT', i, val);
+              else onScoreUpdate(studentId, 'PT', i, val);
+            }}
+          />
+        </TableCell>
+      ))}
+      <TableCell className={`text-center text-[10px] font-black border-r border-slate-100 ${isHps ? 'bg-slate-700' : 'bg-slate-50/50 text-slate-500'}`}>
+        {isHps ? ptMaxTotal : ptTotal}
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-purple-600 border-r border-slate-100 bg-purple-50/5">
+        {isHps ? "100.0" : formatNum(displayPTPS)}
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-purple-700 border-r border-slate-200 bg-purple-50/10">
+        {isHps ? weights.pt.toFixed(1) : formatNum(displayPTWS)}
+      </TableCell>
+      
+      {/* QA */}
+      <TableCell className={cellClass}>
+        <input 
+          type="number"
+          defaultValue={isHps ? qaMax : (grade?.quarterlyAssessScore || '')}
+          placeholder="0"
+          className={`${inputClass} ${isHps ? 'text-amber-300 font-black' : 'text-amber-600'}`}
+          onBlur={(e) => {
+            const val = e.target.value === '' ? 0 : Number(e.target.value);
+            if (isHps) onHpsUpdate('QA', 0, val);
+            else onScoreUpdate(studentId, 'QA', 0, val);
+          }}
+        />
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-amber-600 border-r border-slate-100 bg-amber-50/10">
+        {isHps ? "100.0" : formatNum(displayQAPS)}
+      </TableCell>
+      <TableCell className="text-center font-black text-[10px] text-amber-700 border-r border-slate-200 bg-amber-50/20">
+        {isHps ? weights.qa.toFixed(1) : formatNum(displayQAWS)}
+      </TableCell>
+      
+      {/* Summary */}
+      <TableCell className="text-center font-black text-[10px] text-emerald-600 border-r border-slate-100 bg-emerald-50/10">
+        {isHps ? "100.0" : formatNum(displayInitialGrade)}
+      </TableCell>
+      <TableCell className={`text-center font-black text-xs bg-emerald-100/30 ${isHps ? 'text-white' : getGradeColor(displayQuarterlyGrade)}`}>
+        {isHps ? "100" : (displayQuarterlyGrade ?? <span className="text-slate-300">—</span>)}
+      </TableCell>
+    </TableRow>
+  );
+});
+
+LedgerRow.displayName = "LedgerRow";
 
 export default function ClassRecordView() {
   const { colors } = useTheme();
   const { classAssignmentId } = useParams();
   const [classAssignment, setClassAssignment] = useState<ClassAssignment | null>(null);
   const [classRecord, setClassRecord] = useState<ClassRecord[]>([]);
+  const [effectiveWeights, setEffectiveWeights] = useState<{
+    ww: number;
+    pt: number;
+    qa: number;
+    source: "subject" | "generic-fallback";
+    hasExactEcrTemplate: boolean;
+  } | null>(null);
   const [selectedQuarter, setSelectedQuarter] = useState<string>("Q1");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Grade input dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<ClassRecord | null>(null);
-  const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
-
-  // Score input state
-  const [writtenWorkScores, setWrittenWorkScores] = useState<ScoreItem[]>([]);
-  const [perfTaskScores, setPerfTaskScores] = useState<ScoreItem[]>([]);
-  const [quarterlyAssessScore, setQuarterlyAssessScore] = useState<string>("");
-  const [quarterlyAssessMax, setQuarterlyAssessMax] = useState<string>("100");
-
-  // ECR Import state
-  const [ecrDialogOpen, setEcrDialogOpen] = useState(false);
-  const [ecrFile, setEcrFile] = useState<File | null>(null);
-  const [ecrPreview, setEcrPreview] = useState<any>(null);
-  const [ecrLoading, setEcrLoading] = useState(false);
-  const [ecrImporting, setEcrImporting] = useState(false);
   const [ecrSyncStatus, setEcrSyncStatus] = useState<{
     hasSynced: boolean;
     ecrLastSyncedAt: string | null;
@@ -143,18 +325,85 @@ export default function ClassRecordView() {
   const [separateByGender, setSeparateByGender] = useState(false);
   const ecrFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dynamic Column Counts
+  const wwCount = useMemo(() => {
+    let max = 1;
+    classRecord.forEach(r => {
+      const grade = r.grades.find(g => g.quarter === selectedQuarter);
+      if (grade?.writtenWorkScores) max = Math.max(max, (grade.writtenWorkScores as any[]).length);
+    });
+    return max;
+  }, [classRecord, selectedQuarter]);
+
+  const ptCount = useMemo(() => {
+    let max = 1;
+    classRecord.forEach(r => {
+      const grade = r.grades.find(g => g.quarter === selectedQuarter);
+      if (grade?.perfTaskScores) max = Math.max(max, (grade.perfTaskScores as any[]).length);
+    });
+    return max;
+  }, [classRecord, selectedQuarter]);
+
+  const hpsData = useMemo(() => {
+    const wwScores: ScoreItem[] = Array.from({ length: wwCount }, (_, i) => ({
+      name: `WW ${i + 1}`,
+      score: 0,
+      maxScore: 0,
+    }));
+    const ptScores: ScoreItem[] = Array.from({ length: ptCount }, (_, i) => ({
+      name: `PT ${i + 1}`,
+      score: 0,
+      maxScore: 0,
+    }));
+
+    let qaMax = 0;
+
+    classRecord.forEach((record) => {
+      const grade = record.grades.find((g) => g.quarter === selectedQuarter);
+      if (!grade) return;
+
+      const ww = (grade.writtenWorkScores || []) as ScoreItem[];
+      const pt = (grade.perfTaskScores || []) as ScoreItem[];
+
+      ww.forEach((item, i) => {
+        if (i < wwScores.length) {
+          wwScores[i].maxScore = Math.max(wwScores[i].maxScore || 0, Number(item.maxScore) || 0);
+        }
+      });
+
+      pt.forEach((item, i) => {
+        if (i < ptScores.length) {
+          ptScores[i].maxScore = Math.max(ptScores[i].maxScore || 0, Number(item.maxScore) || 0);
+        }
+      });
+
+      qaMax = Math.max(qaMax, Number(grade.quarterlyAssessMax) || 0);
+    });
+
+    return {
+      wwScores,
+      ptScores,
+      qaMax: qaMax || 100,
+    };
+  }, [classRecord, selectedQuarter, wwCount, ptCount]);
+
   useEffect(() => {
     fetchClassRecord();
   }, [classAssignmentId, selectedQuarter]);
 
-  // Fetch ECR sync status
+  // Silent background sync on mount
+  useEffect(() => {
+    advisoryApi.syncFromEnrollPro()
+      .then(() => fetchClassRecord(true))
+      .catch(() => {/* silent */});
+  }, [classAssignmentId]); 
+
   useEffect(() => {
     if (classAssignmentId) {
       fetchEcrStatus();
     }
   }, [classAssignmentId]);
 
-  // Auto-dismiss messages
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
@@ -165,19 +414,19 @@ export default function ClassRecordView() {
     }
   }, [error, success]);
 
-  const fetchClassRecord = async () => {
+  const fetchClassRecord = async (silent = false) => {
     if (!classAssignmentId) return;
-
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await gradesApi.getClassRecord(classAssignmentId, selectedQuarter);
       setClassAssignment(response.data.classAssignment);
       setClassRecord(response.data.classRecord);
+      setEffectiveWeights(response.data.effectiveWeights ?? null);
     } catch (err) {
       console.error("Failed to fetch class record:", err);
-      setError("Failed to load class record");
+      if (!silent) setError("Failed to load class record");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -194,49 +443,22 @@ export default function ClassRecordView() {
   const handleEcrFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setEcrFile(file);
-      handleEcrPreview(file);
+      handleEcrImport(file);
     }
   };
 
-  const handleEcrPreview = async (file: File) => {
+  const [ecrImporting, setEcrImporting] = useState(false);
+  const handleEcrImport = async (file: File) => {
     if (!classAssignmentId) return;
-    
-    try {
-      setEcrLoading(true);
-      setEcrPreview(null);
-      const response = await gradesApi.previewEcr(classAssignmentId, file);
-      setEcrPreview(response.data);
-    } catch (err: any) {
-      console.error("Failed to preview ECR:", err);
-      setError(err.response?.data?.message || "Failed to parse ECR file");
-      setEcrFile(null);
-      setEcrDialogOpen(false);
-    } finally {
-      setEcrLoading(false);
-    }
-  };
-
-  const handleEcrImport = async () => {
-    if (!classAssignmentId || !ecrFile) return;
-    
     try {
       setEcrImporting(true);
-      const response = await gradesApi.importEcr(classAssignmentId, ecrFile);
-      
-      // Update sync status
+      const response = await gradesApi.importEcr(classAssignmentId, file);
       setEcrSyncStatus({
         hasSynced: true,
         ecrLastSyncedAt: response.data.ecrLastSyncedAt,
         ecrFileName: response.data.ecrFileName,
       });
-      
-      setSuccess(`Successfully imported ${response.data.importedGrades} grades from ECR. ${response.data.skippedStudents > 0 ? `${response.data.skippedStudents} students could not be matched.` : ''}`);
-      setEcrDialogOpen(false);
-      setEcrFile(null);
-      setEcrPreview(null);
-      
-      // Refresh class record
+      setSuccess(`Successfully imported ${response.data.importedGrades} grades from ECR.`);
       fetchClassRecord();
     } catch (err: any) {
       console.error("Failed to import ECR:", err);
@@ -246,265 +468,243 @@ export default function ClassRecordView() {
     }
   };
 
-  const formatSyncDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-PH', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const handleScoreUpdate = async (
+    studentId: string, 
+    category: 'WW' | 'PT' | 'QA', 
+    index: number, 
+    newValue: number
+  ) => {
+    if (!classAssignmentId) return;
+    
+    // 1. Optimistic Local Update
+    setClassRecord(prev => prev.map(record => {
+      if (record.student.id !== studentId) return record;
 
-  const openGradeDialog = (student: ClassRecord, existingGrade?: Grade) => {
-    setSelectedStudent(student);
-    setEditingGrade(existingGrade || null);
-
-    if (existingGrade) {
-      // Load existing scores, or add a default row if empty
-      const ww = existingGrade.writtenWorkScores || [];
-      const pt = existingGrade.perfTaskScores || [];
-      setWrittenWorkScores(ww.length > 0 ? ww : [{ name: "Quiz 1", score: 0, maxScore: 10 }]);
-      setPerfTaskScores(pt.length > 0 ? pt : [{ name: "Activity 1", score: 0, maxScore: 10 }]);
-      setQuarterlyAssessScore(existingGrade.quarterlyAssessScore?.toString() || "");
-      setQuarterlyAssessMax(existingGrade.quarterlyAssessMax?.toString() || "100");
-    } else {
-      // Auto-add first item for each category - less clicking!
-      setWrittenWorkScores([{ name: "Quiz 1", score: 0, maxScore: 10 }]);
-      setPerfTaskScores([{ name: "Activity 1", score: 0, maxScore: 10 }]);
-      setQuarterlyAssessScore("");
-      setQuarterlyAssessMax("100");
-    }
-
-    setDialogOpen(true);
-  };
-
-  const addWrittenWork = () => {
-    setWrittenWorkScores([
-      ...writtenWorkScores,
-      { name: `Quiz ${writtenWorkScores.length + 1}`, score: 0, maxScore: 10 },
-    ]);
-  };
-
-  const addPerfTask = () => {
-    setPerfTaskScores([
-      ...perfTaskScores,
-      { name: `Activity ${perfTaskScores.length + 1}`, score: 0, maxScore: 10 },
-    ]);
-  };
-
-  const updateWrittenWork = (index: number, field: keyof ScoreItem, value: string | number) => {
-    const updated = [...writtenWorkScores];
-    updated[index] = { ...updated[index], [field]: field === "name" ? value : Number(value) };
-    setWrittenWorkScores(updated);
-  };
-
-  const updatePerfTask = (index: number, field: keyof ScoreItem, value: string | number) => {
-    const updated = [...perfTaskScores];
-    updated[index] = { ...updated[index], [field]: field === "name" ? value : Number(value) };
-    setPerfTaskScores(updated);
-  };
-
-  const removeWrittenWork = (index: number) => {
-    setWrittenWorkScores(writtenWorkScores.filter((_, i) => i !== index));
-  };
-
-  const removePerfTask = (index: number) => {
-    setPerfTaskScores(perfTaskScores.filter((_, i) => i !== index));
-  };
-
-  const handleSaveGrade = async () => {
-    if (!selectedStudent || !classAssignmentId) return;
-
-    try {
-      setSaving(true);
-
-      const gradeData = {
-        studentId: selectedStudent.student.id,
+      const newRecord = { ...record, grades: [...record.grades] };
+      const gradeIdx = newRecord.grades.findIndex(g => g.quarter === selectedQuarter);
+      
+      let targetGrade = gradeIdx > -1 ? { ...newRecord.grades[gradeIdx] } : {
+        studentId,
         classAssignmentId,
         quarter: selectedQuarter,
-        writtenWorkScores,
-        perfTaskScores,
-        quarterlyAssessScore: quarterlyAssessScore ? Number(quarterlyAssessScore) : undefined,
-        quarterlyAssessMax: quarterlyAssessMax ? Number(quarterlyAssessMax) : undefined,
-      };
+        writtenWorkScores: [],
+        perfTaskScores: [],
+        quarterlyAssessScore: 0,
+        quarterlyAssessMax: 100
+      } as any;
 
-      await gradesApi.saveGrade(gradeData);
+      if (category === 'WW') {
+        const scores = [...(targetGrade.writtenWorkScores as any[] || [])];
+        while (scores.length <= index) scores.push({ name: `WW ${scores.length+1}`, score: 0, maxScore: 10 });
+        scores[index] = { ...scores[index], score: newValue };
+        targetGrade.writtenWorkScores = scores;
+      } else if (category === 'PT') {
+        const scores = [...(targetGrade.perfTaskScores as any[] || [])];
+        while (scores.length <= index) scores.push({ name: `PT ${scores.length+1}`, score: 0, maxScore: 10 });
+        scores[index] = { ...scores[index], score: newValue };
+        targetGrade.perfTaskScores = scores;
+      } else if (category === 'QA') {
+        targetGrade.quarterlyAssessScore = newValue;
+      }
 
-      setSuccess("Grade saved successfully!");
-      setDialogOpen(false);
-      fetchClassRecord();
-    } catch (err) {
-      console.error("Failed to save grade:", err);
-      setError("Failed to save grade. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
+      if (gradeIdx > -1) newRecord.grades[gradeIdx] = targetGrade;
+      else newRecord.grades.push(targetGrade);
 
-  const handleDeleteGrade = async (gradeId: string) => {
-    if (!window.confirm("Are you sure you want to delete this grade?")) return;
+      return newRecord;
+    }));
 
     try {
-      await gradesApi.deleteGrade(gradeId);
-      setSuccess("Grade deleted successfully!");
-      fetchClassRecord();
+      const record = classRecord.find(r => r.student.id === studentId);
+      const grade = record?.grades.find(g => g.quarter === selectedQuarter);
+      
+      const wwScores = [...((grade?.writtenWorkScores || []) as ScoreItem[])];
+      const ptScores = [...((grade?.perfTaskScores || []) as ScoreItem[])];
+      
+      if (category === 'WW') {
+        while (wwScores.length <= index) wwScores.push({ name: `WW ${wwScores.length + 1}`, score: 0, maxScore: 10 });
+        wwScores[index].score = newValue;
+      } else if (category === 'PT') {
+        while (ptScores.length <= index) ptScores.push({ name: `PT ${ptScores.length + 1}`, score: 0, maxScore: 10 });
+        ptScores[index].score = newValue;
+      }
+
+      await gradesApi.saveGrade({
+        studentId,
+        classAssignmentId,
+        quarter: selectedQuarter,
+        writtenWorkScores: category === 'WW' ? wwScores : undefined,
+        perfTaskScores: category === 'PT' ? ptScores : undefined,
+        quarterlyAssessScore: category === 'QA' ? newValue : undefined,
+      });
+
+      fetchClassRecord(true);
     } catch (err) {
-      console.error("Failed to delete grade:", err);
-      setError("Failed to delete grade. Please try again.");
+      console.error("Failed to update score:", err);
+      fetchClassRecord(true);
     }
   };
 
-  // Calculate class statistics
-  const calculateStats = () => {
+  const handleHpsUpdate = async (
+    category: 'WW' | 'PT' | 'QA', 
+    index: number, 
+    newMax: number
+  ) => {
+    if (!classAssignmentId || classRecord.length === 0) return;
+    
+    // 1. Optimistic Local Update
+    setClassRecord(prev => prev.map(record => {
+      const newRecord = { ...record, grades: [...record.grades] };
+      const gradeIdx = newRecord.grades.findIndex(g => g.quarter === selectedQuarter);
+      
+      let targetGrade = gradeIdx > -1 ? { ...newRecord.grades[gradeIdx] } : {
+        studentId: record.student.id,
+        classAssignmentId,
+        quarter: selectedQuarter,
+        writtenWorkScores: [],
+        perfTaskScores: [],
+        quarterlyAssessScore: 0,
+        quarterlyAssessMax: 100
+      } as any;
+
+      if (category === 'WW') {
+        const scores = [...(targetGrade.writtenWorkScores as any[] || [])];
+        while (scores.length <= index) scores.push({ name: `WW ${scores.length+1}`, score: 0, maxScore: newMax });
+        scores[index] = { ...scores[index], maxScore: newMax };
+        targetGrade.writtenWorkScores = scores;
+      } else if (category === 'PT') {
+        const scores = [...(targetGrade.perfTaskScores as any[] || [])];
+        while (scores.length <= index) scores.push({ name: `PT ${scores.length+1}`, score: 0, maxScore: newMax });
+        scores[index] = { ...scores[index], maxScore: newMax };
+        targetGrade.perfTaskScores = scores;
+      } else if (category === 'QA') {
+        targetGrade.quarterlyAssessMax = newMax;
+      }
+
+      if (gradeIdx > -1) newRecord.grades[gradeIdx] = targetGrade;
+      else newRecord.grades.push(targetGrade);
+      return newRecord;
+    }));
+    
+    try {
+      const updatePromises = classRecord.map(record => {
+        const grade = record.grades.find(g => g.quarter === selectedQuarter);
+        const wwScores = [...((grade?.writtenWorkScores || []) as ScoreItem[])];
+        const ptScores = [...((grade?.perfTaskScores || []) as ScoreItem[])];
+        
+        if (category === 'WW') {
+          while (wwScores.length <= index) wwScores.push({ name: `WW ${wwScores.length + 1}`, score: 0, maxScore: newMax });
+          wwScores[index].maxScore = newMax;
+        } else if (category === 'PT') {
+          while (ptScores.length <= index) ptScores.push({ name: `PT ${ptScores.length + 1}`, score: 0, maxScore: newMax });
+          ptScores[index].maxScore = newMax;
+        }
+
+        return gradesApi.saveGrade({
+          studentId: record.student.id,
+          classAssignmentId,
+          quarter: selectedQuarter,
+          writtenWorkScores: category === 'WW' ? wwScores : undefined,
+          perfTaskScores: category === 'PT' ? ptScores : undefined,
+          quarterlyAssessMax: category === 'QA' ? newMax : undefined,
+        });
+      });
+
+      await Promise.all(updatePromises);
+      fetchClassRecord(true);
+    } catch (err) {
+      console.error("Failed to update HPS:", err);
+      fetchClassRecord(true);
+    }
+  };
+
+  const addTask = async (category: 'WW' | 'PT') => {
+    const targetIdx = category === 'WW' ? wwCount : ptCount;
+    handleHpsUpdate(category, targetIdx, 10);
+  };
+
+  const removeTask = async (category: 'WW' | 'PT') => {
+    if (!classAssignmentId || classRecord.length === 0) return;
+
+    const currentCount = category === 'WW' ? wwCount : ptCount;
+    if (currentCount <= 1) return;
+
+    // 1. Optimistic local update
+    setClassRecord(prev => prev.map(record => {
+      const newRecord = { ...record, grades: [...record.grades] };
+      const gradeIdx = newRecord.grades.findIndex(g => g.quarter === selectedQuarter);
+      if (gradeIdx === -1) return newRecord;
+
+      const targetGrade = { ...newRecord.grades[gradeIdx] } as any;
+      if (category === 'WW') {
+        const scores = [...((targetGrade.writtenWorkScores || []) as ScoreItem[])];
+        targetGrade.writtenWorkScores = scores.slice(0, Math.max(0, scores.length - 1));
+      } else {
+        const scores = [...((targetGrade.perfTaskScores || []) as ScoreItem[])];
+        targetGrade.perfTaskScores = scores.slice(0, Math.max(0, scores.length - 1));
+      }
+
+      newRecord.grades[gradeIdx] = targetGrade;
+      return newRecord;
+    }));
+
+    try {
+      const updatePromises = classRecord.map(record => {
+        const grade = record.grades.find(g => g.quarter === selectedQuarter);
+        const wwScores = [...((grade?.writtenWorkScores || []) as ScoreItem[])];
+        const ptScores = [...((grade?.perfTaskScores || []) as ScoreItem[])];
+
+        if (category === 'WW') {
+          wwScores.splice(Math.max(0, wwScores.length - 1), 1);
+        } else {
+          ptScores.splice(Math.max(0, ptScores.length - 1), 1);
+        }
+
+        return gradesApi.saveGrade({
+          studentId: record.student.id,
+          classAssignmentId,
+          quarter: selectedQuarter,
+          writtenWorkScores: category === 'WW' ? wwScores : undefined,
+          perfTaskScores: category === 'PT' ? ptScores : undefined,
+        });
+      });
+
+      await Promise.all(updatePromises);
+      fetchClassRecord(true);
+      setSuccess(`${category} activity removed`);
+    } catch (err) {
+      console.error(`Failed to remove ${category} task:`, err);
+      fetchClassRecord(true);
+      setError(`Failed to remove ${category} activity`);
+    }
+  };
+
+  const stats = useMemo(() => {
+    if (classRecord.length === 0) return null;
     const grades = classRecord
       .map((r) => r.grades.find((g) => g.quarter === selectedQuarter)?.quarterlyGrade)
       .filter((g): g is number => g !== undefined && g !== null);
-
     if (grades.length === 0) return { avg: 0, passed: 0, highest: 0, lowest: 0 };
-
     return {
       avg: grades.reduce((a, b) => a + b, 0) / grades.length,
       passed: grades.filter((g) => g >= 75).length,
       highest: Math.max(...grades),
       lowest: Math.min(...grades),
     };
-  };
+  }, [classRecord, selectedQuarter]);
 
-  const stats = classRecord.length > 0 ? calculateStats() : null;
+  const sortedRecords = useMemo(
+    () =>
+      [...classRecord].sort((a, b) => {
+        const nameA = `${a.student.lastName}, ${a.student.firstName}`.toLowerCase();
+        const nameB = `${b.student.lastName}, ${b.student.firstName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      }),
+    [classRecord]
+  );
 
-  // Print SF8 - Class Record (Complete class grades)
-  const printSF8 = () => {
-    if (!classAssignment) return;
-    
-    const quarterLabel = selectedQuarter === 'Q1' ? '1st Quarter' : selectedQuarter === 'Q2' ? '2nd Quarter' : selectedQuarter === 'Q3' ? '3rd Quarter' : '4th Quarter';
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const maleRecords = useMemo(() => sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'male'), [sortedRecords]);
+  const femaleRecords = useMemo(() => sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'female'), [sortedRecords]);
 
-    const studentsRows = classRecord.map((record, index) => {
-      const grade = record.grades.find(g => g.quarter === selectedQuarter);
-      return `
-        <tr>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000;">${index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #000; font-family: monospace;">${record.student.lrn}</td>
-          <td style="padding: 8px; border: 1px solid #000; font-weight: 500;">
-            ${record.student.lastName}, ${record.student.firstName}${record.student.middleName ? ' ' + record.student.middleName.charAt(0) + '.' : ''}${record.student.suffix ? ' ' + record.student.suffix : ''}
-          </td>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000;">${grade?.writtenWorkPS?.toFixed(1) || '-'}</td>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000;">${grade?.perfTaskPS?.toFixed(1) || '-'}</td>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000;">${grade?.quarterlyAssessPS?.toFixed(1) || '-'}</td>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000;">${grade?.initialGrade?.toFixed(2) || '-'}</td>
-          <td style="text-align: center; padding: 8px; border: 1px solid #000; font-weight: bold; font-size: 14px;">${grade?.quarterlyGrade || '-'}</td>
-          <td style="padding: 8px; border: 1px solid #000; text-align: center;">
-            ${grade?.quarterlyGrade ? (grade.quarterlyGrade >= 75 ? 'Passed' : 'Failed') : '-'}
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>SF8 - Class Record - ${classAssignment.subject.name}</title>
-        <style>
-          @page { size: landscape; margin: 0.75in; }
-          body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 25px; }
-          .header { display: flex; align-items: center; justify-content: center; margin-bottom: 25px; gap: 20px; }
-          .header-logo { width: 85px; height: 85px; }
-          .header-text { text-align: center; flex-grow: 1; }
-          .header-text p { margin: 4px 0; font-size: 12px; }
-          .header-text h1 { margin: 10px 0 6px 0; font-size: 17px; text-transform: uppercase; font-weight: bold; }
-          .header-text h2 { margin: 6px 0; font-size: 14px; font-weight: normal; }
-          .republic { font-size: 12px; font-weight: normal; }
-          .deped { font-size: 13px; font-weight: bold; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 18px; font-size: 12px; }
-          .info-row div { flex: 1; padding: 0 5px; }
-          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 20px; }
-          th { background-color: #f0f0f0; padding: 12px 10px; border: 1px solid #000; font-weight: bold; }
-          td { padding: 10px 8px; border: 1px solid #000; }
-          .weights { margin-top: 20px; font-size: 11px; padding: 12px; background: #fafafa; border-radius: 5px; }
-          .signature-section { margin-top: 50px; display: flex; justify-content: space-between; }
-          .signature-box { width: 220px; text-align: center; }
-          .signature-line { border-top: 1px solid #000; margin-top: 50px; padding-top: 8px; font-size: 11px; }
-          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <img src="/DepEd.png" alt="DepEd Logo" class="header-logo" />
-          <div class="header-text">
-            <p class="republic">Republic of the Philippines</p>
-            <p class="deped">Department of Education</p>
-            <p style="font-size: 10px; margin-top: 8px;">Region _____ Division _____ District _____</p>
-            <h1>School Form 8 (SF8) - Class Record</h1>
-            <h2>Learner's Progress Report Card</h2>
-          </div>
-          <div style="width: 80px;"></div>
-        </div>
-        
-        <div class="info-row">
-          <div><strong>School:</strong> _________________________</div>
-          <div><strong>School ID:</strong> _________________________</div>
-          <div><strong>School Year:</strong> ${classAssignment.section.schoolYear}</div>
-        </div>
-        
-        <div class="info-row">
-          <div><strong>Grade Level:</strong> ${gradeLevelLabels[classAssignment.section.gradeLevel]}</div>
-          <div><strong>Section:</strong> ${classAssignment.section.name}</div>
-          <div><strong>Quarter:</strong> ${quarterLabel}</div>
-        </div>
-        
-        <div class="info-row">
-          <div><strong>Subject:</strong> ${classAssignment.subject.name}</div>
-          <div><strong>Teacher:</strong> _________________________</div>
-          <div><strong>Date:</strong> ${new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 30px;">#</th>
-              <th style="width: 120px;">LRN</th>
-              <th>Learner's Name<br>(Last Name, First Name, M.I.)</th>
-              <th style="width: 60px;">WW<br>(${classAssignment.subject.writtenWorkWeight}%)</th>
-              <th style="width: 60px;">PT<br>(${classAssignment.subject.perfTaskWeight}%)</th>
-              <th style="width: 60px;">QA<br>(${classAssignment.subject.quarterlyAssessWeight}%)</th>
-              <th style="width: 60px;">Initial<br>Grade</th>
-              <th style="width: 60px;">Quarterly<br>Grade</th>
-              <th style="width: 70px;">Remarks</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${studentsRows}
-          </tbody>
-        </table>
-
-        <div class="weights">
-          <strong>Component Weights:</strong> Written Work (${classAssignment.subject.writtenWorkWeight}%) | Performance Tasks (${classAssignment.subject.perfTaskWeight}%) | Quarterly Assessment (${classAssignment.subject.quarterlyAssessWeight}%)
-        </div>
-
-        <div class="signature-section">
-          <div class="signature-box">
-            <div class="signature-line">Subject Teacher</div>
-          </div>
-          <div class="signature-box">
-            <div class="signature-line">School Principal</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 250);
-  };
-
-  // Download ECR - Auto-filled Electronic Class Record with progress tracking
   const [downloadingECR, setDownloadingECR] = useState(false);
   const [ecrProgress, setEcrProgress] = useState<string>('');
   const [ecrPercentage, setEcrPercentage] = useState<number>(0);
@@ -512,1232 +712,376 @@ export default function ClassRecordView() {
   
   const downloadECR = async () => {
     if (!classAssignment) return;
-    
     try {
       setDownloadingECR(true);
       setShowEcrGenerationDialog(true);
-      setError('');
       setEcrPercentage(0);
+      setEcrProgress('Initializing compilation...');
+      setEcrPercentage(20);
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Step 1: Initializing (10%)
-      setEcrProgress('Initializing ECR generation...');
-      setEcrPercentage(10);
-      await new Promise(resolve => setTimeout(resolve, 400));
-      
-      // Step 2: Finding template (25%)
-      setEcrProgress('Finding ECR template for ' + classAssignment.subject.name + '...');
-      setEcrPercentage(25);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Step 3: Fetching student data (40%)
-      setEcrProgress('Fetching student roster and grades...');
-      setEcrPercentage(40);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Step 4: Generating Excel (50%)
-      setEcrProgress('Generating Excel file with auto-filled data...');
-      setEcrPercentage(50);
-      
-      const token = sessionStorage.getItem('token');
-      const startTime = Date.now();
+      const token = sessionStorage.getItem("token");
       const response = await fetch(`${SERVER_URL}/api/ecr-templates/generate/${classAssignment.id}`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ quarter: selectedQuarter }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate ECR');
-      }
-
-      // Step 5: Processing file (70%)
-      setEcrProgress('Processing Excel file...');
-      setEcrPercentage(70);
+      if (!response.ok) throw new Error('Failed to generate ECR');
       
-      // Get filename from response headers or create one
-      const contentDisposition = response.headers.get('content-disposition');
-      let filename = `ECR_${classAssignment.subject.name}_${classAssignment.section.name}.xlsx`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch) filename = filenameMatch[1];
-      }
-
-      // Download the file
+      setEcrPercentage(60);
+      setEcrProgress('Injecting records...');
       const blob = await response.blob();
       
-      // Step 6: Preparing download (90%)
-      setEcrProgress('Preparing your download...');
       setEcrPercentage(90);
-      await new Promise(resolve => setTimeout(resolve, 200));
+      setEcrProgress('Finalizing workbook...');
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', `ECR_${classAssignment.subject.name}_${classAssignment.section.name}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
       
-      // Step 7: Complete (100%)
       setEcrPercentage(100);
-      setEcrProgress(`✅ Downloaded successfully in ${totalTime}s!`);
-      
-      setTimeout(() => {
-        setShowEcrGenerationDialog(false);
-        setEcrPercentage(0);
-        setSuccess(`ECR downloaded successfully in ${totalTime}s!`);
-        setTimeout(() => setSuccess(''), 3000);
-      }, 1200);
+      setEcrProgress('Download started!');
+      setTimeout(() => setShowEcrGenerationDialog(false), 1500);
     } catch (error: any) {
-      console.error('Failed to download ECR:', error);
-      const errorMessage = error.message || 'Failed to download ECR. Make sure an ECR template exists for this subject.';
-      
-      // Show error in dialog
-      setEcrProgress('❌ ' + errorMessage);
-      setEcrPercentage(0);
-      
-      // Wait 2 seconds, then close dialog and show error toast
-      setTimeout(() => {
-        setShowEcrGenerationDialog(false);
-        setError(errorMessage);
-        setTimeout(() => setError(''), 5000);
-      }, 2000);
+      setError(error.message);
+      setShowEcrGenerationDialog(false);
     } finally {
       setDownloadingECR(false);
     }
   };
 
-
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div 
-            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
-            style={{ backgroundColor: `${colors.primary}15` }}
-          >
-            <Loader2 className="w-10 h-10 animate-spin" style={{ color: colors.primary }} />
+          <div className="w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
           </div>
-          <p className="text-gray-600 font-semibold text-lg">Loading class record...</p>
-          <p className="text-gray-400 text-sm mt-1">Fetching student data</p>
+          <p className="text-slate-500 font-black text-xs uppercase tracking-widest">Fetching Class Records...</p>
         </div>
       </div>
     );
   }
 
-  if (!classAssignment) {
-    return (
-      <Card className="max-w-lg mx-auto mt-16 border-none shadow-2xl rounded-3xl overflow-hidden p-0">
-        <CardContent className="flex flex-col items-center py-16 px-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-rose-100 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <AlertCircle className="w-10 h-10 text-red-500" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">Class Not Found</h3>
-          <p className="text-gray-500 text-center mb-8 leading-relaxed">
-            The class record you're looking for doesn't exist or you don't have permission to access it.
-          </p>
-          <Link to="/teacher/records">
-            <Button 
-              className="shadow-lg rounded-xl px-6"
-              style={{ backgroundColor: colors.primary }}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Class Records
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const gradientClass = gradeLevelColors[classAssignment.section.gradeLevel] || "from-gray-500 to-gray-600";
-  const useThemeGradient = gradientClass === "theme";
+  if (!classAssignment) return null;
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Success/Error Alerts - Floating Toast Style with Close Button */}
+    <div className="space-y-8 animate-fade-in max-w-full mx-auto px-6 pb-12">
+      {/* Toast Messages */}
       {(error || success) && (
-        <div
-          className={`fixed top-6 right-6 z-[9999] flex items-center gap-4 px-5 py-4 rounded-2xl shadow-2xl border animate-slide-in-right ${
-            error
-              ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-200 text-red-800"
-              : "border-gray-200"
-          }`}
-          style={!error ? { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30`, color: colors.primary } : undefined}
-        >
-          <div className={`p-2 rounded-xl ${error ? 'bg-red-100' : ''}`} style={!error ? { backgroundColor: `${colors.primary}20` } : undefined}>
-            {error ? (
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            ) : (
-              <CheckCircle className="w-5 h-5" style={{ color: colors.primary }} />
-            )}
-          </div>
-          <span className="font-semibold flex-1">{error || success}</span>
-          <button
-            onClick={() => {
-              setError('');
-              setSuccess('');
-            }}
-            className="p-1 rounded-lg hover:bg-black/10 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className={`fixed top-20 right-6 z-[100] flex items-center gap-4 px-6 py-4 rounded-[1.5rem] shadow-2xl border-0 animate-slide-in-right ${error ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}`}>
+          {error ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+          <span className="text-sm font-black uppercase tracking-widest">{error || success}</span>
+          <button onClick={() => { setError(''); setSuccess(''); }} className="ml-4 p-1 hover:bg-white/20 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
         </div>
       )}
 
-      {/* Header Card - Premium Glass Design */}
-      <Card className={`border-none shadow-2xl shadow-gray-200/50 overflow-hidden rounded-3xl ${useThemeGradient ? '' : `bg-gradient-to-r ${gradientClass}`}`}
-        style={useThemeGradient ? { backgroundColor: colors.primary } : undefined}
-      >
-        <div className="p-8 lg:p-10 text-white relative overflow-hidden">
-          {/* Background decorations */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
-            <div className="absolute inset-0 opacity-[0.03]" style={{
-              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-              backgroundSize: '40px 40px'
-            }} />
-          </div>
-          
-          <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <div className="flex items-start gap-5">
-              <Link
-                to="/teacher/records"
-                className="p-3 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-sm transition-all duration-300 border border-white/20 shadow-lg"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <Badge className="bg-white/20 text-white hover:bg-white/30 border-0 font-semibold px-3 py-1 backdrop-blur-sm">
-                    {gradeLevelLabels[classAssignment.section.gradeLevel]}
-                  </Badge>
-                  <span className="text-white/70 text-sm">•</span>
-                  <span className="text-white/80 text-sm font-medium">
-                    Section {classAssignment.section.name}
-                  </span>
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">{classAssignment.subject.name}</h1>
-                <p className="text-white/60 mt-2 text-sm">
-                  School Year {classAssignment.section.schoolYear}
-                </p>
+      {/* Header Section */}
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 p-8 shadow-xl shadow-slate-200/50">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <Link to="/teacher/classes">
+              <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all border border-slate-100 shadow-sm">
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
+            </Link>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black uppercase tracking-widest px-3">{gradeLevelLabels[classAssignment.section.gradeLevel]}</Badge>
+                <div className="h-4 w-px bg-slate-200" />
+                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Section {classAssignment.section.name}</span>
               </div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">{classAssignment.subject.name}</h1>
+              {effectiveWeights?.source === "generic-fallback" && (
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mt-2">
+                  Generic WW/PT/QA fallback active (no exact ECR template for this subject)
+                </p>
+              )}
             </div>
           </div>
-
-          {/* Component Weights - Modern Cards */}
-          <div className="relative grid grid-cols-3 gap-4 lg:gap-6 mt-8 pt-8 border-t border-white/20">
-            {[
-              { icon: FileText, label: "Written Work", value: classAssignment.subject.writtenWorkWeight },
-              { icon: ClipboardList, label: "Performance", value: classAssignment.subject.perfTaskWeight },
-              { icon: Award, label: "Quarterly Assess", value: classAssignment.subject.quarterlyAssessWeight },
-            ].map((item) => (
-              <div key={item.label} className="text-center p-4 lg:p-6 rounded-2xl bg-white/20 backdrop-blur-md shadow-lg">
-                <div className="flex items-center justify-center gap-2 text-white/80 text-sm mb-2">
-                  <item.icon className="w-4 h-4" />
-                  <span className="font-medium">{item.label}</span>
-                </div>
-                <p className="text-3xl lg:text-4xl font-bold text-white">{item.value}%</p>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" className="h-12 px-6 rounded-2xl border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all shadow-sm" onClick={downloadECR}>
+              <Download className="w-4 h-4 mr-2" />EXPORT ECR
+            </Button>
+            <Button className="h-12 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-[10px] tracking-widest uppercase transition-all shadow-xl shadow-slate-300" onClick={() => ecrFileInputRef.current?.click()}>
+              <Upload className="w-4 h-4 mr-3" />IMPORT ECR
+            </Button>
+            <input type="file" ref={ecrFileInputRef} onChange={handleEcrFileSelect} accept=".xlsx,.xls" className="hidden" />
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Stats Cards - Bento Grid Style */}
-      {stats && stats.avg > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
+      {/* Analytics Insights */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "primary", gradient: "", iconBg: "", useTheme: true },
-            { label: "Passed", value: `${stats.passed}/${classRecord.length}`, icon: TrendingUp, color: "blue", gradient: "from-blue-50 to-indigo-50", iconBg: "from-blue-500 to-indigo-600", useTheme: false },
-            { label: "Highest Score", value: stats.highest.toString(), icon: Award, color: "amber", gradient: "from-amber-50 to-orange-50", iconBg: "from-amber-500 to-orange-600", useTheme: false },
-            { label: "Lowest Score", value: stats.lowest.toString(), icon: TrendingDown, color: "purple", gradient: "from-purple-50 to-violet-50", iconBg: "from-purple-500 to-violet-600", useTheme: false },
+            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "indigo" },
+            { label: "Passing Rate", value: `${Math.round((stats.passed/classRecord.length)*100)}%`, icon: TrendingUp, color: "emerald" },
+            { label: "Highest Grade", value: stats.highest, icon: Award, color: "amber" },
+            { label: "Needs Support", value: classRecord.length - stats.passed, icon: TrendingDown, color: "rose" },
           ].map((stat) => (
-            <Card 
-              key={stat.label} 
-              className={`border-none shadow-lg rounded-2xl overflow-hidden ${!stat.useTheme ? `bg-gradient-to-br ${stat.gradient}` : ''}`}
-              style={stat.useTheme ? { backgroundColor: `${colors.primary}10` } : undefined}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div 
-                    className={`p-2.5 rounded-xl text-white shadow-lg ${!stat.useTheme ? `bg-gradient-to-br ${stat.iconBg}` : ''}`}
-                    style={stat.useTheme ? { backgroundColor: colors.primary } : undefined}
-                  >
-                    <stat.icon className="w-5 h-5" />
-                  </div>
+            <Card key={stat.label} className="border-0 shadow-lg shadow-slate-200/50 rounded-[2rem] bg-white overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+              <CardContent className="p-7 flex flex-col justify-between h-full">
+                <div className="p-3 rounded-2xl w-fit mb-4 bg-slate-50 group-hover:bg-white transition-colors shadow-sm">
+                  <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
                 </div>
-                <p 
-                  className={`text-sm font-semibold uppercase tracking-wider ${!stat.useTheme ? `text-${stat.color}-600` : ''}`}
-                  style={stat.useTheme ? { color: colors.primary } : undefined}
-                >{stat.label}</p>
-                <p 
-                  className={`text-3xl font-bold mt-1 ${!stat.useTheme ? `text-${stat.color}-700` : ''}`}
-                  style={stat.useTheme ? { color: colors.primary } : undefined}
-                >{stat.value}</p>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                  <p className="text-3xl font-black text-slate-900 leading-none">{stat.value}</p>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Student Grades Header & Table Header - Combined Sticky */}
-      <div className="sticky top-16 z-20 rounded-t-3xl overflow-hidden bg-white">
-        {/* Student Grades Section */}
-        <div className="bg-white border-b border-gray-100 py-4 lg:py-6 px-4 lg:px-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <div 
-                className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl flex items-center justify-center shadow-lg"
-                style={{ backgroundColor: colors.primary }}
+      {/* Main Ledger Table */}
+      <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white">
+        <CardHeader className="p-8 border-0 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-8">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Class Ledger</h2>
+            <div className="flex items-center bg-slate-50 p-1 rounded-2xl border border-slate-100 shadow-inner">
+              <Button 
+                variant="ghost" 
+                onClick={() => setSeparateByGender(false)} 
+                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!separateByGender ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <Users className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg lg:text-xl font-bold" style={{ color: '#111827' }}>Student Grades</h2>
-                <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                  <p className="text-xs lg:text-sm text-gray-500">{classRecord.length} students enrolled</p>
-                  {ecrSyncStatus?.hasSynced && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <div 
-                        className="flex items-center gap-1 text-xs text-emerald-600"
-                        title={ecrSyncStatus.ecrFileName ? `Last synced from: ${ecrSyncStatus.ecrFileName}` : undefined}
-                      >
-                        <Check className="w-3 h-3" />
-                        <span className="font-medium">Synced {formatSyncDate(ecrSyncStatus.ecrLastSyncedAt)}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Label className="text-gray-600 font-semibold text-sm">Quarter:</Label>
-                <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
-                  <SelectTrigger className="w-36 lg:w-40 bg-white border-gray-200 rounded-xl h-10 lg:h-11 font-medium shadow-sm">
-                    <SelectValue>
-                      {selectedQuarter === "Q1" ? "1st Quarter" : selectedQuarter === "Q2" ? "2nd Quarter" : selectedQuarter === "Q3" ? "3rd Quarter" : "4th Quarter"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {quarters.map((q) => (
-                      <SelectItem key={q} value={q} className="rounded-lg">
-                        {q === "Q1" ? "1st Quarter" : q === "Q2" ? "2nd Quarter" : q === "Q3" ? "3rd Quarter" : "4th Quarter"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Gender Separation Toggle */}
-              <Button
-                variant={separateByGender ? "default" : "outline"}
-                onClick={() => setSeparateByGender(!separateByGender)}
-                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3"
-                style={separateByGender 
-                  ? { backgroundColor: colors.primary } 
-                  : { borderColor: `${colors.primary}40`, color: colors.primary }
-                }
-                title={separateByGender ? "Show combined list" : "Separate by gender"}
-              >
-                <SplitSquareHorizontal className="w-4 h-4 lg:mr-2" />
-                <span className="hidden lg:inline">{separateByGender ? "Separated" : "By Gender"}</span>
+                Alphabetical
               </Button>
-              {/* Hidden file input for ECR */}
-              <input
-                type="file"
-                ref={ecrFileInputRef}
-                onChange={handleEcrFileSelect}
-                accept=".xlsx,.xls"
-                className="hidden"
-              />
-              {/* Import/Sync ECR Button */}
-              <Button
-                onClick={() => {
-                  if (ecrFileInputRef.current) {
-                    ecrFileInputRef.current.click();
-                  }
-                  setEcrDialogOpen(true);
-                }}
-                variant="outline"
-                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
-                style={{ 
-                  borderColor: ecrSyncStatus?.hasSynced ? `${colors.primary}40` : '#10b98140',
-                  color: ecrSyncStatus?.hasSynced ? colors.primary : '#10b981'
-                }}
+              <Button 
+                variant="ghost" 
+                onClick={() => setSeparateByGender(true)} 
+                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${separateByGender ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                {ecrSyncStatus?.hasSynced ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Sync ECR</span>
-                    <span className="sm:hidden">Sync</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Import ECR</span>
-                    <span className="sm:hidden">Import</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={printSF8}
-                variant="outline"
-                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
-                style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
-              >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Print SF8</span>
-                <span className="sm:hidden">SF8</span>
-              </Button>
-              <Button
-                onClick={downloadECR}
-                disabled={downloadingECR}
-                variant="outline"
-                className="rounded-xl font-medium shadow-sm h-10 lg:h-11 px-3 lg:px-4"
-                style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
-              >
-                {downloadingECR ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    <span className="hidden sm:inline">Generating...</span>
-                    <span className="sm:hidden">...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Download ECR</span>
-                    <span className="sm:hidden">ECR</span>
-                  </>
-                )}
+                Gendered
               </Button>
             </div>
           </div>
-        </div>
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period:</span>
+            <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
+              <SelectTrigger className="h-11 w-40 bg-white border-slate-200 text-sm font-black uppercase rounded-xl shadow-sm px-6">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-slate-200 shadow-2xl p-2">
+                {quarters.map((q) => (
+                  <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-indigo-50 focus:text-indigo-600 transition-colors cursor-pointer">
+                    {q}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
 
-        {/* Table Column Headers */}
-        <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="w-14 text-center font-bold py-3 px-2" style={{ color: '#374151' }}>#</th>
-                <th className="w-32 font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>LRN</th>
-                <th className="font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>Student Name</th>
-                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>WW%</th>
-                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>PT%</th>
-                <th className="text-center w-20 font-bold py-3 px-2" style={{ color: '#374151' }}>QA%</th>
-                <th className="text-center w-24 font-bold py-3 px-2" style={{ color: '#374151' }}>Initial</th>
-                <th className="text-center w-24 font-bold py-3 px-2" style={{ color: '#374151' }}>Grade</th>
-                <th className="w-36 font-bold py-3 px-2 text-left" style={{ color: '#374151' }}>Remarks</th>
-                <th className="text-right w-28 font-bold py-3 px-2" style={{ color: '#374151' }}>Actions</th>
-              </tr>
-            </thead>
-          </table>
-        </div>
-      </div>
-
-      {/* Grades Table Data */}
-      <div className="border-none overflow-visible rounded-b-3xl bg-white">
-        {(() => {
-          // Sort students alphabetically
-          const sortedRecords = [...classRecord].sort((a, b) => {
-            const nameA = `${a.student.lastName}, ${a.student.firstName}`.toLowerCase();
-            const nameB = `${b.student.lastName}, ${b.student.firstName}`.toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-
-          // Separate by gender if enabled
-          const maleRecords = sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'male');
-          const femaleRecords = sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'female');
-
-          // Render student row
-          const renderStudentRow = (record: ClassRecord, index: number, bgTint?: string) => {
-            const grade = record.grades.find((g) => g.quarter === selectedQuarter);
-            return (
-              <TableRow
-                key={record.student.id}
-                className={`transition-all duration-200 hover:bg-gray-50/80 ${getGradeBgColor(grade?.quarterlyGrade ?? null)} border-b border-gray-50 ${bgTint || ''}`}
-              >
-                <TableCell className="text-center text-gray-500 font-semibold py-3">
-                  {index + 1}
-                </TableCell>
-                <TableCell className="font-mono text-sm text-gray-600 tracking-wide py-3">
-                  {record.student.lrn}
-                </TableCell>
-                <TableCell className="py-3">
-                  <div className="font-semibold text-gray-900">
-                    {record.student.lastName}, {record.student.firstName}
-                    {record.student.middleName && (
-                      <span className="text-gray-400 ml-1 font-normal">
-                        {record.student.middleName.charAt(0)}.
-                      </span>
-                    )}
-                    {record.student.suffix && (
-                      <span className="text-gray-400 font-normal"> {record.student.suffix}</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-center font-semibold py-3">
-                  {grade?.writtenWorkPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                </TableCell>
-                <TableCell className="text-center font-semibold py-3">
-                  {grade?.perfTaskPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                </TableCell>
-                <TableCell className="text-center font-semibold py-3">
-                  {grade?.quarterlyAssessPS?.toFixed(1) || <span className="text-gray-300">—</span>}
-                </TableCell>
-                <TableCell className="text-center font-semibold py-3">
-                  {grade?.initialGrade?.toFixed(2) || <span className="text-gray-300">—</span>}
-                </TableCell>
-                <TableCell className={`text-center text-xl py-3 ${getGradeColor(grade?.quarterlyGrade ?? null)}`}>
-                  {grade?.quarterlyGrade || <span className="text-gray-300 text-base">—</span>}
-                </TableCell>
-                <TableCell className="py-3">
-                  <Badge
-                    variant="secondary"
-                    className={`text-xs font-semibold px-3 py-1 rounded-lg ${
-                      grade?.quarterlyGrade
-                        ? grade.quarterlyGrade >= 75
-                          ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                          : "bg-red-100 text-red-700 border border-red-200"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {getGradeRemarks(grade?.quarterlyGrade ?? null)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openGradeDialog(record, grade)}
-                      className="h-8 w-8 p-0 rounded-lg transition-all"
-                      title={grade ? "Edit Grade" : "Add Grade"}
-                      style={{ color: colors.primary }}
+        <div className="overflow-x-auto border-t border-slate-100">
+          <Table className="border-collapse table-fixed w-max min-w-full">
+            <TableHeader>
+              {/* Grouped Header Row */}
+              <TableRow className="hover:bg-transparent border-0 bg-slate-50/50 h-10">
+                <TableHead colSpan={3} className="border-r border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-0 w-[400px]">LEARNER INFORMATION</TableHead>
+                <TableHead colSpan={wwCount + 3} className="border-r border-slate-200 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center px-0 bg-indigo-50/30">
+                  <div className="flex items-center justify-center gap-3">
+                    WRITTEN WORK ({effectiveWeights?.ww ?? classAssignment.subject.writtenWorkWeight}%)
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      disabled={wwCount <= 1}
+                      className="w-6 h-6 rounded-full bg-white text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => removeTask('WW')}
                     >
-                      {grade ? (
-                        <Edit className="w-4 h-4" />
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
+                      <Minus className="w-3 h-3" />
                     </Button>
-                    {grade && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                        onClick={() => handleDeleteGrade(grade.id)}
-                        title="Delete Grade"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="w-6 h-6 rounded-full bg-white text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all"
+                      onClick={() => addTask('WW')}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
                   </div>
-                </TableCell>
+                </TableHead>
+                <TableHead colSpan={ptCount + 3} className="border-r border-slate-200 text-[10px] font-black text-purple-600 uppercase tracking-widest text-center px-0 bg-purple-50/30">
+                  <div className="flex items-center justify-center gap-3">
+                    PERF. TASKS ({effectiveWeights?.pt ?? classAssignment.subject.perfTaskWeight}%)
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      disabled={ptCount <= 1}
+                      className="w-6 h-6 rounded-full bg-white text-purple-600 shadow-sm border border-purple-100 hover:bg-purple-600 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => removeTask('PT')}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="w-6 h-6 rounded-full bg-white text-purple-600 shadow-sm border border-purple-100 hover:bg-purple-600 hover:text-white transition-all"
+                      onClick={() => addTask('PT')}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </TableHead>
+                <TableHead colSpan={3} className="border-r border-slate-200 text-[10px] font-black text-amber-600 uppercase tracking-widest text-center px-0 bg-amber-50/30">QA ({effectiveWeights?.qa ?? classAssignment.subject.quarterlyAssessWeight}%)</TableHead>
+                <TableHead colSpan={2} className="text-[10px] font-black text-emerald-600 uppercase tracking-widest text-center px-0 bg-emerald-50/30 uppercase tracking-widest">Summary</TableHead>
               </TableRow>
-            );
-          };
-
-          if (separateByGender) {
-            return (
-              <>
-                {/* Male Section */}
-                {maleRecords.length > 0 && (
-                  <>
-                    <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-blue-500 text-white text-xs font-semibold">Male</Badge>
-                        <span className="text-sm font-semibold text-blue-800">
-                          {maleRecords.length} {maleRecords.length === 1 ? 'student' : 'students'}
-                        </span>
-                      </div>
-                    </div>
-                    <Table>
-                      <TableBody>
-                        {maleRecords.map((record, index) => renderStudentRow(record, index))}
-                      </TableBody>
-                    </Table>
-                  </>
-                )}
-
-                {/* Female Section */}
-                {femaleRecords.length > 0 && (
-                  <>
-                    <div className="px-4 py-2.5 bg-pink-50 border-b border-pink-100">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-pink-500 text-white text-xs font-semibold">Female</Badge>
-                        <span className="text-sm font-semibold text-pink-800">
-                          {femaleRecords.length} {femaleRecords.length === 1 ? 'student' : 'students'}
-                        </span>
-                      </div>
-                    </div>
-                    <Table>
-                      <TableBody>
-                        {femaleRecords.map((record, index) => renderStudentRow(record, index))}
-                      </TableBody>
-                    </Table>
-                  </>
-                )}
-              </>
-            );
-          }
-
-          // Combined view (alphabetically sorted)
-          return (
-            <Table>
-              <TableBody>
-                {sortedRecords.map((record, index) => renderStudentRow(record, index))}
-              </TableBody>
-            </Table>
-          );
-        })()}
-      </div>
-
-      {/* Grade Input Dialog - Tab-Based Responsive Design */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border-0 shadow-2xl bg-white p-0">
-          {/* Header */}
-          <DialogHeader className="border-b border-gray-100 px-4 sm:px-6 py-4 bg-white shrink-0">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg shrink-0`}>
-                <BookOpen className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-base font-bold truncate" style={{ color: '#000000' }}>
-                  {editingGrade ? "Edit Grade" : "Add Grade"} — {selectedQuarter === 'Q1' ? '1st Quarter' : selectedQuarter === 'Q2' ? '2nd Quarter' : selectedQuarter === 'Q3' ? '3rd Quarter' : '4th Quarter'}
-                </DialogTitle>
-                <DialogDescription className="text-base truncate">
-                  {selectedStudent && (
-                    <span className="font-semibold text-black">
-                      {selectedStudent.student.lastName}, {selectedStudent.student.firstName}
-                    </span>
-                  )}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          {/* Tab Content */}
-          <Tabs defaultValue="quiz" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="sticky top-0 z-10 shrink-0 mx-4 sm:mx-6 mt-4 mb-4 bg-white border-b border-gray-200 p-1 rounded-xl h-auto grid grid-cols-3 gap-1">
-              <TabsTrigger 
-                value="quiz" 
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-sm font-semibold transition-all data-[active]:bg-blue-500 data-[active]:text-white data-[active]:shadow-md"
-              >
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Quiz</span>
-                <span className="sm:hidden">WW</span>
-                <span className="ml-1 bg-blue-100 text-blue-700 data-[active]:bg-blue-400 data-[active]:text-white text-xs px-1.5 py-0 h-5 rounded-full inline-flex items-center justify-center min-w-[20px]">
-                  {writtenWorkScores.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="pt" 
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-sm font-semibold transition-all data-[active]:bg-purple-500 data-[active]:text-white data-[active]:shadow-md"
-              >
-                <ClipboardList className="w-4 h-4" />
-                <span>PT</span>
-                <span className="ml-1 bg-purple-100 text-purple-700 data-[active]:bg-purple-400 data-[active]:text-white text-xs px-1.5 py-0 h-5 rounded-full inline-flex items-center justify-center min-w-[20px]">
-                  {perfTaskScores.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="qa" 
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-sm font-semibold transition-all data-[active]:bg-amber-500 data-[active]:text-white data-[active]:shadow-md"
-              >
-                <Award className="w-4 h-4" />
-                <span>QA</span>
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Quiz Tab */}
-            <TabsContent value="quiz" className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Written Work</h3>
-                    <p className="text-sm text-blue-600 font-medium" style={{ color: '#2563eb' }}>Weight: {classAssignment.subject.writtenWorkWeight}%</p>
-                  </div>
-                  <Button
-                    onClick={addWrittenWork}
-                    size="sm"
-                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium h-9 px-3 shadow-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
-                  </Button>
-                </div>
+              {/* Detailed Header Row */}
+              <TableRow className="hover:bg-transparent border-b border-slate-200 h-10">
+                <TableHead className="w-10 text-center text-[9px] font-black text-slate-400 uppercase border-r border-slate-100">#</TableHead>
+                <TableHead className="w-28 text-[9px] font-black text-slate-400 uppercase border-r border-slate-100 px-3">LRN</TableHead>
+                <TableHead className="w-56 text-[9px] font-black text-slate-400 uppercase border-r border-slate-200 px-3">Full Name</TableHead>
                 
-                {writtenWorkScores.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No quizzes added yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {writtenWorkScores.map((item, index) => (
-                      <div
-                        key={index}
-                        className="p-3 bg-blue-50 rounded-xl border border-blue-100"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {index + 1}
-                          </div>
-                          <Input
-                            type="text"
-                            value={item.description || ""}
-                            onChange={(e) => updateWrittenWork(index, "description", e.target.value)}
-                            placeholder={`Quiz ${index + 1}`}
-                            className="flex-1 bg-white border-2 border-blue-200 rounded-lg h-9 text-sm font-medium focus:border-blue-400"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
-                            onClick={() => removeWrittenWork(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2 pl-10">
-                          <Input
-                            type="date"
-                            value={item.date || ""}
-                            onChange={(e) => updateWrittenWork(index, "date", e.target.value)}
-                            className="flex-1 bg-white border-2 border-gray-200 rounded-lg h-9 text-sm focus:border-blue-400"
-                          />
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Input
-                              type="number"
-                              value={item.score || ""}
-                              onChange={(e) => updateWrittenWork(index, "score", e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              placeholder="0"
-                              className="w-14 sm:w-16 text-center bg-white border-2 border-blue-200 rounded-lg h-9 text-base font-bold focus:border-blue-400"
-                              min={0}
-                            />
-                            <span className="text-gray-400 font-bold">/</span>
-                            <Input
-                              type="number"
-                              value={item.maxScore || ""}
-                              onChange={(e) => updateWrittenWork(index, "maxScore", e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              placeholder="100"
-                              className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
-                              min={1}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Performance Tasks Tab */}
-            <TabsContent value="pt" className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Performance Tasks</h3>
-                    <p className="text-sm text-purple-600 font-medium" style={{ color: '#9333ea' }}>Weight: {classAssignment.subject.perfTaskWeight}%</p>
-                  </div>
-                  <Button
-                    onClick={addPerfTask}
-                    size="sm"
-                    className="bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium h-9 px-3 shadow-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
-                  </Button>
-                </div>
+                {/* Dynamic WW Columns */}
+                {Array.from({ length: wwCount }).map((_, i) => (
+                  <TableHead key={`h-ww-${i}`} className="w-10 text-center text-[9px] font-black text-slate-400 uppercase border-r border-slate-100">{i + 1}</TableHead>
+                ))}
+                <TableHead className="w-12 text-center text-[9px] font-black text-slate-500 uppercase border-r border-slate-100 bg-slate-100/50">Total</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-indigo-600 uppercase border-r border-slate-100 bg-indigo-50/30">PS</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-indigo-700 uppercase border-r border-slate-200 bg-indigo-100/50">WS</TableHead>
                 
-                {perfTaskScores.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No tasks added yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {perfTaskScores.map((item, index) => (
-                      <div
-                        key={index}
-                        className="p-3 bg-purple-50 rounded-xl border border-purple-100"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                          <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {index + 1}
-                          </div>
-                          <Input
-                            type="text"
-                            value={item.description || ""}
-                            onChange={(e) => updatePerfTask(index, "description", e.target.value)}
-                            placeholder={`Task ${index + 1}`}
-                            className="flex-1 bg-white border-2 border-purple-200 rounded-lg h-9 text-sm font-medium focus:border-purple-400"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0"
-                            onClick={() => removePerfTask(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2 pl-10">
-                          <Input
-                            type="date"
-                            value={item.date || ""}
-                            onChange={(e) => updatePerfTask(index, "date", e.target.value)}
-                            className="flex-1 bg-white border-2 border-gray-200 rounded-lg h-9 text-sm focus:border-purple-400"
-                          />
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Input
-                              type="number"
-                              value={item.score || ""}
-                              onChange={(e) => updatePerfTask(index, "score", e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              placeholder="0"
-                              className="w-14 sm:w-16 text-center bg-white border-2 border-purple-200 rounded-lg h-9 text-base font-bold focus:border-purple-400"
-                              min={0}
-                            />
-                            <span className="text-gray-400 font-bold">/</span>
-                            <Input
-                              type="number"
-                              value={item.maxScore || ""}
-                              onChange={(e) => updatePerfTask(index, "maxScore", e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              placeholder="100"
-                              className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
-                              min={1}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Quarterly Assessment Tab */}
-            <TabsContent value="qa" className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-              <div className="space-y-4">
-                <div className="mb-4">
-                  <h3 className="text-base font-bold text-gray-900" style={{ color: '#111827' }}>Quarterly Assessment</h3>
-                  <p className="text-sm text-amber-600 font-medium" style={{ color: '#d97706' }}>Weight: {classAssignment.subject.quarterlyAssessWeight}%</p>
-                </div>
+                {/* Dynamic PT Columns */}
+                {Array.from({ length: ptCount }).map((_, i) => (
+                  <TableHead key={`h-pt-${i}`} className="w-10 text-center text-[9px] font-black text-slate-400 uppercase border-r border-slate-100">{i + 1}</TableHead>
+                ))}
+                <TableHead className="w-12 text-center text-[9px] font-black text-slate-500 uppercase border-r border-slate-100 bg-slate-100/50">Total</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-purple-600 uppercase border-r border-slate-100 bg-purple-50/30">PS</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-purple-700 uppercase border-r border-slate-200 bg-purple-100/50">WS</TableHead>
                 
-                <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                  <div className="flex items-center gap-2 sm:gap-3 justify-center">
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        value={quarterlyAssessScore}
-                        onChange={(e) => setQuarterlyAssessScore(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="0"
-                        min={0}
-                        className="w-14 sm:w-16 text-center bg-white border-2 border-amber-200 rounded-lg h-9 text-base font-bold focus:border-amber-400"
-                      />
-                      <span className="text-gray-400 font-bold">/</span>
-                      <Input
-                        type="number"
-                        value={quarterlyAssessMax}
-                        onChange={(e) => setQuarterlyAssessMax(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="100"
-                        min={1}
-                        className="w-14 sm:w-16 text-center bg-gray-50 border-2 border-gray-200 rounded-lg h-9 text-base font-bold focus:border-gray-400"
-                      />
-                    </div>
-                    {quarterlyAssessScore && quarterlyAssessMax && (
-                      <div className="text-sm">
-                        <span className="text-gray-500">= </span>
-                        <span className="font-bold text-amber-600">
-                          {((Number(quarterlyAssessScore) / Number(quarterlyAssessMax)) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
+                {/* QA */}
+                <TableHead className="w-14 text-center text-[9px] font-black text-amber-600 uppercase border-r border-slate-100 bg-amber-50/20">SCORE</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-amber-600 uppercase border-r border-slate-100 bg-amber-50/30">PS</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-amber-700 uppercase border-r border-slate-200 bg-amber-100/50">WS</TableHead>
+                
+                <TableHead className="w-16 text-center text-[9px] font-black text-emerald-600 uppercase border-r border-slate-100 bg-emerald-50/20">INITIAL</TableHead>
+                <TableHead className="w-16 text-center text-[9px] font-black text-slate-900 uppercase bg-emerald-100/50 font-bold">FINAL</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(() => {
+                const weights = {
+                  ww: effectiveWeights?.ww ?? classAssignment.subject.writtenWorkWeight,
+                  pt: effectiveWeights?.pt ?? classAssignment.subject.perfTaskWeight,
+                  qa: effectiveWeights?.qa ?? classAssignment.subject.quarterlyAssessWeight
+                };
 
-          {/* Footer with Actions */}
-          <div className="border-t border-gray-100 px-4 sm:px-6 py-4 bg-gray-50 flex items-center justify-end gap-3 shrink-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogOpen(false)} 
-              className="h-10 px-4 sm:px-6 rounded-lg font-medium text-sm"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveGrade}
-              disabled={saving}
-              className="h-10 px-4 sm:px-6 rounded-lg font-medium text-sm shadow-md"
-              style={{ backgroundColor: colors.primary }}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Grade
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+                const rows = [];
+                // HPS (Benchmark) row
+                rows.push(
+                  <LedgerRow 
+                    key="HPS-ROW" 
+                    record={null} 
+                    idx={0} 
+                    isHps={true} 
+                    hpsData={hpsData}
+                    selectedQuarter={selectedQuarter} 
+                    wwCount={wwCount} 
+                    ptCount={ptCount} 
+                    weights={weights} 
+                    onScoreUpdate={handleScoreUpdate} 
+                    onHpsUpdate={handleHpsUpdate} 
+                  />
+                );
 
-      {/* ECR Import Dialog */}
-      <Dialog open={ecrDialogOpen} onOpenChange={(open) => {
-        setEcrDialogOpen(open);
-        if (!open) {
-          setEcrFile(null);
-          setEcrPreview(null);
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border-0 shadow-2xl">
-          <DialogHeader className="shrink-0">
-            <div className="flex items-center gap-3">
-              <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <FileUp className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-bold" style={{ color: '#000000' }}>
-                  {ecrSyncStatus?.hasSynced ? 'Sync ECR' : 'Import ECR'}
-                </DialogTitle>
-                <DialogDescription>
-                  {ecrSyncStatus?.hasSynced 
-                    ? 'Update grades from your E-Class Record Excel file'
-                    : 'Import grades from your E-Class Record Excel file'}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto py-4">
-            {!ecrFile ? (
-              <div 
-                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all hover:border-gray-400 hover:bg-gray-50"
-                style={{ borderColor: `${colors.primary}40` }}
-                onClick={() => ecrFileInputRef.current?.click()}
-              >
-                <Upload className="w-12 h-12 mx-auto mb-4" style={{ color: colors.primary }} />
-                <p className="text-lg font-semibold text-gray-700 mb-2">
-                  Drop your ECR file here
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  or click to select file
-                </p>
-                <p className="text-xs text-gray-400">
-                  Supports .xlsx and .xls files
-                </p>
-              </div>
-            ) : ecrLoading ? (
-              <div className="text-center py-12">
-                <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" style={{ color: colors.primary }} />
-                <p className="text-gray-600 font-medium">Analyzing ECR file...</p>
-                <p className="text-sm text-gray-400 mt-1">Reading student grades from Excel</p>
-              </div>
-            ) : ecrPreview ? (
-              <div className="space-y-4">
-                {/* File Info */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <FileSpreadsheet className="w-8 h-8" style={{ color: colors.primary }} />
-                    <div>
-                      <p className="font-semibold text-gray-800">{ecrPreview.fileName}</p>
-                      <p className="text-xs text-gray-500">
-                        {ecrPreview.quarters.length} quarter(s) found
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => {
-                      setEcrFile(null);
-                      setEcrPreview(null);
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Match Statistics */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 bg-blue-50 rounded-xl text-center">
-                    <p className="text-2xl font-bold text-blue-600">{ecrPreview.stats.totalStudents}</p>
-                    <p className="text-xs text-blue-700">Total Students</p>
-                  </div>
-                  <div className="p-3 bg-emerald-50 rounded-xl text-center">
-                    <p className="text-2xl font-bold text-emerald-600">{ecrPreview.stats.matchedStudents}</p>
-                    <p className="text-xs text-emerald-700">Matched</p>
-                  </div>
-                  <div className={`p-3 rounded-xl text-center ${ecrPreview.stats.unmatchedStudents > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                    <p className={`text-2xl font-bold ${ecrPreview.stats.unmatchedStudents > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                      {ecrPreview.stats.unmatchedStudents}
-                    </p>
-                    <p className={`text-xs ${ecrPreview.stats.unmatchedStudents > 0 ? 'text-amber-700' : 'text-gray-500'}`}>Unmatched</p>
-                  </div>
-                </div>
-
-                {/* Warning for unmatched students */}
-                {ecrPreview.stats.unmatchedStudents > 0 && (() => {
-                  // Collect unique unmatched names across all quarters
-                  const unmatchedNames: string[] = [];
-                  ecrPreview.quarters.forEach((q: any) => {
-                    q.students.forEach((s: any) => {
-                      if (!s.matchedStudentId && !unmatchedNames.includes(s.name)) {
-                        unmatchedNames.push(s.name);
-                      }
-                    });
-                  });
-                  return (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-                      <div className="flex items-start gap-3 p-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-amber-800">
-                            {ecrPreview.stats.unmatchedStudents} student(s) couldn't be matched
-                          </p>
-                          <p className="text-xs text-amber-600 mt-0.5">
-                            Their grades will be skipped. Check that these names match your class roster.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="border-t border-amber-200 divide-y divide-amber-100">
-                        {unmatchedNames.map((name, idx) => (
-                          <div key={idx} className="flex items-center gap-2 px-3 py-2">
-                            <X className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="text-xs font-medium text-amber-900">{name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Quarter Preview */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-700">Quarters to Import:</h4>
-                  {ecrPreview.quarters.map((q: any) => (
-                    <div key={q.quarter} className="p-3 bg-gray-50 rounded-xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="font-semibold">
-                            {q.quarter === 'Q1' ? '1st Quarter' : q.quarter === 'Q2' ? '2nd Quarter' : q.quarter === 'Q3' ? '3rd Quarter' : '4th Quarter'}
-                          </Badge>
-                          <span className="text-sm text-gray-500">
-                            {q.students.filter((s: any) => s.matchedStudentId).length} students
+                if (separateByGender) {
+                  if (maleRecords.length > 0) {
+                    rows.push(
+                      <TableRow key="male-sep" className="bg-blue-50/50 hover:bg-blue-50/50 border-y border-blue-100/50 h-8">
+                        <TableCell colSpan={wwCount + ptCount + 14} className="py-1 px-8">
+                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            MALE LEARNERS ({maleRecords.length})
                           </span>
-                        </div>
-                        <Check className="w-5 h-5 text-emerald-500" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Sample matched students */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-700">Sample Matched Students:</h4>
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {ecrPreview.quarters[0]?.students
-                      .filter((s: any) => s.matchedStudentId)
-                      .slice(0, 5)
-                      .map((student: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-sm p-2 bg-emerald-50/50 rounded-lg">
-                          <span className="text-gray-700">{student.name}</span>
-                          <span className="text-emerald-600 font-semibold">
-                            Grade: {student.quarterlyGrade || '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                    maleRecords.forEach((r, i) => rows.push(
+                      <LedgerRow 
+                        key={r.student.id} 
+                        record={r} 
+                        idx={i} 
+                        selectedQuarter={selectedQuarter} 
+                        wwCount={wwCount} 
+                        ptCount={ptCount} 
+                        weights={weights} 
+                        onScoreUpdate={handleScoreUpdate} 
+                        onHpsUpdate={handleHpsUpdate} 
+                      />
+                    ));
+                  }
+                  if (femaleRecords.length > 0) {
+                    rows.push(
+                      <TableRow key="female-sep" className="bg-pink-50/50 hover:bg-pink-50/50 border-y border-pink-100/50 h-8">
+                        <TableCell colSpan={wwCount + ptCount + 14} className="py-1 px-8">
+                          <span className="text-[9px] font-black text-pink-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                            FEMALE LEARNERS ({femaleRecords.length})
                           </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                    femaleRecords.forEach((r, i) => rows.push(
+                      <LedgerRow 
+                        key={r.student.id} 
+                        record={r} 
+                        idx={i} 
+                        selectedQuarter={selectedQuarter} 
+                        wwCount={wwCount} 
+                        ptCount={ptCount} 
+                        weights={weights} 
+                        onScoreUpdate={handleScoreUpdate} 
+                        onHpsUpdate={handleHpsUpdate} 
+                      />
+                    ));
+                  }
+                } else {
+                  sortedRecords.forEach((r, i) => rows.push(
+                    <LedgerRow 
+                      key={r.student.id} 
+                      record={r} 
+                      idx={i} 
+                      selectedQuarter={selectedQuarter} 
+                      wwCount={wwCount} 
+                      ptCount={ptCount} 
+                      weights={weights} 
+                      onScoreUpdate={handleScoreUpdate} 
+                      onHpsUpdate={handleHpsUpdate} 
+                    />
+                  ));
+                }
+                return rows;
+              })()}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEcrDialogOpen(false);
-                setEcrFile(null);
-                setEcrPreview(null);
-              }}
-              className="rounded-lg"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEcrImport}
-              disabled={!ecrPreview || ecrImporting || ecrPreview?.stats.matchedStudents === 0}
-              className="rounded-lg shadow-md"
-              style={{ backgroundColor: colors.primary }}
-            >
-              {ecrImporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  {ecrSyncStatus?.hasSynced ? 'Sync Grades' : 'Import Grades'}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ECR Generation Progress Dialog */}
       <Dialog open={showEcrGenerationDialog} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div 
-                className="p-2 rounded-lg"
-                style={{ backgroundColor: `${colors.primary}15` }}
-              >
-                <FileSpreadsheet className="w-5 h-5" style={{ color: colors.primary }} />
-              </div>
-              Generating ECR
-            </DialogTitle>
-            <DialogDescription>
-              Please wait while we generate your Electronic Class Record
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-6">
-            <div className="flex flex-col items-center justify-center space-y-6">
-              {/* Circular Progress with Percentage */}
-              <div className="relative">
-                <svg className="w-32 h-32 -rotate-90">
-                  {/* Background circle */}
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    className="text-gray-200"
-                  />
-                  {/* Progress circle */}
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 56}`}
-                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - ecrPercentage / 100)}`}
-                    className="transition-all duration-500 ease-out"
-                    style={{ color: ecrProgress.startsWith('❌') ? '#ef4444' : ecrProgress.startsWith('✅') ? '#10b981' : colors.primary }}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                {/* Center content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  {ecrProgress.startsWith('❌') ? (
-                    <>
-                      <AlertCircle className="w-10 h-10 text-red-500 mb-1" />
-                      <span className="text-sm font-semibold text-red-600">Error</span>
-                    </>
-                  ) : ecrProgress.startsWith('✅') ? (
-                    <>
-                      <CheckCircle className="w-10 h-10 text-green-500 mb-1" />
-                      <span className="text-sm font-semibold text-green-600">Done!</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-3xl font-bold" style={{ color: colors.primary }}>
-                        {ecrPercentage}%
-                      </span>
-                      <Loader2 
-                        className="w-5 h-5 animate-spin mt-1" 
-                        style={{ color: colors.primary }}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              {/* Progress Message */}
-              <div className="text-center space-y-2">
-                <p className={`text-sm font-medium ${ecrProgress.startsWith('❌') ? 'text-red-600' : ecrProgress.startsWith('✅') ? 'text-green-600' : 'text-gray-700'}`}>
-                  {ecrProgress || 'Starting...'}
-                </p>
-                {!ecrProgress.startsWith('❌') && !ecrProgress.startsWith('✅') && (
-                  <div className="flex items-center justify-center gap-1">
-                    <div 
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ 
-                        backgroundColor: colors.primary,
-                        animationDelay: '0ms' 
-                      }}
-                    />
-                    <div 
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ 
-                        backgroundColor: colors.primary,
-                        animationDelay: '150ms' 
-                      }}
-                    />
-                    <div 
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ 
-                        backgroundColor: colors.primary,
-                        animationDelay: '300ms' 
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {/* Info Box */}
-              <div className="w-full p-4 rounded-lg bg-gray-50 border border-gray-200">
-                <div className="flex items-start gap-3">
-                  <FileSpreadsheet className="w-5 h-5 text-gray-500 mt-0.5" />
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <p className="font-medium">What's being generated:</p>
-                    <ul className="list-disc list-inside space-y-0.5 text-xs">
-                      <li>Student roster with LRN and names</li>
-                      <li>Current grades from database</li>
-                      <li>Auto-filled with class information</li>
-                      <li>Formatted Excel file ready to use</li>
-                    </ul>
-                  </div>
-                </div>
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden bg-white">
+          <div className="p-10 text-center">
+            <div className="relative w-32 h-32 mx-auto mb-8">
+              <svg className="w-full h-full -rotate-90">
+                <circle cx="64" cy="64" r="58" stroke="#f8fafc" strokeWidth="10" fill="none" />
+                <circle cx="64" cy="64" r="58" stroke={colors.primary} strokeWidth="10" fill="none" strokeDasharray="364.4" strokeDashoffset={364.4 * (1 - ecrPercentage / 100)} className="transition-all duration-700 ease-out" strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center"><span className="text-2xl font-black" style={{ color: colors.primary }}>{ecrPercentage}%</span></div>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Generating Workbook</h3>
+            <p className="text-slate-500 font-medium text-sm mb-8 px-4">{ecrProgress}</p>
+            <div className="bg-slate-50 rounded-3xl p-6 text-left border border-slate-100 flex items-start gap-5">
+              <div className="p-3 rounded-2xl bg-white shadow-sm"><FileSpreadsheet className="w-6 h-6 text-emerald-500" /></div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Message</p>
+                <p className="text-xs font-bold text-slate-700 leading-relaxed">Your Electronic Class Record is being auto-filled with student data. It will download automatically.</p>
               </div>
             </div>
           </div>

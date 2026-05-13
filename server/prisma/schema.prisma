@@ -1,12 +1,278 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id                   String          @id @default(cuid())
+  username             String          @unique
+  password             String
+  role                 Role
+  firstName            String?
+  lastName             String?
+  email                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  auditLogs            AuditLog[]      @relation("AuditLogUser")
+  uploadedEcrTemplates ECRTemplate[]   @relation("ECRTemplateUploader")
+  uploadedExcelForms   ExcelTemplate[] @relation("ExcelTemplateUploader")
+  teacher              Teacher?
+}
+
+model Teacher {
+  id               String            @id @default(cuid())
+  userId           String            @unique
+  employeeId       String            @unique
+  specialization   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  classAssignments ClassAssignment[]
+  advisorySections Section[]         @relation("SectionAdviser")
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Student {
+  id              String       @id @default(cuid())
+  lrn             String       @unique
+  firstName       String
+  middleName      String?
+  lastName        String
+  suffix          String?
+  birthDate       DateTime?
+  gender          String?
+  address         String?
+  guardianName    String?
+  guardianContact String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  attendance      Attendance[]
+  enrollments     Enrollment[]
+  grades          Grade[]
+
+  @@index([lastName, firstName])
+}
+
+model Section {
+  id               String            @id @default(cuid())
+  name             String
+  gradeLevel       GradeLevel
+  schoolYear       String
+  adviserId        String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  attendance       Attendance[]
+  classAssignments ClassAssignment[]
+  enrollments      Enrollment[]
+  adviser          Teacher?          @relation("SectionAdviser", fields: [adviserId], references: [id])
+
+  @@unique([name, gradeLevel, schoolYear])
+  @@index([gradeLevel, schoolYear])
+}
+
+model Subject {
+  id                    String            @id @default(cuid())
+  code                  String            @unique
+  name                  String
+  description           String?
+  type                  SubjectType       @default(CORE)
+  writtenWorkWeight     Int               @default(30)
+  perfTaskWeight        Int               @default(50)
+  quarterlyAssessWeight Int               @default(20)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  classAssignments      ClassAssignment[]
+}
+
+model ClassAssignment {
+  id              String    @id @default(cuid())
+  teacherId       String
+  subjectId       String
+  sectionId       String
+  schoolYear      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  ecrFileName     String?
+  ecrLastSyncedAt DateTime?
+  section         Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subject         Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  grades          Grade[]
+
+  @@unique([teacherId, subjectId, sectionId, schoolYear])
+  @@index([schoolYear])
+}
+
+model Enrollment {
+  id         String           @id @default(cuid())
+  studentId  String
+  sectionId  String
+  schoolYear String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  status     EnrollmentStatus @default(ENROLLED)
+  section    Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sectionId, schoolYear])
+  @@index([schoolYear, status])
+  @@index([sectionId, schoolYear, status])
+  @@index([studentId, schoolYear])
+}
+
+model Grade {
+  id                   String          @id @default(cuid())
+  studentId            String
+  classAssignmentId    String
+  quarter              Quarter
+  writtenWorkScores    Json?
+  perfTaskScores       Json?
+  quarterlyAssessScore Float?
+  quarterlyAssessMax   Float?          @default(100)
+  writtenWorkPS        Float?
+  perfTaskPS           Float?
+  quarterlyAssessPS    Float?
+  initialGrade         Float?
+  quarterlyGrade       Float?
+  remarks              String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  classAssignment      ClassAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
+  student              Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classAssignmentId, quarter])
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  studentId  String
+  sectionId  String
+  date       DateTime         @db.Date
+  status     AttendanceStatus @default(PRESENT)
+  remarks    String?
+  recordedBy String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  section    Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sectionId, date])
+  @@index([sectionId, date])
+  @@index([studentId])
+  @@index([date])
+}
+
+model AuditLog {
+  id         String        @id @default(cuid())
+  action     AuditAction
+  userId     String?
+  userName   String
+  userRole   String
+  target     String
+  targetType String
+  targetId   String?
+  details    String
+  ipAddress  String?
+  severity   AuditSeverity @default(INFO)
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+  user       User?         @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([targetType])
+}
+
+model SystemSettings {
+  id                 String    @id @default("main")
+  schoolName         String    @default("Sample High School")
+  schoolId           String    @default("123456")
+  division           String    @default("Division of Sample City")
+  region             String    @default("Region IV-A CALABARZON")
+  address            String?
+  contactNumber      String?
+  email              String?
+  currentSchoolYear  String    @default("2025-2026")
+  currentQuarter     Quarter   @default(Q1)
+  logoUrl            String?
+  primaryColor       String    @default("#6366f1")
+  secondaryColor     String    @default("#8b5cf6")
+  accentColor        String    @default("#06b6d4")
+  sessionTimeout     Int       @default(30)
+  maxLoginAttempts   Int       @default(5)
+  passwordMinLength  Int       @default(8)
+  requireSpecialChar Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  autoAdvanceQuarter Boolean   @default(false)
+  q1EndDate          DateTime?
+  q1StartDate        DateTime?
+  q2EndDate          DateTime?
+  q2StartDate        DateTime?
+  q3EndDate          DateTime?
+  q3StartDate        DateTime?
+  q4EndDate          DateTime?
+  q4StartDate        DateTime?
+  lastEnrollProSync  DateTime?
+}
+
+model GradingConfig {
+  id                    String      @id @default(cuid())
+  subjectType           SubjectType @unique
+  writtenWorkWeight     Int
+  performanceTaskWeight Int
+  quarterlyAssessWeight Int
+  isDepEdDefault        Boolean     @default(true)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model ExcelTemplate {
+  id             String   @id @default(cuid())
+  formType       FormType @unique
+  formName       String
+  description    String?
+  filePath       String
+  fileName       String
+  fileSize       Int
+  placeholders   Json?
+  instructions   String?
+  isActive       Boolean  @default(true)
+  uploadedBy     String
+  uploadedByName String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  sheetName      String?
+  uploader       User     @relation("ExcelTemplateUploader", fields: [uploadedBy], references: [id])
+
+  @@index([formType])
+  @@index([isActive])
+  @@index([filePath])
+}
+
+model ECRTemplate {
+  id             String       @id @default(cuid())
+  subjectName    String
+  description    String?
+  filePath       String
+  fileName       String
+  fileSize       Int
+  placeholders   Json?
+  instructions   String?
+  isActive       Boolean      @default(true)
+  uploadedBy     String
+  uploadedByName String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  subjectType    SubjectType?
+  uploader       User         @relation("ECRTemplateUploader", fields: [uploadedBy], references: [id])
+
+  @@index([subjectName])
+  @@index([isActive])
+  @@index([filePath])
 }
 
 enum Role {
@@ -30,155 +296,12 @@ enum GradeLevel {
 }
 
 enum SubjectType {
-  CORE           // 30% WW, 50% PT, 20% QA (English, Filipino, AP, EsP)
-  MATH_SCIENCE   // 40% WW, 40% PT, 20% QA (Mathematics, Science)
-  PE_HEALTH      // 20% WW, 60% PT, 20% QA
-  MAPEH          // 20% WW, 60% PT, 20% QA (Music, Arts, PE, Health)
-  TLE            // 20% WW, 60% PT, 20% QA (TLE, Home Economics, Industrial Arts)
+  CORE
+  MAPEH
+  TLE
+  MATH_SCIENCE
 }
 
-model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  role      Role
-  firstName String?
-  lastName  String?
-  email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  teacher   Teacher?
-}
-
-model Teacher {
-  id               String            @id @default(cuid())
-  userId           String            @unique
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId       String            @unique
-  specialization   String?
-  classAssignments ClassAssignment[]
-  advisorySections Section[]         @relation("SectionAdviser")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-}
-
-model Student {
-  id           String       @id @default(cuid())
-  lrn          String       @unique // Learner Reference Number
-  firstName    String
-  middleName   String?
-  lastName     String
-  suffix       String?      // Jr., III, etc.
-  birthDate    DateTime?
-  gender       String?
-  address      String?
-  guardianName String?
-  guardianContact String?
-  enrollments  Enrollment[]
-  grades       Grade[]
-  attendance   Attendance[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-}
-
-model Section {
-  id          String       @id @default(cuid())
-  name        String       // e.g., "Einstein", "Newton"
-  gradeLevel  GradeLevel
-  schoolYear  String       // e.g., "2025-2026"
-  adviserId   String?      // Reference to Teacher
-  adviser     Teacher?     @relation("SectionAdviser", fields: [adviserId], references: [id])
-  enrollments Enrollment[]
-  classAssignments ClassAssignment[]
-  attendance  Attendance[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@unique([name, gradeLevel, schoolYear])
-}
-
-model Subject {
-  id               String            @id @default(cuid())
-  code             String            @unique
-  name             String            // e.g., "English", "Mathematics", "Science"
-  description      String?
-  type             SubjectType       @default(CORE)
-  writtenWorkWeight Int              @default(30)  // percentage
-  perfTaskWeight   Int               @default(50)  // percentage
-  quarterlyAssessWeight Int          @default(20)  // percentage
-  classAssignments ClassAssignment[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-}
-
-model ClassAssignment {
-  id         String   @id @default(cuid())
-  teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subjectId  String
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  sectionId  String
-  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  schoolYear String   // e.g., "2025-2026"
-  grades     Grade[]
-  
-  // ECR (E-Class Record) import tracking
-  ecrLastSyncedAt DateTime?  // Last ECR sync timestamp
-  ecrFileName     String?    // Original ECR filename for reference
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([teacherId, subjectId, sectionId, schoolYear])
-}
-
-model Enrollment {
-  id         String   @id @default(cuid())
-  studentId  String
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  sectionId  String
-  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  schoolYear String   // e.g., "2025-2026"
-  status     String   @default("ENROLLED") // ENROLLED, TRANSFERRED, DROPPED
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([studentId, sectionId, schoolYear])
-}
-
-model Grade {
-  id                String          @id @default(cuid())
-  studentId         String
-  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  classAssignmentId String
-  classAssignment   ClassAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
-  quarter           Quarter
-
-  // Written Work scores (multiple activities)
-  writtenWorkScores Json?    // Array of { name: string, score: number, maxScore: number }
-  
-  // Performance Task scores (multiple activities)
-  perfTaskScores    Json?    // Array of { name: string, score: number, maxScore: number }
-  
-  // Quarterly Assessment (usually one exam)
-  quarterlyAssessScore Float?
-  quarterlyAssessMax   Float?  @default(100)
-
-  // Computed grades (stored for performance)
-  writtenWorkPS     Float?   // Percentage Score
-  perfTaskPS        Float?   // Percentage Score
-  quarterlyAssessPS Float?   // Percentage Score
-  initialGrade      Float?   // Sum of weighted scores
-  quarterlyGrade    Float?   // Transmuted grade
-
-  remarks           String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@unique([studentId, classAssignmentId, quarter])
-}
-
-// Attendance tracking
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -186,26 +309,13 @@ enum AttendanceStatus {
   EXCUSED
 }
 
-model Attendance {
-  id         String           @id @default(cuid())
-  studentId  String
-  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  sectionId  String
-  section    Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  date       DateTime         @db.Date
-  status     AttendanceStatus @default(PRESENT)
-  remarks    String?          // Optional notes (e.g., "Doctor's appointment", "Family emergency")
-  recordedBy String?          // Teacher ID who recorded the attendance
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  @@unique([studentId, sectionId, date])
-  @@index([sectionId, date])
-  @@index([studentId])
-  @@index([date])
+enum EnrollmentStatus {
+  ENROLLED
+  PENDING
+  DROPPED
+  TRANSFERRED
 }
 
-// Audit Log for tracking all system activities
 enum AuditAction {
   CREATE
   UPDATE
@@ -221,151 +331,15 @@ enum AuditSeverity {
   CRITICAL
 }
 
-model AuditLog {
-  id          String        @id @default(cuid())
-  action      AuditAction
-  userId      String?       // User who performed the action (null for system actions)
-  userName    String        // Cached user name for display
-  userRole    String        // Cached user role
-  target      String        // What was affected (e.g., "Student Grades", "User Account")
-  targetType  String        // Category (e.g., "Grades", "Auth", "Config", "Student", "User")
-  targetId    String?       // ID of the affected entity if applicable
-  details     String        // Human-readable description
-  ipAddress   String?       // IP address of the request
-  severity    AuditSeverity @default(INFO)
-  metadata    Json?         // Additional data as JSON
-  createdAt   DateTime      @default(now())
-  
-  @@index([createdAt])
-  @@index([userId])
-  @@index([action])
-  @@index([targetType])
-}
-
-// System Settings for school configuration
-model SystemSettings {
-  id                String   @id @default("main") // Single row with fixed ID
-  schoolName        String   @default("Sample High School")
-  schoolId          String   @default("123456")
-  division          String   @default("Division of Sample City")
-  region            String   @default("Region IV-A CALABARZON")
-  address           String?
-  contactNumber     String?
-  email             String?
-  
-  // Academic Settings
-  currentSchoolYear String   @default("2025-2026")
-  currentQuarter    Quarter  @default(Q1)
-  
-  // Academic Calendar - Quarter Start/End Dates
-  q1StartDate       DateTime?
-  q1EndDate         DateTime?
-  q2StartDate       DateTime?
-  q2EndDate         DateTime?
-  q3StartDate       DateTime?
-  q3EndDate         DateTime?
-  q4StartDate       DateTime?
-  q4EndDate         DateTime?
-  autoAdvanceQuarter Boolean @default(false)  // Auto-advance quarter when end date is reached
-  
-  // Theming - Logo and Color Scheme
-  logoUrl           String?  // Path to uploaded logo
-  primaryColor      String   @default("#6366f1")   // Indigo-500
-  secondaryColor    String   @default("#8b5cf6")   // Violet-500
-  accentColor       String   @default("#06b6d4")   // Cyan-500
-  
-  // System Config
-  sessionTimeout    Int      @default(30)          // minutes
-  maxLoginAttempts  Int      @default(5)
-  passwordMinLength Int      @default(8)
-  requireSpecialChar Boolean @default(true)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-// Grading Configuration per subject type
-model GradingConfig {
-  id                    String      @id @default(cuid())
-  subjectType           SubjectType @unique
-  writtenWorkWeight     Int         // percentage
-  performanceTaskWeight Int         // percentage
-  quarterlyAssessWeight Int         // percentage
-  isDepEdDefault        Boolean     @default(true)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-}
-
-// DepEd School Form Templates (SF1, SF2, etc.)
 enum FormType {
-  SF1  // School Register (Student Master List)
-  SF2  // Daily Attendance Record
-  SF3  // Individual Learner Monitoring Form
-  SF4  // Quarterly Assessment Report
-  SF5  // Report on Promotion/Completion
-  SF6  // Learner Information System
-  SF7  // School Personnel Assignment List and Basic Profile
-  SF8  // Report on Learning Progress and Achievement (JHS)
-  SF9  // Progress Report (JHS/SHS)
-  SF10 // Learner's Permanent Record
-}
-
-model ExcelTemplate {
-  id           String    @id @default(cuid())
-  formType     FormType  @unique
-  formName     String    // e.g., "School Form 2 - Daily Attendance Record"
-  description  String?   // Optional description
-  filePath     String    // Path to uploaded Excel template file
-  fileName     String    // Original filename
-  fileSize     Int       // File size in bytes
-  sheetName    String?   // Worksheet name for bundled workbooks (e.g., SF1-SF7 all-in-one)
-  
-  // Metadata
-  placeholders Json?     // Available placeholders in this template
-  instructions String?   // How to use this template
-  
-  // Status
-  isActive     Boolean   @default(true)
-  
-  // Tracking
-  uploadedBy   String    // User ID who uploaded
-  uploadedByName String  // Cached name for display
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
-  @@index([formType])
-  @@index([isActive])
-  @@index([filePath])
-}
-
-// Electronic Class Record (ECR) Templates
-// Admin uploads subject-specific ECR templates
-// Teachers download auto-filled versions with their class data
-model ECRTemplate {
-  id           String       @id @default(cuid())
-  subjectName  String       // e.g., "Mathematics", "English", "Science" - matches Subject.name
-  subjectType  SubjectType? // Optional: tag template for a subject type (CORE, PE_HEALTH, TLE, MAPEH)
-  description  String?      // Optional description for the template
-  filePath     String   // Path to uploaded Excel template file
-  fileName     String   // Original filename
-  fileSize     Int      // File size in bytes
-  
-  // Metadata for auto-fill
-  placeholders Json?    // Available placeholders: {{STUDENT_NAME}}, {{GRADE}}, {{SECTION}}, etc.
-  instructions String?  // How to use this template
-  
-  // Status
-  isActive     Boolean  @default(true)
-  
-  // Tracking
-  uploadedBy   String   // User ID who uploaded
-  uploadedByName String // Cached name for display
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  @@index([subjectName])
-  @@index([isActive])
-  @@index([filePath])
+  SF1
+  SF2
+  SF3
+  SF4
+  SF5
+  SF6
+  SF8
+  SF9
+  SF10
+  SF7
 }

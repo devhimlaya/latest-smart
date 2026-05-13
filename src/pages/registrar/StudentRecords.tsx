@@ -94,7 +94,7 @@ export default function StudentRecords() {
   const [students, setStudents] = useState<StudentWithEnrollment[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState("2025-2026");
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState("2026-2027");
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("all");
   const [selectedSection, setSelectedSection] = useState("all");
   
@@ -310,6 +310,7 @@ export default function StudentRecords() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="2026-2027">2026-2027</SelectItem>
                   <SelectItem value="2025-2026">2025-2026</SelectItem>
                   <SelectItem value="2024-2025">2024-2025</SelectItem>
                 </SelectContent>

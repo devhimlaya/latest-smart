@@ -54,6 +54,81 @@ interface ClassAssignmentWithRelations {
   section: { _count: { enrollments: number } };
 }
 
+interface EffectiveWeights {
+  ww: number;
+  pt: number;
+  qa: number;
+  source: "subject" | "generic-fallback";
+  hasExactEcrTemplate: boolean;
+}
+
+const GENERIC_FALLBACK_WEIGHTS = {
+  ww: 30,
+  pt: 50,
+  qa: 20,
+} as const;
+
+function getBaseSubjectName(subjectName: string): string {
+  return subjectName.replace(/\s+\d+$/, "").trim();
+}
+
+async function resolveEffectiveWeightsForClassAssignment(classAssignmentId: string): Promise<EffectiveWeights> {
+  const classAssignment = await prisma.classAssignment.findUnique({
+    where: { id: classAssignmentId },
+    select: {
+      subject: {
+        select: {
+          name: true,
+          writtenWorkWeight: true,
+          perfTaskWeight: true,
+          quarterlyAssessWeight: true,
+        },
+      },
+    },
+  });
+
+  if (!classAssignment) {
+    return {
+      ww: GENERIC_FALLBACK_WEIGHTS.ww,
+      pt: GENERIC_FALLBACK_WEIGHTS.pt,
+      qa: GENERIC_FALLBACK_WEIGHTS.qa,
+      source: "generic-fallback",
+      hasExactEcrTemplate: false,
+    };
+  }
+
+  const subjectName = classAssignment.subject.name.trim();
+  const baseSubjectName = getBaseSubjectName(subjectName);
+  const hasExactEcrTemplate =
+    (await prisma.eCRTemplate.count({
+      where: {
+        isActive: true,
+        OR: [
+          { subjectName },
+          { subjectName: baseSubjectName },
+        ],
+      },
+    })) > 0;
+
+  if (hasExactEcrTemplate) {
+    return {
+      ww: classAssignment.subject.writtenWorkWeight,
+      pt: classAssignment.subject.perfTaskWeight,
+      qa: classAssignment.subject.quarterlyAssessWeight,
+      source: "subject",
+      hasExactEcrTemplate: true,
+    };
+  }
+
+  return {
+    ww: GENERIC_FALLBACK_WEIGHTS.ww,
+    pt: GENERIC_FALLBACK_WEIGHTS.pt,
+    qa: GENERIC_FALLBACK_WEIGHTS.qa,
+    source: "generic-fallback",
+    hasExactEcrTemplate: false,
+  };
+}
+
 // Get all class assignments for the logged-in teacher
 router.get(
   "/my-classes",
@@ -70,13 +145,20 @@ router.get(
         return;
       }
 
+      const systemSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
+
       const classes = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id },
+        where: { teacherId: teacher.id, schoolYear: currentSchoolYear },
         include: {
           subject: true,
           section: {
             include: {
               enrollments: {
+                where: {
+                  schoolYear: currentSchoolYear,
+                  status: 'ENROLLED',
+                },
                 include: {
                   student: true,
                 },
@@ -173,9 +255,12 @@ router.get(
         };
       });
 
+      const effectiveWeights = await resolveEffectiveWeightsForClassAssignment(classAssignmentId);
+
       res.json({
         classAssignment,
         classRecord,
+        effectiveWeights,
       });
     } catch (error) {
       console.error("Error fetching class record:", error);
@@ -227,15 +312,16 @@ router.post(
       }
 
       // Calculate percentage scores and grades
+      const effectiveWeights = await resolveEffectiveWeightsForClassAssignment(classAssignmentId);
       const { writtenWorkPS, perfTaskPS, quarterlyAssessPS, initialGrade, quarterlyGrade } =
         calculateGrades(
           writtenWorkScores,
           perfTaskScores,
           quarterlyAssessScore,
           quarterlyAssessMax || 100,
-          classAssignment.subject.writtenWorkWeight,
-          classAssignment.subject.perfTaskWeight,
-          classAssignment.subject.quarterlyAssessWeight
+          effectiveWeights.ww,
+          effectiveWeights.pt,
+          effectiveWeights.qa
         );
 
       // Check before upsert to determine create vs update
@@ -384,8 +470,11 @@ router.get(
         return;
       }
 
+      const systemSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
+
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id },
+        where: { teacherId: teacher.id, schoolYear: currentSchoolYear },
         include: {
           subject: true,
           section: {
@@ -400,10 +489,15 @@ router.get(
         },
       });
 
-      const totalStudents = classAssignments.reduce(
-        (sum: number, ca: ClassAssignmentWithRelations) => sum + ca.section._count.enrollments,
-        0
-      );
+      // Count unique students across unique sections (avoid double-counting students
+      // who appear in multiple class assignments for the same section)
+      const uniqueSectionEnrollments = new Map<string, number>();
+      for (const ca of classAssignments) {
+        if (!uniqueSectionEnrollments.has(ca.sectionId)) {
+          uniqueSectionEnrollments.set(ca.sectionId, ca.section._count.enrollments);
+        }
+      }
+      const totalStudents = [...uniqueSectionEnrollments.values()].reduce((sum, n) => sum + n, 0);
 
       res.json({
         teacher: {
@@ -440,8 +534,11 @@ router.get(
         return;
       }
 
+      const sysSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSY = sysSettings?.currentSchoolYear ?? '2026-2027';
+
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id },
+        where: { teacherId: teacher.id, schoolYear: currentSY },
         include: {
           subject: true,
           section: {

@@ -239,7 +239,7 @@ export default function AdminLoginPage() {
                 {/* Email Field */}
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-gray-800 font-semibold text-sm pl-1">
-                    Admin Email
+                    Employee ID
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
@@ -249,8 +249,8 @@ export default function AdminLoginPage() {
                     </div>
                     <Input
                       id="email"
-                      type="email"
-                      placeholder="Enter admin email"
+                      type="text"
+                      placeholder="Enter your Employee ID"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-12 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
@@ -352,10 +352,10 @@ export default function AdminLoginPage() {
                     type="button"
                     className="text-center py-2 px-4 rounded-lg border hover:scale-105 transition-transform cursor-pointer"
                     style={{ backgroundColor: `${colors.accent}12`, borderColor: `${colors.accent}20` }}
-                    onClick={() => { setEmail('admin@deped.edu.ph'); setPassword('DepEdSY2026!'); }}
+                    onClick={() => { setEmail('1000001'); setPassword('AdminSY2026!'); }}
                   >
                     <p className="font-bold text-sm" style={{ color: colors.accent }}>Administrator</p>
-                    <p className="text-gray-500 text-xs mt-0.5 font-mono">admin@ / DepEdSY2026!</p>
+                    <p className="text-gray-500 text-xs mt-0.5 font-mono">1000001 / AdminSY2026!</p>
                   </button>
                 </div>
               </div>

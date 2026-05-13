@@ -75,6 +75,48 @@ function post(url: string, body: any): Promise<any> {
   });
 }
 
+// -- Cleanup: remove stale MATH assignments for Homeroom Guidance sections --
+// For every (teacher, section) pair where ATLAS assigned HG (Homeroom Guidance),
+// delete any MATH assignments that should not be there. Called automatically
+// after each atlas sync so Admins and Registrars see clean data immediately.
+// Also exported so the admin route can trigger an immediate one-shot cleanup.
+export async function cleanupHomeroomMathConflicts(schoolYear: string = SCHOOL_YEAR): Promise<number> {
+  const hgSubjects = await prisma.subject.findMany({
+    where: { code: { startsWith: 'HG' } },
+    select: { id: true },
+  });
+  if (hgSubjects.length === 0) return 0;
+  const hgIds = hgSubjects.map((s) => s.id);
+
+  // Find every (teacher, section) pair that has a Homeroom Guidance assignment.
+  const hgAssignments = await prisma.classAssignment.findMany({
+    where: { subjectId: { in: hgIds }, schoolYear },
+    select: { teacherId: true, sectionId: true },
+  });
+  if (hgAssignments.length === 0) return 0;
+
+  const mathSubjects = await prisma.subject.findMany({
+    where: { code: { startsWith: 'MATH' } },
+    select: { id: true },
+  });
+  if (mathSubjects.length === 0) return 0;
+  const mathIds = mathSubjects.map((s) => s.id);
+
+  // Deduplicate pairs to avoid redundant deletes.
+  const seen = new Set<string>();
+  let total = 0;
+  for (const { teacherId, sectionId } of hgAssignments) {
+    const key = `${teacherId}|${sectionId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const removed = await prisma.classAssignment.deleteMany({
+      where: { teacherId, sectionId, schoolYear, subjectId: { in: mathIds } },
+    });
+    total += removed.count;
+  }
+  return total;
+}
+
 // -- Core sync logic --------------------------------------------------------
 export async function runAtlasSync(): Promise<typeof lastSyncResult> {
   if (syncRunning) {
@@ -151,14 +193,41 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
       }
     }
 
-    // 6. Delete all old assignments and recreate from ATLAS
-    const del = await prisma.classAssignment.deleteMany({ where: { schoolYear: SCHOOL_YEAR } });
-    deleted = del.count;
+    // 6. Delete assignments only for teachers that have Atlas data, then recreate
+    //    This preserves manually-created or teacherSync-created assignments for
+    //    teachers not yet configured in Atlas.
+    const teacherIdsWithAtlasData = [...new Set(loads.map((l) => l.smartTeacherId))];
 
+    if (teacherIdsWithAtlasData.length > 0) {
+      const del = await prisma.classAssignment.deleteMany({
+        where: { schoolYear: SCHOOL_YEAR, teacherId: { in: teacherIdsWithAtlasData } },
+      });
+      deleted = del.count;
+    }
+
+    const warnedSubjects = new Set<string>();
     for (const load of loads) {
-      const subject = subjectByCode.get(load.subjectCode);
       const section = sectionByName.get(load.sectionName);
-      if (!subject || !section) continue;
+      if (!section) continue;
+
+      // Try exact subject code first, then append grade level suffix (e.g. "FIL" → "FIL7")
+      let subject = subjectByCode.get(load.subjectCode);
+      if (!subject) {
+        const gradeSuffix = section.gradeLevel.replace('GRADE_', '');
+        subject = subjectByCode.get(load.subjectCode + gradeSuffix);
+      }
+      if (!subject) {
+        const warnKey = `${load.subjectCode}|${section.gradeLevel}`;
+        if (!warnedSubjects.has(warnKey)) {
+          warnedSubjects.add(warnKey);
+          console.warn(
+            `[AtlasSync] MISSING SUBJECT MAPPING: Atlas code "${load.subjectCode}" ` +
+            `for section "${load.sectionName}" grade=${section.gradeLevel}. ` +
+            `Skipping assignment — add this subject to SMART to enable it.`,
+          );
+        }
+        continue;
+      }
 
       try {
         await prisma.classAssignment.upsert({
@@ -180,6 +249,14 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
         });
         created++;
       } catch { /* duplicate or constraint */ }
+    }
+
+    if (warnedSubjects.size > 0) {
+      console.warn(
+        `[AtlasSync] ${warnedSubjects.size} MISSING SUBJECT MAPPING(S) — ` +
+        `unresolved Atlas code(s): ${[...warnedSubjects].map(k => k.split('|')[0]).filter((v, i, a) => a.indexOf(v) === i).join(', ')}. ` +
+        `Add these subjects to SMART for full ATLAS alignment.`,
+      );
     }
 
     // 7. Sync section advisers from ATLAS /faculty/advisers
@@ -205,6 +282,13 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
       console.log(`[AtlasSync] Advisers synced: ${atlasAdvisers.length} from ATLAS`);
     } catch (advErr: any) {
       console.warn('[AtlasSync] Adviser sync failed:', advErr.message);
+    }
+
+    // Global cleanup: remove stale MATH assignments from Homeroom Guidance sections
+    // so Admins and Registrars see correct data immediately after sync.
+    const cleanedUp = await cleanupHomeroomMathConflicts(SCHOOL_YEAR);
+    if (cleanedUp > 0) {
+      console.log(`[AtlasSync] Cleaned up ${cleanedUp} stale MATH→Homeroom Guidance conflict(s).`);
     }
 
     lastSyncResult = { matched, created, deleted, teachersWithLoads, errors };

@@ -150,10 +150,17 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {[
-          { label: "Total\nUsers", value: stats.totalUsers, icon: Users, color: "primary", gradient: "primary" },
-          { label: "Total\nTeachers", value: stats.totalTeachers, icon: UserCheck, color: "accent", gradient: "accent" },
-          { label: "Total\nStudents", value: stats.totalStudents, icon: GraduationCap, color: "secondary", gradient: "secondary" },
-          { label: "Active\nToday", value: stats.activeUsers, icon: Activity, color: "primary", gradient: "primary" },
+          { label: "Total\nUsers", value: stats.totalUsers, icon: Users, color: "primary", gradient: "primary", footerText: "Live" },
+          { label: "Total\nTeachers", value: stats.totalTeachers, icon: UserCheck, color: "accent", gradient: "accent", footerText: "Live" },
+          {
+            label: "Total\nStudents",
+            value: stats.totalStudents,
+            icon: GraduationCap,
+            color: "secondary",
+            gradient: "secondary",
+            footerText: stats.studentCountSchoolYear ? `EnrollPro SY ${stats.studentCountSchoolYear}` : "Live",
+          },
+          { label: "Active\nToday", value: stats.activeUsers, icon: Activity, color: "primary", gradient: "primary", footerText: "Live" },
         ].map((stat) => (
           <Card 
             key={stat.label} 
@@ -176,7 +183,7 @@ export default function AdminDashboard() {
               </div>
               <div className="mt-4 pt-4 border-t border-gray-100 flex items-center text-sm text-gray-500">
                 <TrendingUp className="w-4 h-4 mr-1" style={{ color: colors.primary }} />
-                <span className="font-medium" style={{ color: colors.primary }}>Live</span>
+                <span className="font-medium" style={{ color: colors.primary }}>{stat.footerText}</span>
               </div>
             </CardContent>
           </Card>

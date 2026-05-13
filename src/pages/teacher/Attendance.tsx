@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Calendar as CalendarIcon, Users, Check, X, Clock, FileText, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Check, X, Clock, FileText, Save, CheckCircle2, AlertCircle, ClipboardCheck, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,23 +209,6 @@ export default function Attendance() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { color: string; icon: any; label: string }> = {
-      PRESENT: { color: "bg-green-100 text-green-700 border-green-200", icon: CheckCircle2, label: "Present" },
-      ABSENT: { color: "bg-red-100 text-red-700 border-red-200", icon: X, label: "Absent" },
-      LATE: { color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock, label: "Late" },
-      EXCUSED: { color: "bg-blue-100 text-blue-700 border-blue-200", icon: FileText, label: "Excused" },
-    };
-    const variant = variants[status] || variants.PRESENT;
-    const Icon = variant.icon;
-    return (
-      <Badge className={`${variant.color} border font-medium px-3 py-1`}>
-        <Icon className="w-3 h-3 mr-1.5" />
-        {variant.label}
-      </Badge>
-    );
-  };
-
   const getStatusStats = () => {
     if (!attendanceData) return { present: 0, absent: 0, late: 0, excused: 0 };
     return {
@@ -239,27 +222,28 @@ export default function Attendance() {
   const stats = getStatusStats();
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Daily Attendance</h1>
-          <p className="text-gray-500 mt-1">Mark student attendance for your sections</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg">
+              <ClipboardCheck className="w-5 h-5" />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Daily Attendance</h1>
+          </div>
+          <p className="text-slate-500 font-medium">Manage and track student attendance records</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Section & Date</CardTitle>
-          <CardDescription>Choose the section and date to mark attendance</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="section">Section</Label>
+      {/* Control Panel - Refined Glass Style */}
+      <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden bg-white/90 backdrop-blur-md">
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="section" className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Target Section</Label>
               <Select value={selectedSection} onValueChange={setSelectedSection}>
-                <SelectTrigger id="section">
+                <SelectTrigger id="section" className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
                   <SelectValue placeholder="Select section">
                     {selectedSection && sections.length > 0 ? (
                       (() => {
@@ -269,9 +253,9 @@ export default function Attendance() {
                     ) : 'Select section'}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                   {sections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
+                    <SelectItem key={section.id} value={section.id} className="text-xs font-bold uppercase">
                       {gradeLevelLabels[section.gradeLevel]} - {section.name}
                     </SelectItem>
                   ))}
@@ -279,8 +263,8 @@ export default function Attendance() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="date">Date</Label>
+            <div className="space-y-2">
+              <Label htmlFor="date" className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Attendance Date</Label>
               <div className="relative">
                 <Input
                   id="date"
@@ -288,214 +272,183 @@ export default function Attendance() {
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
+                  className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all pl-10"
                 />
-                <CalendarIcon className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
 
-            <div className="flex items-end">
+            <div className="md:col-span-2 flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={markAllPresent}
                 variant="outline"
-                className="w-full"
+                className="flex-1 h-12 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold transition-all"
                 disabled={!attendanceData || loading}
-                style={{ borderColor: colors.primary, color: colors.primary }}
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Mark All Present
+                <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+                MARK ALL PRESENT
+              </Button>
+              <Button
+                onClick={saveAttendance}
+                disabled={saving || !attendanceData}
+                className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 font-black text-[10px] tracking-widest uppercase transition-all"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    SYNCING...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    COMMIT CHANGES
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Message */}
+      {/* Messaging */}
       {message && (
         <div
-          className={`p-4 rounded-lg border ${
+          className={`p-5 rounded-2xl border-0 shadow-lg animate-slide-up ${
             message.type === "success"
-              ? "bg-green-50 border-green-200 text-green-800"
-              : "bg-red-50 border-red-200 text-red-800"
+              ? "bg-emerald-50 text-emerald-700 shadow-emerald-100"
+              : "bg-rose-50 text-rose-700 shadow-rose-100"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {message.type === "success" ? (
               <CheckCircle2 className="w-5 h-5" />
             ) : (
               <AlertCircle className="w-5 h-5" />
             )}
-            <span className="font-medium">{message.text}</span>
+            <span className="font-bold text-sm tracking-tight">{message.text}</span>
           </div>
         </div>
       )}
 
-      {/* Stats */}
+      {/* Quick Stats Grid */}
       {attendanceData && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Present</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {[
+            { label: "PRESENT", value: stats.present, icon: CheckCircle2, color: "emerald" },
+            { label: "ABSENT", value: stats.absent, icon: X, color: "rose" },
+            { label: "LATE", value: stats.late, icon: Clock, color: "amber" },
+            { label: "EXCUSED", value: stats.excused, icon: FileText, color: "indigo" },
+          ].map((stat) => (
+            <Card key={stat.label} className="border-0 shadow-lg shadow-slate-200/50 rounded-3xl bg-white overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                    <p className={`text-3xl font-black text-${stat.color}-600`}>{stat.value}</p>
+                  </div>
+                  <div className={`p-3 rounded-2xl bg-${stat.color}-50 text-${stat.color}-500`}>
+                    <stat.icon className="w-6 h-6" />
+                  </div>
                 </div>
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Absent</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-                </div>
-                <X className="w-8 h-8 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Late</p>
-                  <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
-                </div>
-                <Clock className="w-8 h-8 text-amber-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Excused</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.excused}</p>
-                </div>
-                <FileText className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      {/* Attendance Table */}
-      <Card>
-        <CardHeader>
+      {/* Main Table - Modern Corporate List */}
+      <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white">
+        <CardHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>
-                {attendanceData?.section && `${gradeLevelLabels[attendanceData.section.gradeLevel]} - ${attendanceData.section.name}`}
+              <CardTitle className="text-xl font-black text-slate-900">
+                {attendanceData?.section 
+                  ? `${gradeLevelLabels[attendanceData.section.gradeLevel]} - ${attendanceData.section.name}`
+                  : "Attendance Roster"
+                }
               </CardTitle>
-              <CardDescription>
-                {attendanceData ? `${attendanceData.attendance.length} students` : "Select a section to view students"}
+              <CardDescription className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                {attendanceData ? `${attendanceData.attendance.length} Learners Enrolled` : "Select filters to view list"}
               </CardDescription>
             </div>
-            {attendanceData && (
-              <Button
-                onClick={saveAttendance}
-                disabled={saving}
-                style={{ backgroundColor: colors.primary }}
-              >
-                {saving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Attendance
-                  </>
-                )}
-              </Button>
-            )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div
-                  className="w-12 h-12 mx-auto mb-4 border-[3px] border-t-transparent rounded-full animate-spin"
-                  style={{ borderColor: colors.primary, borderTopColor: "transparent" }}
-                />
-                <p className="text-gray-500">Loading attendance...</p>
-              </div>
+            <div className="py-24 text-center">
+              <RefreshCw className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
+              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Pulling Records...</p>
             </div>
           ) : attendanceData ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>LRN</TableHead>
-                  <TableHead>Student Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Remarks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendanceData.attendance.map((student) => (
-                  <TableRow key={student.studentId}>
-                    <TableCell className="font-mono text-sm">{student.lrn}</TableCell>
-                    <TableCell className="font-medium">
-                      {student.lastName}, {student.firstName} {student.middleName?.[0]}.
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant={student.status === "PRESENT" ? "default" : "outline"}
-                          onClick={() => handleStatusChange(student.studentId, "PRESENT")}
-                          className={student.status === "PRESENT" ? "bg-green-600 hover:bg-green-700" : ""}
-                        >
-                          <Check className="w-3 h-3 mr-1" />
-                          Present
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === "ABSENT" ? "default" : "outline"}
-                          onClick={() => handleStatusChange(student.studentId, "ABSENT")}
-                          className={student.status === "ABSENT" ? "bg-red-600 hover:bg-red-700" : ""}
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Absent
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === "LATE" ? "default" : "outline"}
-                          onClick={() => handleStatusChange(student.studentId, "LATE")}
-                          className={student.status === "LATE" ? "bg-amber-600 hover:bg-amber-700" : ""}
-                        >
-                          <Clock className="w-3 h-3 mr-1" />
-                          Late
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === "EXCUSED" ? "default" : "outline"}
-                          onClick={() => handleStatusChange(student.studentId, "EXCUSED")}
-                          className={student.status === "EXCUSED" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          Excused
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        placeholder="Optional remarks..."
-                        value={student.remarks || ""}
-                        onChange={(e) => handleRemarksChange(student.studentId, e.target.value)}
-                        className="text-sm"
-                      />
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50 hover:bg-transparent border-0">
+                    <TableHead className="px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">LRN</TableHead>
+                    <TableHead className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Learner Name</TableHead>
+                    <TableHead className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Attendance Status</TableHead>
+                    <TableHead className="px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Notes / Remarks</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {attendanceData.attendance.map((student) => (
+                    <TableRow key={student.studentId} className="hover:bg-slate-50/50 transition-all border-slate-50 group">
+                      <TableCell className="px-8 font-mono text-xs text-slate-400 font-bold group-hover:text-slate-900 transition-colors">
+                        {student.lrn}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-black text-xs">
+                            {student.lastName.charAt(0)}
+                          </div>
+                          <span className="font-bold text-slate-900 tracking-tight">
+                            {student.lastName}, {student.firstName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center gap-1">
+                          {[
+                            { id: "PRESENT", icon: Check, color: "emerald", label: "P" },
+                            { id: "ABSENT", icon: X, color: "rose", label: "A" },
+                            { id: "LATE", icon: Clock, color: "amber", label: "L" },
+                            { id: "EXCUSED", icon: FileText, color: "indigo", label: "E" }
+                          ].map((option) => (
+                            <button
+                              key={option.id}
+                              onClick={() => handleStatusChange(student.studentId, option.id as any)}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                student.status === option.id 
+                                  ? `bg-${option.color}-500 text-white shadow-lg shadow-${option.color}-200 scale-110` 
+                                  : `bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600`
+                              }`}
+                              title={option.id}
+                            >
+                              <option.icon className="w-4 h-4" />
+                            </button>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-8">
+                        <Input
+                          placeholder="Add remark..."
+                          value={student.remarks || ""}
+                          onChange={(e) => handleRemarksChange(student.studentId, e.target.value)}
+                          className="h-10 bg-transparent border-0 border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-0 rounded-none text-xs font-medium transition-all"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>Select a section and date to view attendance</p>
+            <div className="py-32 text-center bg-slate-50/50">
+              <div className="w-20 h-20 bg-white rounded-[2rem] shadow-sm flex items-center justify-center mx-auto mb-6">
+                <Users className="w-8 h-8 text-slate-200" />
+              </div>
+              <h3 className="text-slate-900 font-black text-sm uppercase tracking-widest mb-2">No Records Selected</h3>
+              <p className="text-slate-400 text-xs font-medium">Configure section and date to begin tracking attendance</p>
             </div>
           )}
         </CardContent>

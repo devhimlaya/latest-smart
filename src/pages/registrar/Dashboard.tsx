@@ -67,8 +67,8 @@ export default function RegistrarDashboard() {
       try {
         // Fetch sections and students data
         const [studentsRes, sectionsRes] = await Promise.all([
-          registrarApi.getStudents({ schoolYear: "2025-2026" }),
-          registrarApi.getSections({ schoolYear: "2025-2026" }),
+          registrarApi.getStudents({ schoolYear: "2026-2027" }),
+          registrarApi.getSections({ schoolYear: "2026-2027" }),
         ]);
 
         const studentsData = studentsRes.data.students || studentsRes.data;

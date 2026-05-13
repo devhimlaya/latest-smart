@@ -14,10 +14,13 @@ import adminRoutes from "./routes/admin";
 import attendanceRoutes from "./routes/attendance";
 import templateRoutes from "./routes/templates";
 import ecrTemplatesRoutes from "./routes/ecrTemplates";
+import integrationRoutes from "./routes/integration";
 import { startAtlasSyncScheduler } from "./lib/atlasSync";
+import { startEnrollProSyncScheduler } from "./lib/enrollproSync";
+import { startEnrollProBrandingSyncScheduler } from "./lib/enrollproBrandingSync";
 
 const app = express();
-const PORT = process.env.PORT || 5004;
+const PORT = process.env.PORT || 5003;
 
 // Middleware
 app.use(cors({
@@ -38,6 +41,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/ecr-templates", ecrTemplatesRoutes);
+app.use("/api/integration", integrationRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
@@ -55,6 +59,12 @@ app.get("*splat", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   // Start ATLAS teaching load auto-sync
-  const intervalMin = parseInt(process.env.ATLAS_SYNC_INTERVAL_MINUTES ?? '30', 10);
+  const intervalMin = parseInt(process.env.ATLAS_SYNC_INTERVAL_MINUTES ?? '5', 10);
   startAtlasSyncScheduler(intervalMin);
+  // Start EnrollPro advisory auto-sync
+  const enrollproIntervalMin = parseInt(process.env.ENROLLPRO_SYNC_INTERVAL_MINUTES ?? '5', 10);
+  startEnrollProSyncScheduler(enrollproIntervalMin);
+  // Start EnrollPro branding auto-sync (logo, colors, school name)
+  const brandingIntervalMin = parseInt(process.env.ENROLLPRO_BRANDING_SYNC_INTERVAL_MINUTES ?? '60', 10);
+  startEnrollProBrandingSyncScheduler(brandingIntervalMin);
 });

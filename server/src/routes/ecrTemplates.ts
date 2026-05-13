@@ -140,7 +140,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
     }
 
     // Validate subjectType if provided
-    const validTypes = ['CORE', 'MATH_SCIENCE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const validTypes = ['CORE', 'MATH_SCIENCE', 'TLE', 'MAPEH'];
     const parsedSubjectType = subjectType && validTypes.includes(subjectType) ? subjectType : null;
 
     // Check if template for this subject already exists
@@ -190,7 +190,7 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
         instructions: instructions || null,
         isActive: true,
         uploadedBy: req.user!.id,
-        uploadedByName: req.user!.username
+        uploadedByName: req.user!.role === 'ADMIN' ? 'Admin' : req.user!.username
       } as any
     });
 
@@ -240,7 +240,7 @@ router.put('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Respon
       return;
     }
 
-    const validTypes = ['CORE', 'MATH_SCIENCE', 'PE_HEALTH', 'TLE', 'MAPEH'];
+    const validTypes = ['CORE', 'MATH_SCIENCE', 'TLE', 'MAPEH'];
     const parsedSubjectType = subjectType === '' ? null : (subjectType && validTypes.includes(subjectType) ? subjectType : undefined);
 
     const updatedTemplate = await prisma.eCRTemplate.update({
@@ -696,7 +696,7 @@ router.post('/generate/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), 
 
     // Find template — priority: exact subject name → subject type → any active
     const baseSubjectName = classAssignment.subject.name.replace(/\s+\d+$/, '').trim();
-    const subjectType = classAssignment.subject.type; // e.g. 'CORE', 'PE_HEALTH', 'TLE', 'MAPEH'
+    const subjectType = classAssignment.subject.type; // e.g. 'CORE', 'TLE', 'MAPEH'
     let ecrTemplate: { filePath: string; subjectName: string } | null = null;
 
     // 1) Exact subject name match (most specific)
@@ -710,7 +710,7 @@ router.post('/generate/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), 
       console.log(`[ECR] Template: exact subject name match "${baseSubjectName}"`);
     }
 
-    // 2) Subject type match (e.g. any CORE template, any PE_HEALTH template)
+    // 2) Subject type match (e.g. any CORE template, any MAPEH template)
     if (!ecrTemplate) {
       const typeMatch = await prisma.eCRTemplate.findFirst({
         where: { subjectType: subjectType as any, isActive: true },

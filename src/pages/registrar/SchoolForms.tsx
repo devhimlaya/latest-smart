@@ -95,7 +95,7 @@ export default function SchoolForms() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [_loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [schoolYear, setSchoolYear] = useState("2025-2026");
+  const [schoolYear, setSchoolYear] = useState("2026-2027");
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedSection, setSelectedSection] = useState<string>("");
   const [students, setStudents] = useState<FormStudent[]>([]);
@@ -259,6 +259,7 @@ export default function SchoolForms() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="2026-2027">2026-2027</SelectItem>
                     <SelectItem value="2025-2026">2025-2026</SelectItem>
                     <SelectItem value="2024-2025">2024-2025</SelectItem>
                   </SelectContent>

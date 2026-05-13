@@ -1,33 +1,54 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
-import LoginPage from './pages/LoginPage'
-import AdminLoginPage from './pages/AdminLoginPage'
-import RegistrarLoginPage from './pages/RegistrarLoginPage'
+
+// Layouts are small and always needed — keep eager
 import TeacherLayout from './layouts/TeacherLayout'
-import TeacherDashboard from './pages/teacher/Dashboard'
-import ClassRecordsList from './pages/teacher/ClassRecordsList'
-import ClassRecordView from './pages/teacher/ClassRecordView'
-import MyAdvisory from './pages/teacher/MyAdvisory'
-import StudentGradeProfile from './pages/teacher/StudentGradeProfile'
-import Attendance from './pages/teacher/Attendance'
-import AttendanceReports from './pages/teacher/AttendanceReports'
 import RegistrarLayout from './layouts/RegistrarLayout'
-import RegistrarDashboard from './pages/registrar/Dashboard'
-import StudentRecords from './pages/registrar/StudentRecords'
-import Enrollment from './pages/registrar/Enrollment'
-import SchoolForms from './pages/registrar/SchoolForms'
 import AdminLayout from './layouts/AdminLayout'
-import AdminDashboard from './pages/admin/Dashboard'
-import UserManagement from './pages/admin/UserManagement'
-import AuditLogs from './pages/admin/AuditLogs'
-import GradingConfig from './pages/admin/GradingConfig'
-import SystemSettings from './pages/admin/SystemSettings'
-import TemplateManager from './pages/admin/TemplateManager'
-import ECRTemplateManager from './pages/admin/ECRTemplateManager'
+
+// Login pages
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'))
+const RegistrarLoginPage = lazy(() => import('./pages/RegistrarLoginPage'))
+
+// Teacher pages
+const TeacherDashboard = lazy(() => import('./pages/teacher/Dashboard'))
+const ClassRecordsList = lazy(() => import('./pages/teacher/ClassRecordsList'))
+const ClassRecordView = lazy(() => import('./pages/teacher/ClassRecordView'))
+const MyAdvisory = lazy(() => import('./pages/teacher/MyAdvisory'))
+const StudentGradeProfile = lazy(() => import('./pages/teacher/StudentGradeProfile'))
+const Attendance = lazy(() => import('./pages/teacher/Attendance'))
+const AttendanceReports = lazy(() => import('./pages/teacher/AttendanceReports'))
+
+// Registrar pages
+const RegistrarDashboard = lazy(() => import('./pages/registrar/Dashboard'))
+const StudentRecords = lazy(() => import('./pages/registrar/StudentRecords'))
+const Enrollment = lazy(() => import('./pages/registrar/Enrollment'))
+const SchoolForms = lazy(() => import('./pages/registrar/SchoolForms'))
+
+// Admin pages
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
+const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'))
+const GradingConfig = lazy(() => import('./pages/admin/GradingConfig'))
+const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'))
+const TemplateManager = lazy(() => import('./pages/admin/TemplateManager'))
+const ECRTemplateManager = lazy(() => import('./pages/admin/ECRTemplateManager'))
+const ClassAssignments = lazy(() => import('./pages/admin/ClassAssignments'))
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="w-8 h-8 border-4 border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function App() {
   return (
     <ThemeProvider>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Public routes - Login pages */}
         <Route path="/login" element={<LoginPage />} />
@@ -63,12 +84,14 @@ function App() {
         <Route path="settings" element={<SystemSettings />} />
         <Route path="templates" element={<TemplateManager />} />
         <Route path="ecr-templates" element={<ECRTemplateManager />} />
+        <Route path="assignments" element={<ClassAssignments />} />
       </Route>
 
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+      </Suspense>
     </ThemeProvider>
   )
 }

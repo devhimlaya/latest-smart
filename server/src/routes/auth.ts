@@ -5,6 +5,8 @@ import { AuditAction, AuditSeverity } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import { createAuditLog } from "../lib/audit";
+import { validateEnrollProTeacherCredentials } from "../lib/enrollproClient";
+import { syncTeacherOnLogin } from "../lib/teacherSync";
 
 const router = Router();
 
@@ -19,10 +21,30 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Find user by email
-    const user = await prisma.user.findFirst({
-      where: { email },
-    });
+    let user = null;
+
+    // If the identifier looks like an employee ID (no @ sign), try teacher lookup first,
+    // then username (admin / registrar use their employee ID as username)
+    if (!email.includes('@')) {
+      const teacher = await prisma.teacher.findUnique({
+        where: { employeeId: email },
+        include: { user: true },
+      });
+      user = teacher?.user ?? null;
+
+      if (!user) {
+        user = await prisma.user.findUnique({
+          where: { username: email },
+        });
+      }
+    }
+
+    // Fall back to email lookup
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: { email },
+      });
+    }
 
     if (!user) {
       // Log failed login attempt (unknown user)
@@ -39,8 +61,29 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    // Verify password — for TEACHER accounts, first try EnrollPro credentials
+    let isValidPassword = false;
+
+    if (user.role === 'TEACHER') {
+      // Use the identifier that was provided (employeeId or email)
+      const loginIdentifier = !email.includes('@') ? email : user.email;
+      try {
+        const epResult = await validateEnrollProTeacherCredentials(loginIdentifier, password);
+        if (epResult !== null) {
+          // EnrollPro accepted credentials
+          isValidPassword = true;
+        } else {
+          // EnrollPro explicitly rejected (wrong password / account not found)
+          isValidPassword = false;
+        }
+      } catch (epErr) {
+        // EnrollPro unreachable — fall back to SMART's own stored password
+        console.warn('[Auth] EnrollPro unreachable, falling back to local bcrypt:', (epErr as Error).message);
+        isValidPassword = await bcrypt.compare(password, user.password);
+      }
+    } else {
+      isValidPassword = await bcrypt.compare(password, user.password);
+    }
 
     if (!isValidPassword) {
       // Log failed login (wrong password)
@@ -78,6 +121,16 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       ipAddress,
       AuditSeverity.INFO
     );
+
+    // For teachers: fire-and-forget real-time sync from EnrollPro + Atlas
+    if (user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } });
+      if (teacher?.employeeId && user.email) {
+        syncTeacherOnLogin(teacher.id, teacher.employeeId, user.email).catch((e: Error) => {
+          console.error('[Auth] Teacher sync error:', e.message);
+        });
+      }
+    }
 
     res.json({
       message: "Login successful",

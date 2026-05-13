@@ -18,6 +18,8 @@ import {
   Filter,
   Calendar,
   RefreshCw,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -105,20 +107,6 @@ const gradeLevelLabels: Record<string, string> = {
   GRADE_10: "Grade 10",
 };
 
-const gradeLevelColors: Record<string, string> = {
-  GRADE_7: "border",
-  GRADE_8: "border",
-  GRADE_9: "border",
-  GRADE_10: "border",
-};
-
-const gradeLevelOpacity: Record<string, string> = {
-  GRADE_7: "18",
-  GRADE_8: "28",
-  GRADE_9: "38",
-  GRADE_10: "48",
-};
-
 export default function TeacherDashboard() {
   const { colors } = useTheme();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -177,55 +165,57 @@ export default function TeacherDashboard() {
     ? masteryData?.filters.sections || []
     : masteryData?.filters.sections.filter(s => s.gradeLevel === selectedGradeLevel) || [];
 
-  // Prepare chart data
+  // Prepare chart data with more vibrant colors
   const chartData = masteryData ? [
     { 
       name: "Outstanding", 
       range: "90-100", 
       students: masteryData.distribution.outstanding,
-      fill: "#10b981" // emerald-500
+      fill: "#10b981", // Emerald 500
+      secondary: "#059669" // Emerald 600
     },
     { 
       name: "Very Satisfactory", 
       range: "85-89", 
       students: masteryData.distribution.verySatisfactory,
-      fill: "#3b82f6" // blue-500
+      fill: "#3b82f6", // Blue 500
+      secondary: "#2563eb" // Blue 600
     },
     { 
       name: "Satisfactory", 
       range: "80-84", 
       students: masteryData.distribution.satisfactory,
-      fill: "#f59e0b" // amber-500
+      fill: "#f59e0b", // Amber 500
+      secondary: "#d97706" // Amber 600
     },
     { 
       name: "Fairly Satisfactory", 
       range: "75-79", 
       students: masteryData.distribution.fairlySatisfactory,
-      fill: "#f97316" // orange-500
+      fill: "#f97316", // Orange 500
+      secondary: "#ea580c" // Orange 600
     },
     { 
       name: "Did Not Meet", 
       range: "<75", 
       students: masteryData.distribution.didNotMeet,
-      fill: "#ef4444" // red-500
+      fill: "#ef4444", // Red 500
+      secondary: "#dc2626" // Red 600
     },
   ] : [];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
+      <div className="flex items-center justify-center h-[80vh]">
         <div className="text-center">
-          <div 
-            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-lg animate-pulse"
-            style={{ backgroundColor: `${colors.primary}15` }}
-          >
-            <div 
-              className="w-10 h-10 border-[3px] border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}
-            />
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-indigo-500 animate-pulse" />
+            </div>
           </div>
-          <p className="text-gray-500 font-medium">Loading your dashboard...</p>
-          <p className="text-gray-400 text-sm mt-1">Please wait a moment</p>
+          <p className="text-slate-500 font-medium text-lg animate-pulse">Igniting your dashboard...</p>
         </div>
       </div>
     );
@@ -233,827 +223,446 @@ export default function TeacherDashboard() {
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center max-w-sm">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-100 to-rose-100 flex items-center justify-center shadow-lg">
-            <span className="text-4xl">😕</span>
-          </div>
-          <h3 className="font-semibold text-gray-900 text-lg mb-2">Something went wrong</h3>
-          <p className="text-gray-500 mb-6">{error || "Failed to load dashboard data"}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="shadow-lg"
-            style={{ backgroundColor: colors.primary }}
-          >
-            Try Again
-          </Button>
-        </div>
+      <div className="flex items-center justify-center h-[60vh] p-4">
+        <Card className="max-w-md w-full border-0 shadow-2xl rounded-3xl overflow-hidden">
+          <div className="h-2 bg-red-500" />
+          <CardContent className="p-10 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
+              <AlertTriangle className="w-10 h-10" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-2xl mb-2">Oops! Something's wrong</h3>
+            <p className="text-slate-500 mb-8">{error || "We couldn't load your dashboard data right now."}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg transition-all"
+            >
+              Try to Refresh
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Hero Section */}
-      <div 
-        className="relative overflow-hidden rounded-2xl shadow-2xl"
-        style={{ backgroundColor: colors.primary }}
-      >
-        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]" />
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: `${colors.secondary}30` }} />
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto pb-12">
+      {/* Hero Welcome Section - Refined for "Professional Settings" */}
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-8 md:p-12 shadow-xl shadow-slate-200/50">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-slate-50/50 -skew-x-12 translate-x-1/2" />
+        <div className="absolute top-0 right-1/4 w-px h-full bg-slate-100" />
         
-        <div className="relative px-8 py-12 lg:py-16">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-            <div className="flex-1 space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
-                <Award className="w-4 h-4 text-white" />
-                <span className="text-sm font-semibold text-white">Academic Year 2025-2026 • Quarter 1</span>
-              </div>
-              
-              <h1 className="text-3xl lg:text-4xl font-bold text-white leading-tight">
-                Welcome back, {data.teacher.name}
-              </h1>
-              
-              <p className="text-lg text-white/80 max-w-2xl">
-                {data.stats.subjects.length > 0 
-                  ? `Teaching ${data.stats.subjects.join(", ")} across ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`
-                  : `Managing ${data.stats.totalClasses} ${data.stats.totalClasses === 1 ? 'class' : 'classes'} this quarter.`}
-              </p>
-
-              <div className="flex flex-wrap gap-4 pt-2">
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20">
-                  <Users className="w-5 h-5 text-white" />
-                  <div>
-                    <p className="text-2xl font-bold text-white">{data.stats.totalStudents}</p>
-                    <p className="text-xs text-white/70 font-medium">Total Students</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/20">
-                  <Target className="w-5 h-5 text-white" />
-                  <div>
-                    <p className="text-2xl font-bold text-white">{stats?.summary.overallPassingRate.toFixed(0)}%</p>
-                    <p className="text-xs text-white/70 font-medium">Passing Rate</p>
-                  </div>
-                </div>
-
-                {stats && stats.summary.studentsAtRiskCount > 0 && (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/20 backdrop-blur-md border border-amber-300/30">
-                    <AlertTriangle className="w-5 h-5 text-amber-100" />
-                    <div>
-                      <p className="text-2xl font-bold text-white">{stats.summary.studentsAtRiskCount}</p>
-                      <p className="text-xs text-amber-100 font-medium">Need Support</p>
-                    </div>
-                  </div>
-                )}
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <Badge variant="secondary" className="px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-widest border-indigo-100">
+                <Target className="w-3 h-3 mr-2" />
+                Teacher Portal v2.0
+              </Badge>
+              <div className="h-4 w-px bg-slate-200" />
+              <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                <Calendar className="w-3 h-3" />
+                S.Y. 2026-2027
               </div>
             </div>
-
-            <div className="flex flex-col gap-3">
+            
+            <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-[1.1] tracking-tight">
+              Good day, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">
+                Teacher {data.teacher.name.split(',')[0]}
+              </span>
+            </h1>
+            
+            <p className="text-slate-500 text-lg mt-6 max-w-lg leading-relaxed font-medium">
+              You're currently managing <span className="text-slate-900 font-bold underline decoration-indigo-200 decoration-4 underline-offset-4">{data.stats.totalStudents} students</span> across <span className="text-slate-900 font-bold underline decoration-emerald-200 decoration-4 underline-offset-4">{data.stats.totalClasses} sections</span>.
+            </p>
+            
+            <div className="flex flex-wrap items-center gap-4 mt-10">
               <Link to="/teacher/advisory">
-                <Button 
-                  className="w-full lg:w-auto bg-white hover:bg-gray-50 shadow-xl font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105"
-                  style={{ color: colors.primary }}
-                >
-                  <Users className="w-5 h-5 mr-2" />
-                  View My Advisory
-                  <ChevronRight className="w-5 h-5 ml-2" />
+                <Button className="h-14 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-200 border-0 transition-all active:scale-95 group font-bold">
+                  <Users className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform" />
+                  My Advisory
                 </Button>
               </Link>
-              
               <Link to="/teacher/classes">
-                <Button variant="outline" className="w-full lg:w-auto bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-md shadow-lg font-semibold px-6 py-6 text-base rounded-xl transition-all hover:scale-105">
-                  <BookOpen className="w-5 h-5 mr-2" />
-                  Manage Grades
-                  <ChevronRight className="w-5 h-5 ml-2" />
+                <Button variant="outline" className="h-14 px-8 rounded-2xl bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all active:scale-95 font-bold">
+                  <BookOpen className="w-5 h-5 mr-3" />
+                  Class Records
                 </Button>
               </Link>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex flex-col gap-4 min-w-[300px]">
+            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-between group hover:border-indigo-200 transition-all">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Overall Passing</p>
+                <p className="text-4xl font-black text-slate-900">{stats?.summary.overallPassingRate.toFixed(0)}%</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-all">
+                <TrendingUp className="w-7 h-7 text-emerald-500" />
+              </div>
+            </div>
+            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-between group hover:border-indigo-200 transition-all">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Grade Submission</p>
+                <p className="text-4xl font-black text-slate-900">{stats?.summary.gradeSubmissionRate.toFixed(0)}%</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-all">
+                <FileCheck className="w-7 h-7 text-indigo-500" />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* DepEd Mastery Level Distribution Chart */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-        <CardHeader 
-          className="border-b border-gray-100 px-6 py-5"
-          style={{ backgroundColor: `${colors.primary}15` }}
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div 
-                className="p-2.5 rounded-xl text-white shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-bold text-gray-900">DepEd Mastery Level Distribution</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Q1 student performance by mastery level</CardDescription>
-              </div>
-            </div>
-            
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-500 font-medium">Filter:</span>
-              </div>
-              <Select 
-                value={selectedGradeLevel} 
-                onValueChange={(val) => {
-                  if (val) setSelectedGradeLevel(val);
-                  setSelectedSection("all"); // Reset section when grade level changes
-                }}
-              >
-                <SelectTrigger className="w-36 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Grade Level">
-                    {selectedGradeLevel === "all" ? "All Grades" : gradeLevelLabels[selectedGradeLevel] || selectedGradeLevel}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="rounded-lg">All Grades</SelectItem>
-                  {masteryData?.filters.gradeLevels.map((gl) => (
-                    <SelectItem key={gl} value={gl} className="rounded-lg">
-                      {gradeLevelLabels[gl] || gl}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedSection} onValueChange={(val) => val && setSelectedSection(val)}>
-                <SelectTrigger className="w-40 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Section">
-                    {selectedSection === "all" 
-                      ? "All Sections" 
-                      : filteredSections.find(s => s.id === selectedSection)?.name || selectedSection}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="rounded-lg">All Sections</SelectItem>
-                  {filteredSections.map((section) => (
-                    <SelectItem key={section.id} value={section.id} className="rounded-lg">
-                      {section.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge 
-                className="font-semibold px-3 py-1"
-                style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}
-              >
-                {masteryData?.totalStudents || 0} Students Graded
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="h-64 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="name" 
-                  tick={{ fill: '#6b7280', fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                />
-                <YAxis 
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', fill: '#6b7280', fontSize: 11, dx: -5 }}
-                  allowDecimals={false}
-                  width={50}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e5e7eb', 
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                  }}
-                  formatter={(value, _name, props) => [
-                    `${value} student${Number(value) !== 1 ? 's' : ''}`,
-                    `${(props.payload as { name: string; range: string }).name} (${(props.payload as { name: string; range: string }).range})`
-                  ]}
-                  labelFormatter={() => ''}
-                />
-                <Bar 
-                  dataKey="students" 
-                  radius={[8, 8, 0, 0]}
-                  maxBarSize={80}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          
-          {/* Legend */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 pt-4 border-t border-gray-100">
-            {chartData.map((item) => (
-              <div key={item.name} className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded" style={{ backgroundColor: item.fill }} />
-                <span className="text-xs sm:text-sm text-gray-600">
-                  {item.name} <span className="text-gray-400">({item.range})</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards - Modern Bento Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      {/* Stats Cards - Refined Professional Look */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Total Classes", value: data.stats.totalClasses, icon: BookOpen, themeColor: "primary" },
-          { label: "Students", value: data.stats.totalStudents, icon: Users, themeColor: "secondary" },
-          { label: "Academic Year", value: "2025-2026", icon: Calendar, themeColor: "accent" },
-          { label: "Current Quarter", value: "Q1", icon: Award, themeColor: "primary" },
-        ].map((stat, index) => {
-          const iconColor = stat.themeColor === "primary" ? colors.primary : stat.themeColor === "secondary" ? colors.secondary : colors.accent;
-          return (
-          <Card 
-            key={stat.label} 
-            className="group border-0 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-200/60 transition-all duration-300 bg-white overflow-hidden p-0 rounded-2xl"
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <CardContent className="p-6 h-full flex flex-col">
-              <div className="flex items-start justify-between flex-1">
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-3 tracking-tight">{stat.value}</p>
-                </div>
-                <div 
-                  className="p-3 rounded-2xl text-white shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 flex-shrink-0 ml-2"
-                  style={{ backgroundColor: iconColor }}
-                >
+          { 
+            label: "Active Students", 
+            value: data.stats.totalStudents, 
+            icon: Users, 
+            bg: "bg-indigo-50", fg: "text-indigo-600",
+            desc: "Currently enrolled"
+          },
+          { 
+            label: "Handled Classes", 
+            value: data.stats.totalClasses, 
+            icon: BookOpen, 
+            bg: "bg-emerald-50", fg: "text-emerald-600",
+            desc: "Teaching assignments"
+          },
+          { 
+            label: "Critical Cases", 
+            value: stats?.summary.studentsAtRiskCount || 0, 
+            icon: AlertTriangle, 
+            bg: "bg-rose-50", fg: "text-rose-600",
+            desc: "Requires immediate attention"
+          },
+          { 
+            label: "Graded Items", 
+            value: stats?.summary.totalGraded || 0, 
+            icon: FileCheck, 
+            bg: "bg-amber-50", fg: "text-amber-600",
+            desc: "Successful submissions"
+          },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-0 shadow-lg shadow-slate-200/50 rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`p-3 rounded-2xl ${stat.bg} ${stat.fg} group-hover:scale-110 transition-transform`}>
                   <stat.icon className="w-5 h-5" />
                 </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-sm">
-                  <span 
-                    className="flex items-center gap-1 font-medium"
-                    style={{ color: iconColor }}
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Active
-                  </span>
-                  <span className="text-gray-400">this semester</span>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-2xl font-black text-slate-900 mt-0.5">{stat.value}</p>
                 </div>
               </div>
+              <p className="text-[10px] font-medium text-slate-400 pl-1">{stat.desc}</p>
             </CardContent>
           </Card>
-        );
-        })}
+        ))}
       </div>
 
-      {/* Grading Progress & Performance Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Grading Progress */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.primary}12` }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
-                <FileCheck className="w-5 h-5" />
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Mastery Distribution Chart Section */}
+        <Card className="lg:col-span-2 border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden flex flex-col bg-white">
+          <CardHeader className="p-8 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div>
-                <CardTitle className="text-lg font-bold text-gray-900">Grading Progress</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Q1 grade submission status</CardDescription>
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-slate-900 text-white">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  Performance Mastery
+                </h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Distribution of student ratings</p>
+              </div>
+              
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                <Select value={selectedGradeLevel} onValueChange={(val) => {
+                  if (val) setSelectedGradeLevel(val);
+                  setSelectedSection("all");
+                }}>
+                  <SelectTrigger className="h-9 w-[110px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
+                    <SelectValue placeholder="Grade" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                    <SelectItem value="all" className="text-xs font-bold uppercase">All Grades</SelectItem>
+                    {masteryData?.filters.gradeLevels.map(gl => (
+                      <SelectItem key={gl} value={gl} className="text-xs font-bold uppercase">{gradeLevelLabels[gl] || gl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={selectedSection} onValueChange={(val) => val && setSelectedSection(val)}>
+                  <SelectTrigger className="h-9 w-[130px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
+                    <SelectValue placeholder="Section" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                    <SelectItem value="all" className="text-xs font-bold uppercase">All Sections</SelectItem>
+                    {filteredSections.map(s => (
+                      <SelectItem key={s.id} value={s.id} className="text-xs font-bold uppercase">{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              {stats?.classStats.slice(0, 4).map((classStat) => {
+          <CardContent className="p-8 pt-0 flex-1">
+            <div className="h-[320px] w-full mt-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    {chartData.map((entry, index) => (
+                      <linearGradient key={`gradient-${index}`} id={`barGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={entry.fill} stopOpacity={1} />
+                        <stop offset="100%" stopColor={entry.secondary} stopOpacity={0.8} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    dy={10}
+                  />
+                  <YAxis 
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc', radius: 12 }}
+                    contentStyle={{ 
+                      border: 'none', 
+                      borderRadius: '20px', 
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                      padding: '16px',
+                      backgroundColor: '#fff'
+                    }}
+                    itemStyle={{ fontWeight: 900, fontSize: '14px' }}
+                  />
+                  <Bar dataKey="students" radius={[12, 12, 0, 0]} maxBarSize={50}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={`url(#barGradient-${index})`} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Submission Tracker Section */}
+        <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden flex flex-col bg-white">
+          <CardHeader className="p-8 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-slate-100 text-slate-900">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Grading Status</h2>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Progress per section</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-8 pt-4 flex-1">
+            <div className="space-y-7">
+              {stats?.classStats.slice(0, 5).map((classStat, idx) => {
                 const percentage = classStat.totalStudents > 0 
                   ? Math.round((classStat.gradedCount / classStat.totalStudents) * 100)
                   : 0;
-                const isComplete = percentage === 100;
+                const colorPairs = [
+                  { text: 'text-indigo-600', bar: 'bg-indigo-500' },
+                  { text: 'text-emerald-600', bar: 'bg-emerald-500' },
+                  { text: 'text-amber-600', bar: 'bg-amber-500' },
+                  { text: 'text-rose-600', bar: 'bg-rose-500' },
+                  { text: 'text-violet-600', bar: 'bg-violet-500' },
+                ];
+                const colorPair = colorPairs[idx % colorPairs.length];
                 
                 return (
-                  <div key={classStat.id} className="group">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm">{gradeLevelLabels[classStat.gradeLevel as keyof typeof gradeLevelLabels] || classStat.gradeLevel}</span>
-                        <span className="text-gray-400 text-xs">• <span className="font-bold text-gray-600">{classStat.sectionName}</span></span>
+                  <div key={classStat.id} className="group cursor-default">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div>
+                        <span className="text-sm font-black text-slate-900">{classStat.sectionName}</span>
+                        <p className="text-[9px] font-black text-slate-400 uppercase mt-0.5 tracking-widest">
+                          {classStat.subjectName}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isComplete ? (
-                          <Badge 
-                            className="text-xs font-medium"
-                            style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Complete
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-gray-500">{classStat.gradedCount}/{classStat.totalStudents}</span>
-                        )}
+                      <div className={`text-xs font-black ${colorPair.text}`}>
+                        {percentage}%
                       </div>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div 
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ 
-                          width: `${percentage}%`,
-                          backgroundColor: isComplete ? colors.primary : colors.secondary
-                        }}
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${colorPair.bar}`}
+                        style={{ width: `${percentage}%` }}
                       />
                     </div>
                   </div>
                 );
               })}
             </div>
-            <Link to="/teacher/classes" className="block mt-5">
-              <Button variant="outline" size="sm" className="w-full rounded-xl font-medium" 
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}10`; e.currentTarget.style.color = colors.primary; e.currentTarget.style.borderColor = `${colors.primary}30`; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = ''; e.currentTarget.style.borderColor = ''; }}
-              >
-                View All Classes
-                <ArrowUpRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            
+            <div className="mt-10">
+              <Link to="/teacher/classes">
+                <Button className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 transition-all font-black text-[10px] tracking-[0.2em] uppercase">
+                  VIEW DETAILED REPORTS
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Class Performance */}
-        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader 
-            className="border-b border-gray-100 px-6 py-5"
-            style={{ backgroundColor: `${colors.primary}10` }}
-          >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Top Performers Table Section */}
+        <Card className="lg:col-span-2 border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white">
+          <CardHeader className="p-8 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div 
-                className="p-2.5 rounded-xl text-white shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <BarChart3 className="w-5 h-5" />
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                <Medal className="w-5 h-5" />
               </div>
               <div>
-                <CardTitle className="text-lg font-bold text-gray-900">Class Performance</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Average grades by class</CardDescription>
+                <h2 className="text-xl font-black text-slate-900">Academic Honors</h2>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Leading achievements</p>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              {stats?.classStats.slice(0, 4).map((classStat) => {
-                const avgGrade = classStat.avgGrade ?? 0;
-                
-                return (
-                  <div key={classStat.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white`}
-                        style={{ backgroundColor: 
-                          avgGrade >= 90 ? colors.primary :
-                          avgGrade >= 85 ? colors.secondary :
-                          avgGrade >= 80 ? colors.accent :
-                          avgGrade >= 75 ? `${colors.primary}99` :
-                          '#9ca3af'
-                        }}>
-                        {avgGrade > 0 ? avgGrade : '-'}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">{gradeLevelLabels[classStat.gradeLevel as keyof typeof gradeLevelLabels] || classStat.gradeLevel}</p>
-                        <p className="text-xs text-gray-500 font-bold">{classStat.sectionName}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold" style={{ color: colors.primary }}>{classStat.passingRate}%</p>
-                      <p className="text-xs text-gray-400">passing</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Honors Section with Dropdown & Students Needing Attention */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Honors / With Honors Students */}
-        <Card className="lg:col-span-2 border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ background: `linear-gradient(to right, ${colors.primary}20, ${colors.primary}10)` }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.primary }}>
-                  <Medal className="w-5 h-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-gray-900">Honor Students</CardTitle>
-                  <CardDescription className="text-gray-500 text-sm">Students with outstanding performance (85+)</CardDescription>
-                </div>
-              </div>
-              <Select value={selectedHonorsClass} onValueChange={(val) => val && setSelectedHonorsClass(val)}>
-                <SelectTrigger className="w-52 bg-white border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Select Class">
-                    {selectedHonorsClass === "all" 
-                      ? "All Classes" 
-                      : (() => {
-                          const cs = stats?.classStats.find(c => c.id === selectedHonorsClass);
-                          return cs ? `${gradeLevelLabels[cs.gradeLevel as keyof typeof gradeLevelLabels] || cs.gradeLevel} - ${cs.sectionName}` : selectedHonorsClass;
-                        })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="rounded-lg">All Classes</SelectItem>
-                  {stats?.classStats.map((cs) => (
-                    <SelectItem key={cs.id} value={cs.id} className="rounded-lg">
-                      {gradeLevelLabels[cs.gradeLevel as keyof typeof gradeLevelLabels] || cs.gradeLevel} - {cs.sectionName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            {(() => {
-              const filteredStats = selectedHonorsClass === "all" 
-                ? stats?.classStats 
-                : stats?.classStats.filter(cs => cs.id === selectedHonorsClass);
-              
-              const allHonors = filteredStats?.flatMap(cs => 
-                [...cs.honorsStudents, ...cs.withHonorsStudents].map(s => ({
-                  ...s,
-                  class: `${gradeLevelLabels[cs.gradeLevel as keyof typeof gradeLevelLabels] || cs.gradeLevel} - ${cs.sectionName}`
-                }))
-              ) || [];
-              
-              const sortedHonors = allHonors.sort((a, b) => b.grade - a.grade);
-              
-              if (sortedHonors.length === 0) {
-                return (
-                  <div className="text-center py-8 text-gray-500">
-                    <Star className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                    <p>No honor students in this selection yet.</p>
-                  </div>
-                );
-              }
-              
-              return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
-                  {sortedHonors.slice(0, 10).map((student, index) => (
-                    <div key={`${student.id}-${index}`} className={`flex items-center justify-between p-3 rounded-xl border`}
-                      style={{ backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary}18` }}>
-                          <Star className="w-4 h-4" style={{ color: colors.primary }} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
-                          <p className="text-xs text-gray-500"><span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span></p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold" style={{ color: colors.primary }}>{student.grade}</p>
-                        <Badge className="text-xs" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>{student.honor}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            {(() => {
-              const filteredStats = selectedHonorsClass === "all" 
-                ? stats?.classStats 
-                : stats?.classStats.filter(cs => cs.id === selectedHonorsClass);
-              const totalHonors = filteredStats?.reduce((sum, cs) => 
-                sum + cs.honorsStudents.length + cs.withHonorsStudents.length, 0) || 0;
-              
-              if (totalHonors > 10) {
-                return (
-                  <p className="text-center text-sm text-gray-400 mt-4">
-                    Showing top 10 of {totalHonors} honor students
-                  </p>
-                );
-              }
-              return null;
-            })()}
-          </CardContent>
-        </Card>
-
-        {/* Quick Stats Summary */}
-        <Card 
-          className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl text-white p-0"
-          style={{ backgroundColor: colors.primary }}
-        >
-          <CardContent className="p-6 h-full flex flex-col">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
-                <Target className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-lg">Quick Summary</h3>
             </div>
             
-            <div className="space-y-4 flex-1">
-              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-white/70 text-sm mb-1">Overall Passing Rate</p>
-                <p className="text-3xl font-bold">{stats?.summary.overallPassingRate ?? 0}%</p>
-              </div>
-              
-              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-white/70 text-sm mb-1">Grade Submissions</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-3xl font-bold">{stats?.summary.gradeSubmissionRate ?? 0}%</p>
-                  <Badge className="bg-white/20 text-white text-xs">Q1</Badge>
-                </div>
-              </div>
-              
-              <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <p className="text-white/70 text-sm mb-1">Students At Risk</p>
-                <p className="text-3xl font-bold">{stats?.summary.studentsAtRiskCount ?? 0}</p>
-              </div>
-            </div>
+            <Select value={selectedHonorsClass} onValueChange={(val) => val && setSelectedHonorsClass(val)}>
+              <SelectTrigger className="h-9 w-[180px] bg-slate-50 border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                <SelectItem value="all" className="text-xs font-bold uppercase">All Classes</SelectItem>
+                {stats?.classStats.map(cs => (
+                  <SelectItem key={cs.id} value={cs.id} className="text-xs font-bold uppercase">{cs.sectionName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[380px] overflow-y-auto px-8 pb-8">
+              {(() => {
+                const filteredStats = selectedHonorsClass === "all" 
+                  ? stats?.classStats 
+                  : stats?.classStats.filter(cs => cs.id === selectedHonorsClass);
+                
+                const allHonors = filteredStats?.flatMap(cs => 
+                  [...cs.honorsStudents, ...cs.withHonorsStudents].map(s => ({
+                    ...s,
+                    class: cs.sectionName
+                  }))
+                ).sort((a, b) => b.grade - a.grade) || [];
 
-            <Link to="/teacher/classes" className="block mt-4">
-              <Button 
-                className="w-full bg-white font-semibold rounded-xl"
-                style={{ color: colors.primary }}
-              >
-                Enter Grades
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
+                if (allHonors.length === 0) {
+                  return (
+                    <div className="py-20 text-center text-slate-300 bg-slate-50 rounded-[2rem] mt-4 border-2 border-dashed border-slate-100">
+                      <Star className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      <p className="font-black text-sm uppercase tracking-widest">No achievements to display</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-hidden rounded-3xl border border-slate-100 mt-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                          <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                          <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Section</th>
+                          <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Grade</th>
+                          <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {allHonors.map((student, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition-all group">
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-9 h-9 border-2 border-white shadow-sm">
+                                  <AvatarFallback className="bg-indigo-50 text-indigo-600 font-black text-xs">
+                                    {student.name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-black text-slate-900 text-sm tracking-tight">{student.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-5 text-slate-500 font-bold text-xs">{student.class}</td>
+                            <td className="px-6 py-5 text-center">
+                              <span className="font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl text-xs">{student.grade}</span>
+                            </td>
+                            <td className="px-6 py-5 text-right">
+                              <Badge className="bg-emerald-500 text-white border-0 text-[9px] font-black uppercase px-3 py-1 rounded-lg shadow-lg shadow-emerald-500/20">
+                                {student.honor}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Students At Risk Section */}
-      {stats && stats.summary.studentsAtRisk.length > 0 && (
-        <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-          <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-red-100 to-rose-100 px-6 py-5">
+        {/* At-Risk Students - Alert Design */}
+        <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white border-t-[10px] border-t-rose-500">
+          <CardHeader className="p-8 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg">
+                <div className="p-2 rounded-xl bg-rose-50 text-rose-500">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold text-gray-900">Students Needing Attention</CardTitle>
-                  <CardDescription className="text-gray-500 text-sm">
-                    INC (60-74) requires remediation • Failed (&lt;60) must retake
-                  </CardDescription>
+                  <h2 className="text-xl font-black text-slate-900">Urgent Review</h2>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Intervention needed</p>
                 </div>
               </div>
-              <Badge className="bg-red-100 text-red-700 font-semibold">
-                {stats.summary.studentsAtRiskCount} students
+              <Badge className="bg-rose-500 text-white font-black px-2.5 py-1 rounded-lg border-0 shadow-lg shadow-rose-500/20 text-xs">
+                {stats?.summary.studentsAtRisk.length || 0}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="max-h-[280px] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {stats.summary.studentsAtRisk.map((student, index) => {
-                  const isINC = student.grade >= 60 && student.grade < 75;
-                  
-                  return (
-                    <div 
-                      key={`${student.id}-${index}`} 
-                      className={`flex items-center justify-between p-3 rounded-xl border ${
-                        isINC 
-                          ? 'bg-amber-50 border-amber-200' 
-                          : 'bg-red-50 border-red-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          isINC ? 'bg-amber-100' : 'bg-red-100'
-                        }`}>
-                          <span className={`font-bold text-sm ${
-                            isINC ? 'text-amber-600' : 'text-red-600'
-                          }`}>
-                            {student.name.charAt(0)}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-gray-900 text-sm">{student.name}</p>
-                            <Badge 
-                              variant="outline" 
-                              className={`text-[10px] px-1.5 py-0 h-4 ${
-                                isINC 
-                                  ? 'bg-amber-100 text-amber-700 border-amber-300' 
-                                  : 'bg-red-100 text-red-700 border-red-300'
-                              }`}
-                            >
-                              {isINC ? 'INC' : 'FAILED'}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            <span className="font-bold">{student.class.split(' - ')[0]}</span> - <span className="font-bold">{student.class.split(' - ')[1]}</span>
-                          </p>
-                        </div>
+          <CardContent className="p-8 pt-4">
+            <div className="space-y-4 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
+              {stats?.summary.studentsAtRisk && stats.summary.studentsAtRisk.length > 0 ? (
+                stats.summary.studentsAtRisk.map((student, idx) => (
+                  <div key={idx} className="p-5 rounded-[2rem] bg-rose-50/30 border border-rose-100 flex items-center justify-between hover:bg-rose-50 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center text-rose-500">
+                        <Users className="w-5 h-5" />
                       </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-bold ${
-                          isINC ? 'text-amber-600' : 'text-red-600'
-                        }`}>
-                          {student.grade}
-                        </p>
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{student.name}</p>
+                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{student.class}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="text-right">
+                      <p className="text-xl font-black text-rose-600 leading-none">{student.grade}</p>
+                      <p className="text-[9px] font-black text-rose-400 uppercase tracking-tighter mt-1.5">
+                        {student.grade < 60 ? 'CRITICAL' : 'FAILING'}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-20 text-center bg-emerald-50/50 rounded-[2.5rem] border-2 border-dashed border-emerald-100">
+                  <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-emerald-400" />
+                  <p className="font-black text-emerald-800 text-sm uppercase tracking-widest">All students passed</p>
+                  <p className="text-[10px] text-emerald-600 font-bold px-8 mt-2 leading-relaxed">Great job maintaining academic performance across all sections!</p>
+                </div>
+              )}
             </div>
-            {stats.summary.studentsAtRiskCount > 6 && (
-              <p className="text-center text-sm text-gray-400 mt-4">
-                Scroll to see all {stats.summary.studentsAtRiskCount} students at risk
-              </p>
-            )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Recently Updated - ECR Synced Classes */}
-      {(() => {
-        const syncedClasses = data.classAssignments
-          .filter(a => a.ecrLastSyncedAt)
-          .sort((a, b) => new Date(b.ecrLastSyncedAt!).getTime() - new Date(a.ecrLastSyncedAt!).getTime());
-        if (syncedClasses.length === 0) return null;
-
-        const formatRelativeTime = (dateStr: string) => {
-          const syncDate = new Date(dateStr);
-          const now = new Date();
-          const diffMs = now.getTime() - syncDate.getTime();
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffHours = Math.floor(diffMins / 60);
-          const diffDays = Math.floor(diffHours / 24);
-          return diffMins < 1 ? 'Just now' :
-            diffMins < 60 ? `${diffMins}m ago` :
-            diffHours < 24 ? `${diffHours}h ago` :
-            diffDays < 7 ? `${diffDays}d ago` :
-            syncDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-        };
-
-        return (
-          <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-            <CardHeader
-              className="border-b border-gray-100 px-6 py-4"
-              style={{ backgroundColor: `${colors.primary}08` }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl text-white shadow-md" style={{ backgroundColor: colors.primary }}>
-                    <RefreshCw className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base font-bold text-gray-900">Recently Updated</CardTitle>
-                    <CardDescription className="text-gray-500 text-xs">ECR synced classes</CardDescription>
-                  </div>
-                </div>
-                <Badge className="font-medium text-xs px-2.5 py-0.5" style={{ backgroundColor: `${colors.primary}12`, color: colors.primary }}>
-                  {syncedClasses.length} synced
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                {syncedClasses.slice(0, 5).map((assignment) => (
-                  <Link key={assignment.id} to={`/teacher/records/${assignment.id}`} className="block group">
-                    <div
-                      className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${colors.primary}12` }}
-                        >
-                          <CheckCircle2 className="w-5 h-5" style={{ color: colors.primary }} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-gray-900 text-sm truncate">
-                              {assignment.subject?.name ?? 'Subject'}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              className="border font-medium text-[10px] px-1.5 py-0 flex-shrink-0"
-                              style={{
-                                backgroundColor: `${colors.primary}10`,
-                                color: colors.primary,
-                                borderColor: `${colors.primary}20`,
-                              }}
-                            >
-                              {gradeLevelLabels[assignment.section.gradeLevel]?.replace('Grade ', 'G')}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-500 truncate">
-                            Section {assignment.section.name}
-                            {assignment.ecrFileName && (
-                              <span className="text-gray-400"> · {assignment.ecrFileName}</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <span className="text-xs text-gray-400 whitespace-nowrap">
-                          {formatRelativeTime(assignment.ecrLastSyncedAt!)}
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              {syncedClasses.length > 5 && (
-                <p className="text-center text-xs text-gray-400 mt-3">
-                  +{syncedClasses.length - 5} more synced classes
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* My Classes - Compact View */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 overflow-hidden rounded-2xl p-0">
-        <CardHeader 
-          className="border-b border-gray-100 px-6 py-5"
-          style={{ backgroundColor: `${colors.secondary}15` }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div 
-                className="p-2.5 rounded-xl text-white shadow-lg"
-                style={{ backgroundColor: colors.secondary }}
-              >
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-bold text-gray-900">My Classes</CardTitle>
-                <CardDescription className="text-gray-500 text-sm">Quick access to your assigned classes</CardDescription>
-              </div>
-            </div>
-            <Link to="/teacher/classes">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="rounded-xl font-medium"
-                style={{ 
-                  borderColor: `${colors.secondary}50`,
-                  color: colors.secondary
-                }}
-              >
-                View All
-                <ArrowUpRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {data.classAssignments.map((assignment) => (
-              <Link
-                key={assignment.id}
-                to={`/teacher/records/${assignment.id}`}
-                className="block group"
-              >
-                <div 
-                  className="p-4 rounded-xl border border-gray-100 hover:shadow-lg transition-all duration-300 bg-white"
-                  style={{ 
-                    '--hover-border-color': `${colors.primary}40`,
-                    '--hover-shadow-color': `${colors.primary}15`
-                  } as React.CSSProperties}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = colors.primary + '40';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#f3f4f6';
-                  }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <Badge
-                      variant="secondary"
-                      className={`${gradeLevelColors[assignment.section.gradeLevel]} border font-medium text-xs px-2 py-0.5`}
-                      style={{
-                        backgroundColor: `${colors.primary}${gradeLevelOpacity[assignment.section.gradeLevel] || '18'}`,
-                        color: colors.primary,
-                        borderColor: `${colors.primary}30`
-                      }}
-                    >
-                      {gradeLevelLabels[assignment.section.gradeLevel]}
-                    </Badge>
-                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:translate-x-0.5 transition-all" style={{ color: undefined }} />
-                  </div>
-                  <h4 className="font-bold text-gray-900 transition-colors" style={{ color: '#111827' }}>{gradeLevelLabels[assignment.section.gradeLevel]}</h4>
-                  <p className="text-sm text-gray-500 mt-1">Section <span className="font-bold text-gray-700">{assignment.section.name}</span></p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{assignment.section._count?.enrollments ?? assignment.section.enrollments?.length ?? 0} students</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

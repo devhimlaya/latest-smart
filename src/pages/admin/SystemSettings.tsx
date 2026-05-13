@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import {
   Settings,
   Save,
@@ -8,11 +8,11 @@ import {
   CheckCircle2,
   RefreshCw,
   Palette,
-  Upload,
   Loader2,
   AlertTriangle,
   Image,
   Info,
+  Link2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,100 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { adminApi, SERVER_URL } from "@/lib/api";
 import type { SystemSettings as SystemSettingsType } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
 
-// Color extraction utility
-function extractColorsFromImage(imageUrl: string): Promise<{ primary: string; secondary: string; accent: string }> {
-  return new Promise((resolve) => {
-    const img = new window.Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve({ primary: "#10b981", secondary: "#34d399", accent: "#6ee7b7" });
-        return;
-      }
-      
-      // Scale down for performance
-      const scale = Math.min(100 / img.width, 100 / img.height);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imageData.data;
-      
-      // Color frequency map
-      const colorMap: { [key: string]: number } = {};
-      
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
-        const a = pixels[i + 3];
-        
-        // Skip transparent and very light/dark pixels
-        if (a < 128) continue;
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-        if (luminance < 30 || luminance > 225) continue;
-        
-        // Quantize colors to reduce noise
-        const qr = Math.round(r / 32) * 32;
-        const qg = Math.round(g / 32) * 32;
-        const qb = Math.round(b / 32) * 32;
-        
-        const key = `${qr},${qg},${qb}`;
-        colorMap[key] = (colorMap[key] || 0) + 1;
-      }
-      
-      // Sort by frequency
-      const sortedColors = Object.entries(colorMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([key]) => {
-          const [r, g, b] = key.split(",").map(Number);
-          return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-        });
-      
-      // Get distinct colors for primary, secondary, accent
-      const primary = sortedColors[0] || "#10b981";
-      const secondary = sortedColors.find((c, i) => i > 0 && c !== primary) || lightenColor(primary, 0.2);
-      const accent = sortedColors.find((c, i) => i > 1 && c !== primary && c !== secondary) || lightenColor(primary, 0.4);
-      
-      resolve({ primary, secondary, accent });
-    };
-    img.onerror = () => {
-      resolve({ primary: "#10b981", secondary: "#34d399", accent: "#6ee7b7" });
-    };
-    img.src = imageUrl;
-  });
-}
-
-// Default system design colors
-const DEFAULT_DESIGN = {
-  primaryColor: "#10b981",
-  secondaryColor: "#34d399",
-  accentColor: "#6ee7b7",
-};
-
-function lightenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, Math.round(((num >> 16) & 0xff) + (255 - ((num >> 16) & 0xff)) * amount));
-  const g = Math.min(255, Math.round(((num >> 8) & 0xff) + (255 - ((num >> 8) & 0xff)) * amount));
-  const b = Math.min(255, Math.round((num & 0xff) + (255 - (num & 0xff)) * amount));
-  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
-}
 
 const settingsSections = [
   {
@@ -132,7 +42,7 @@ const settingsSections = [
   {
     id: "branding",
     title: "Branding & Theme",
-    description: "Logo and color scheme customization",
+    description: "Logo and colors synced from EnrollPro",
     icon: Palette,
     opacity: 0.16,
   },
@@ -164,7 +74,7 @@ const DEPED_DIVISIONS = [
   // NCR
   "Division of Manila",
   "Division of Quezon City",
-  "Division of Las Piñas",
+  "Division of Las PiÃ±as",
   "Division of Makati",
   "Division of Pasay",
   "Division of Taguig",
@@ -280,14 +190,13 @@ export default function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [resettingDesign, setResettingDesign] = useState(false);
-  const [pendingLogo, setPendingLogo] = useState<{ file: File; previewUrl: string } | null>(null);
-  const [showLogoConfirmDialog, setShowLogoConfirmDialog] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshTheme, colors: themeColors } = useTheme();
+  const hasAutoSyncedRef = useRef(false);
 
   const fetchSettings = async () => {
     try {
@@ -331,6 +240,32 @@ export default function SystemSettings() {
     };
   }, [refreshTheme]);
 
+  // Auto-sync branding from EnrollPro on page load if stale (> 1 hour) or never synced
+  useEffect(() => {
+    if (!settings || hasAutoSyncedRef.current) return;
+    const ONE_HOUR = 60 * 60 * 1000;
+    const lastSync = settings.lastEnrollProSync
+      ? new Date(settings.lastEnrollProSync).getTime()
+      : 0;
+    if (Date.now() - lastSync > ONE_HOUR) {
+      hasAutoSyncedRef.current = true;
+      setSyncing(true);
+      setSyncError(null);
+      adminApi
+        .syncFromEnrollPro()
+        .then((response) => {
+          setSettings(response.data.settings);
+          refreshTheme();
+          setSyncSuccess(true);
+          setTimeout(() => setSyncSuccess(false), 5000);
+        })
+        .catch((err) => {
+          console.warn("[Auto-sync] EnrollPro branding sync failed:", err);
+        })
+        .finally(() => setSyncing(false));
+    }
+  }, [settings?.lastEnrollProSync]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleChange = (field: keyof SystemSettingsType, value: string | boolean) => {
     if (!settings) return;
     setSettings((prev) => prev ? { ...prev, [field]: value } : prev);
@@ -356,134 +291,25 @@ export default function SystemSettings() {
     }
   };
 
-  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Create preview URL
-    const previewUrl = URL.createObjectURL(file);
-    setPendingLogo({ file, previewUrl });
-    setShowLogoConfirmDialog(true);
-    
-    // Clear the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
   const handleCancelLogo = () => {
-    if (pendingLogo) {
-      URL.revokeObjectURL(pendingLogo.previewUrl);
-    }
-    setPendingLogo(null);
-    setShowLogoConfirmDialog(false);
+    // kept for compatibility â€” no longer used
   };
 
-
-
-  const handleConfirmLogo = async () => {
-    if (!pendingLogo || !settings) return;
-
+  const handleSyncFromEnrollPro = async () => {
     try {
-      setUploadingLogo(true);
-      setShowLogoConfirmDialog(false);
-      
-      // Upload the logo
-      const response = await adminApi.uploadLogo(pendingLogo.file);
-      
-      if (response.data.logoUrl) {
-        const logoUrl = response.data.logoUrl;
-        
-        // Extract colors from the new logo automatically
-        const fullLogoUrl = logoUrl.startsWith("http") 
-          ? logoUrl 
-          : `${SERVER_URL}${logoUrl}`;
-        
-        const colors = await extractColorsFromImage(fullLogoUrl);
-        
-        // Update colors via API
-        await adminApi.updateColors({
-          primaryColor: colors.primary,
-          secondaryColor: colors.secondary,
-          accentColor: colors.accent,
-        });
-        
-        // Update local state
-        setSettings({
-          ...settings,
-          logoUrl,
-          primaryColor: colors.primary,
-          secondaryColor: colors.secondary,
-          accentColor: colors.accent,
-        });
-        
-        // Refresh the theme context so sidebar colors update immediately
-        await refreshTheme();
-        
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (err) {
-      console.error("Failed to upload logo:", err);
-      alert("Failed to upload logo. Please try again.");
-    } finally {
-      setUploadingLogo(false);
-      if (pendingLogo) {
-        URL.revokeObjectURL(pendingLogo.previewUrl);
-      }
-      setPendingLogo(null);
-    }
-  };
-
-  const handleColorChange = async (field: "primaryColor" | "secondaryColor" | "accentColor", value: string) => {
-    if (!settings) return;
-    
-    const newSettings = { ...settings, [field]: value };
-    setSettings(newSettings);
-    
-    try {
-      await adminApi.updateColors({
-        primaryColor: newSettings.primaryColor || DEFAULT_DESIGN.primaryColor,
-        secondaryColor: newSettings.secondaryColor || DEFAULT_DESIGN.secondaryColor,
-        accentColor: newSettings.accentColor || DEFAULT_DESIGN.accentColor,
-      });
-      // Refresh theme so sidebar updates immediately
+      setSyncing(true);
+      setSyncError(null);
+      setSyncSuccess(false);
+      const response = await adminApi.syncFromEnrollPro();
+      setSettings(response.data.settings);
       await refreshTheme();
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 5000);
     } catch (err) {
-      console.error("Failed to update color:", err);
-    }
-  };
-
-  const handleResetToDefault = async () => {
-    if (!settings) return;
-    
-    try {
-      setResettingDesign(true);
-      
-      // Update colors via API
-      await adminApi.updateColors({
-        primaryColor: DEFAULT_DESIGN.primaryColor,
-        secondaryColor: DEFAULT_DESIGN.secondaryColor,
-        accentColor: DEFAULT_DESIGN.accentColor,
-      });
-      
-      setSettings({
-        ...settings,
-        primaryColor: DEFAULT_DESIGN.primaryColor,
-        secondaryColor: DEFAULT_DESIGN.secondaryColor,
-        accentColor: DEFAULT_DESIGN.accentColor,
-      });
-      
-      // Refresh theme so sidebar updates immediately
-      await refreshTheme();
-      
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Failed to reset to default design:", err);
-      alert("Failed to reset to default design");
+      console.error("Failed to sync from EnrollPro:", err);
+      setSyncError("Failed to sync from EnrollPro. Please check the connection and try again.");
     } finally {
-      setResettingDesign(false);
+      setSyncing(false);
     }
   };
 
@@ -665,12 +491,62 @@ export default function SystemSettings() {
             </div>
             <div>
               <CardTitle className="text-lg" style={{ color: '#111827' }}>Branding & Theme</CardTitle>
-              <CardDescription>Customize school logo and system color scheme</CardDescription>
+              <CardDescription>Logo and colors synchronized from EnrollPro</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          {/* Logo Upload */}
+          {/* EnrollPro Sync Status */}
+          <div className="mb-8 p-4 rounded-xl border border-blue-100 bg-blue-50/50">
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-lg bg-blue-100 shrink-0">
+                <Link2 className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-blue-900">Connected to EnrollPro</h4>
+                <p className="text-sm text-blue-700 mt-1">
+                  School branding, logo, and color scheme are automatically synchronized from EnrollPro every hour. You can also sync manually anytime.
+                </p>
+                {syncing && (
+                  <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin inline" />
+                    Syncing from EnrollPro...
+                  </p>
+                )}
+                {!syncing && settings.lastEnrollProSync && (
+                  <p className="text-xs text-blue-600 mt-1.5">
+                    Last synced: {new Date(settings.lastEnrollProSync).toLocaleString()}
+                  </p>
+                )}
+                {!syncing && !settings.lastEnrollProSync && (
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    Not synced yet — auto-sync will run shortly, or click the button.
+                  </p>
+                )}
+                {syncError && (
+                  <p className="text-xs text-red-600 mt-1.5">{syncError}</p>
+                )}
+                {syncSuccess && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                    <p className="text-xs text-green-700 font-medium">Branding synced successfully!</p>
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                className="gap-2 rounded-xl shrink-0"
+                style={{ borderColor: `${themeColors.primary}50`, color: themeColors.primary }}
+                onClick={handleSyncFromEnrollPro}
+                disabled={syncing}
+              >
+                {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                {syncing ? "Syncing..." : "Sync from EnrollPro"}
+              </Button>
+            </div>
+          </div>
+
+          {/* School Logo (read-only) */}
           <div className="mb-8">
             <Label className="text-sm font-semibold text-gray-700 mb-4 block">School Logo</Label>
             <div className="flex items-start gap-6">
@@ -685,103 +561,46 @@ export default function SystemSettings() {
                   <Image className="w-12 h-12 text-gray-300" />
                 )}
               </div>
-              <div className="flex-1 space-y-4">
+              <div className="flex-1 space-y-2">
                 <p className="text-sm text-gray-600">
-                  Upload your school logo to personalize the system. The logo will appear on forms, reports, and the login page. Colors will be automatically extracted from the logo.
+                  Your school logo is pulled from EnrollPro. To change the logo, upload it in EnrollPro first, then click <strong>Sync from EnrollPro</strong> above.
                 </p>
-                <div className="flex items-center gap-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    className="gap-2 rounded-xl"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                  >
-                    {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    {uploadingLogo ? "Uploading..." : "Upload Logo"}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500">Supports PNG, JPG, SVG. Max 5MB. Colors will be auto-extracted.</p>
+                <p className="text-xs text-gray-500">
+                  The logo is displayed as a circle on login pages, reports, and printed forms.
+                </p>
               </div>
             </div>
           </div>
 
           <Separator className="my-6" />
 
-          {/* Color Scheme */}
+          {/* Color Scheme (read-only) */}
           <div>
-            <Label className="text-sm font-semibold text-gray-700 mb-4 block">Color Scheme</Label>
+            <Label className="text-sm font-semibold text-gray-700 mb-2 block">Color Scheme</Label>
             <p className="text-sm text-gray-600 mb-4">
-              Customize the system's color scheme. You can manually select colors or extract them from your uploaded logo.
+              Colors are automatically extracted from your school logo in EnrollPro and applied system-wide.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <Label htmlFor="primaryColor" className="text-sm font-medium text-gray-600">Primary Color</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    id="primaryColor"
-                    value={settings.primaryColor || DEFAULT_DESIGN.primaryColor}
-                    onChange={(e) => handleColorChange("primaryColor", e.target.value)}
-                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <Input
-                      value={settings.primaryColor || DEFAULT_DESIGN.primaryColor}
-                      onChange={(e) => handleColorChange("primaryColor", e.target.value)}
-                      className="rounded-xl border-gray-200 font-mono text-sm"
-                    />
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-600">Primary</Label>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="w-10 h-10 rounded-lg border border-gray-200 shrink-0" style={{ backgroundColor: settings.primaryColor }} />
+                  <span className="text-sm font-mono text-gray-700">{settings.primaryColor}</span>
                 </div>
-                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.primaryColor || DEFAULT_DESIGN.primaryColor }} />
               </div>
-              
-              <div className="space-y-3">
-                <Label htmlFor="secondaryColor" className="text-sm font-medium text-gray-600">Secondary Color</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    id="secondaryColor"
-                    value={settings.secondaryColor || DEFAULT_DESIGN.secondaryColor}
-                    onChange={(e) => handleColorChange("secondaryColor", e.target.value)}
-                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <Input
-                      value={settings.secondaryColor || DEFAULT_DESIGN.secondaryColor}
-                      onChange={(e) => handleColorChange("secondaryColor", e.target.value)}
-                      className="rounded-xl border-gray-200 font-mono text-sm"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-600">Secondary</Label>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="w-10 h-10 rounded-lg border border-gray-200 shrink-0" style={{ backgroundColor: settings.secondaryColor }} />
+                  <span className="text-sm font-mono text-gray-700">{settings.secondaryColor}</span>
                 </div>
-                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.secondaryColor || DEFAULT_DESIGN.secondaryColor }} />
               </div>
-              
-              <div className="space-y-3">
-                <Label htmlFor="accentColor" className="text-sm font-medium text-gray-600">Accent Color</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    id="accentColor"
-                    value={settings.accentColor || DEFAULT_DESIGN.accentColor}
-                    onChange={(e) => handleColorChange("accentColor", e.target.value)}
-                    className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <Input
-                      value={settings.accentColor || DEFAULT_DESIGN.accentColor}
-                      onChange={(e) => handleColorChange("accentColor", e.target.value)}
-                      className="rounded-xl border-gray-200 font-mono text-sm"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-600">Accent</Label>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="w-10 h-10 rounded-lg border border-gray-200 shrink-0" style={{ backgroundColor: settings.accentColor }} />
+                  <span className="text-sm font-mono text-gray-700">{settings.accentColor}</span>
                 </div>
-                <div className="h-10 rounded-xl" style={{ backgroundColor: settings.accentColor || DEFAULT_DESIGN.accentColor }} />
               </div>
             </div>
 
@@ -789,48 +608,14 @@ export default function SystemSettings() {
             <div className="mt-6 p-4 rounded-xl bg-gray-50">
               <Label className="text-sm font-medium text-gray-600 mb-3 block">Preview</Label>
               <div className="flex items-center gap-4">
-                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.primaryColor || DEFAULT_DESIGN.primaryColor }}>
-                  Primary Button
+                <div className="flex-1 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: settings.primaryColor }}>
+                  Primary
                 </div>
-                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.secondaryColor || DEFAULT_DESIGN.secondaryColor }}>
+                <div className="flex-1 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: settings.secondaryColor }}>
                   Secondary
                 </div>
-                <div className="flex-1 h-14 rounded-xl flex items-center justify-center text-white font-semibold" style={{ backgroundColor: settings.accentColor || DEFAULT_DESIGN.accentColor }}>
+                <div className="flex-1 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: settings.accentColor }}>
                   Accent
-                </div>
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            {/* Reset to Default Design */}
-            <div className="p-4 rounded-xl border" style={{ backgroundColor: `${themeColors.primary}10`, borderColor: `${themeColors.primary}30` }}>
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg" style={{ backgroundColor: `${themeColors.primary}20` }}>
-                  <RefreshCw className="w-5 h-5" style={{ color: themeColors.primary }} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold" style={{ color: themeColors.primary }}>Default System Design</h4>
-                  <p className="text-sm mt-1" style={{ color: `${themeColors.primary}cc` }}>
-                    Reset to the default green color scheme. This is useful if you encounter issues with custom colors or want to start fresh.
-                  </p>
-                  <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.primaryColor }} />
-                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.secondaryColor }} />
-                      <div className="w-6 h-6 rounded" style={{ backgroundColor: DEFAULT_DESIGN.accentColor }} />
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="gap-2 rounded-xl"
-                      style={{ borderColor: `${themeColors.primary}50`, color: themeColors.primary }}
-                      onClick={handleResetToDefault}
-                      disabled={resettingDesign}
-                    >
-                      {resettingDesign ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                      Reset to Default
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -858,9 +643,9 @@ export default function SystemSettings() {
               <Label htmlFor="currentSchoolYear" className="text-sm font-semibold text-gray-700">
                 Academic Year
               </Label>
-              <Select value={settings.currentSchoolYear || "2025-2026"} onValueChange={(val) => val && handleChange("currentSchoolYear", val)}>
+              <Select value={settings.currentSchoolYear || "2026-2027"} onValueChange={(val) => val && handleChange("currentSchoolYear", val)}>
                 <SelectTrigger className="rounded-xl border-gray-200">
-                  <SelectValue>{settings.currentSchoolYear || "2025-2026"}</SelectValue>
+                  <SelectValue>{settings.currentSchoolYear || "2026-2027"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="2024-2025">2024-2025</SelectItem>
@@ -1197,56 +982,6 @@ export default function SystemSettings() {
         </CardContent>
       </Card>
 
-      {/* Logo Upload Confirmation Dialog */}
-      <Dialog open={showLogoConfirmDialog} onOpenChange={(open) => !open && handleCancelLogo()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Logo Upload</DialogTitle>
-            <DialogDescription>
-              This will set the new logo and automatically extract colors from it to update the system theme.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {pendingLogo && (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="w-36 h-36 rounded-full border-2 border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden shadow-md">
-                <img
-                  src={pendingLogo.previewUrl}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <p className="text-sm text-gray-500 text-center">
-                The logo will be displayed as a circle. Colors will be auto-extracted.
-              </p>
-            </div>
-          )}
-          
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={handleCancelLogo} className="rounded-xl">
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleConfirmLogo} 
-              className="rounded-xl text-white"
-              style={{ backgroundColor: themeColors.primary }}
-              disabled={uploadingLogo}
-            >
-              {uploadingLogo ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Confirm & Upload
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

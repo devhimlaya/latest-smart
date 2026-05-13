@@ -57,6 +57,20 @@ const extractSubjectName = (filename: string): string => {
   return name.trim();
 };
 
+const getFriendlySubjectType = (subjectType: string | null): string => {
+  if (!subjectType) return 'Not set yet';
+  if (subjectType === 'MATH_SCIENCE') return 'Math & Science';
+  if (subjectType === 'MAPEH') return 'MAPEH';
+  if (subjectType === 'TLE') return 'TLE';
+  if (subjectType === 'CORE') return 'Core Subjects';
+  return subjectType;
+};
+
+const getFriendlyUploader = (uploadedByName: string): string => {
+  if (!uploadedByName || /^\d+$/.test(uploadedByName)) return 'Admin';
+  return uploadedByName;
+};
+
 export default function ECRTemplateManager() {
   const [templates, setTemplates] = useState<ECRTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +92,7 @@ export default function ECRTemplateManager() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+  const [loadError, setLoadError] = useState('');
   
   // Bulk upload state
   const [bulkUploadItems, setBulkUploadItems] = useState<BulkUploadItem[]>([]);
@@ -107,6 +122,7 @@ export default function ECRTemplateManager() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const token = sessionStorage.getItem('token');
       const response = await axios.get(`${SERVER_URL}/api/ecr-templates`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -114,6 +130,13 @@ export default function ECRTemplateManager() {
       setTemplates(response.data.data || []);
     } catch (error: any) {
       console.error('Failed to fetch ECR templates:', error);
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.response?.data?.error;
+      if (status === 401 || status === 403) {
+        setLoadError('Session expired or invalid token. Please log out and log in again, then refresh this page.');
+      } else {
+        setLoadError(message || 'Failed to load ECR templates from server.');
+      }
     } finally {
       setLoading(false);
     }
@@ -452,6 +475,15 @@ export default function ECRTemplateManager() {
 
       {/* Templates Table */}
       <Card className="p-6">
+        {loadError && (
+          <div className="mb-4 p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Could not load ECR templates</p>
+              <p>{loadError}</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-900">
             ECR Templates ({filteredTemplates.length})
@@ -503,15 +535,15 @@ export default function ECRTemplateManager() {
                     <TableCell>
                       {template.subjectType ? (
                         <Badge variant="outline" className="text-xs">
-                          {template.subjectType === 'PE_HEALTH' ? 'PE/Health' : template.subjectType === 'MATH_SCIENCE' ? 'Math & Science' : template.subjectType}
+                          {getFriendlySubjectType(template.subjectType)}
                         </Badge>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-400">Not set yet</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">{template.fileName}</TableCell>
                     <TableCell className="text-sm text-slate-600">{formatFileSize(template.fileSize)}</TableCell>
-                    <TableCell className="text-sm text-slate-600">{template.uploadedByName}</TableCell>
+                    <TableCell className="text-sm text-slate-600">{getFriendlyUploader(template.uploadedByName)}</TableCell>
                     <TableCell className="text-sm text-slate-600">{formatDate(template.createdAt)}</TableCell>
                     <TableCell>
                       <Badge variant={template.isActive ? 'default' : 'secondary'}>
@@ -665,7 +697,6 @@ export default function ECRTemplateManager() {
                     <option value="MATH_SCIENCE">Math &amp; Science (40% WW / 40% PT / 20% QA)</option>
                     <option value="MAPEH">MAPEH — Music, Arts, PE, Health (20% WW / 60% PT / 20% QA)</option>
                     <option value="TLE">TLE / Home Economics (20% WW / 60% PT / 20% QA)</option>
-                    <option value="PE_HEALTH">PE / Health (20% WW / 60% PT / 20% QA)</option>
                   </select>
                   <p className="text-xs text-slate-500">
                     Tag this template so it is automatically used for all subjects of this type when no exact name match is found.
@@ -771,7 +802,6 @@ export default function ECRTemplateManager() {
                                   <option value="MATH_SCIENCE">Math &amp; Science</option>
                                   <option value="MAPEH">MAPEH</option>
                                   <option value="TLE">TLE / Home Economics</option>
-                                  <option value="PE_HEALTH">PE / Health</option>
                                 </select>
                               </div>
                               <div>
@@ -885,7 +915,7 @@ export default function ECRTemplateManager() {
                   <p className="text-slate-500 text-xs mb-1">Subject Type</p>
                   {selectedTemplate.subjectType ? (
                     <Badge variant="outline">
-                      {selectedTemplate.subjectType === 'PE_HEALTH' ? 'PE / Health' : selectedTemplate.subjectType === 'MATH_SCIENCE' ? 'Math & Science' : selectedTemplate.subjectType}
+                      {selectedTemplate.subjectType === 'MATH_SCIENCE' ? 'Math & Science' : selectedTemplate.subjectType}
                     </Badge>
                   ) : (
                     <span className="text-xs text-slate-500">Not set (name-only match)</span>

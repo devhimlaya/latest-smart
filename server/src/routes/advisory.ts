@@ -1,6 +1,8 @@
 import { Router, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { authenticateToken, AuthRequest, authorizeRoles } from "../middleware/auth";
+import { syncTeacherOnLogin } from "../lib/teacherSync";
+import { invalidateEnrollProToken } from "../lib/enrollproClient";
 import type { Student, Enrollment, Section, ClassAssignment, Subject, Teacher, User, Grade } from "@prisma/client";
 
 const router = Router();
@@ -43,9 +45,14 @@ router.get(
         return;
       }
 
-      // Find advisory section assigned to this teacher
+      // Get current school year from system settings
+      const systemSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
+
+      // Find advisory section assigned to this teacher for the current school year.
+      // Advisory display is strict to current SY to avoid showing stale assignments.
       const advisorySection = await prisma.section.findFirst({
-        where: { adviserId: teacher.id } as any,
+        where: { adviserId: teacher.id, schoolYear: currentSchoolYear } as any,
         include: {
           enrollments: {
             where: { status: "ENROLLED" },
@@ -370,8 +377,11 @@ router.get(
         return;
       }
 
+      const systemSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
+
       const advisorySection = await prisma.section.findFirst({
-        where: { adviserId: teacher.id } as any,
+        where: { adviserId: teacher.id, schoolYear: currentSchoolYear } as any,
         include: {
           enrollments: {
             where: { status: "ENROLLED" },
@@ -473,6 +483,51 @@ router.get(
     } catch (error) {
       console.error("Error fetching advisory summary:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  }
+);
+
+// Manually trigger a sync from EnrollPro for the logged-in teacher
+router.post(
+  "/sync",
+  authenticateToken,
+  authorizeRoles("TEACHER"),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: req.user?.id },
+        include: { user: { select: { email: true } } },
+      });
+
+      if (!teacher) {
+        res.status(404).json({ message: "Teacher profile not found" });
+        return;
+      }
+
+      if (!teacher.employeeId || !teacher.user.email) {
+        res.status(400).json({ message: "Teacher profile is missing employee ID or email" });
+        return;
+      }
+
+      // Force fresh EnrollPro token so stale auth does not serve cached data
+      invalidateEnrollProToken();
+
+      const result = await syncTeacherOnLogin(
+        teacher.id,
+        teacher.employeeId,
+        teacher.user.email,
+      );
+
+      res.json({
+        success: true,
+        studentsFound: result.studentsFound,
+        studentsUpserted: result.studentsUpserted,
+        advisorySection: result.advisorySection,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error syncing advisory:", error);
+      res.status(500).json({ message: "Sync failed" });
     }
   }
 );

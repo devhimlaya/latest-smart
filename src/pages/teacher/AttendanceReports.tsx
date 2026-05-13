@@ -201,11 +201,11 @@ export default function AttendanceReports() {
           <CardDescription>Select section and date range to generate report</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="md:col-span-2">
               <Label htmlFor="section">Section</Label>
               <Select value={selectedSection} onValueChange={setSelectedSection}>
-                <SelectTrigger id="section">
+                <SelectTrigger id="section" className="w-full truncate">
                   <SelectValue placeholder="Select section">
                     {selectedSection && sections.length > 0 ? (
                       (() => {

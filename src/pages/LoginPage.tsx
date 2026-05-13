@@ -236,10 +236,10 @@ export default function LoginPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Email Field */}
+                {/* Employee ID Field */}
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-gray-800 font-semibold text-sm pl-1">
-                    Email Address
+                    Employee ID
                   </Label>
                   <div className="relative group">
                     <div className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center pointer-events-none z-10">
@@ -249,8 +249,8 @@ export default function LoginPage() {
                     </div>
                     <Input
                       id="email"
-                      type="email"
-                      placeholder="Enter your DepEd email"
+                      type="text"
+                      placeholder="Enter your Employee ID"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-12 h-11 bg-gray-50/80 border-gray-200 hover:border-gray-300 focus:ring-4 rounded-xl transition-all duration-200 placeholder:text-gray-400 text-gray-900 font-medium"
@@ -352,10 +352,10 @@ export default function LoginPage() {
                     type="button"
                     className="text-center py-2 px-4 rounded-lg border hover:scale-105 transition-transform cursor-pointer"
                     style={{ backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}20` }}
-                    onClick={() => { setEmail('miguel.valdez@deped.edu.ph'); setPassword('DepEd2026!'); }}
+                    onClick={() => { setEmail('3179586'); setPassword('DepEd2026!'); }}
                   >
                     <p className="font-bold text-sm" style={{ color: colors.primary }}>Demo Teacher</p>
-                    <p className="text-gray-500 text-xs mt-0.5 font-mono">miguel.valdez@ / DepEd2026!</p>
+                    <p className="text-gray-500 text-xs mt-0.5 font-mono">3179586 / DepEd2026!</p>
                   </button>
                 </div>
               </div>

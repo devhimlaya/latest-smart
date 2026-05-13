@@ -26,6 +26,60 @@
 
 ## 🔵 APIs YOU PROVIDE (Other teams can call these)
 
+### Admin Dashboard Stats
+```
+GET /api/admin/dashboard
+```
+
+**Purpose:** Returns admin dashboard counters and recent system activity.
+
+**Notes:**
+- `stats.totalStudents` is based on EnrollPro-synced enrollment data (`Enrollment` records with `status = ENROLLED`).
+- The count prefers the configured current school year, then falls back to the latest synced school year when needed.
+- `stats.studentCountSchoolYear` indicates which school year was used for the student count.
+
+### Admin Template Re-index
+```
+POST /api/admin/templates/reindex
+```
+
+**Purpose:** Re-register template files already present on disk into database records so they appear in Admin Template Managers.
+
+**Auth:** Admin only.
+
+**Request Body (optional):**
+```json
+{
+  "target": "all"
+}
+```
+
+**Allowed `target` values:**
+- `all` (default): re-index SF + ECR
+- `sf`: re-index SF forms only (`uploads/templates`)
+- `ecr`: re-index ECR templates only (`uploads/ecr-templates`)
+
+**Response:**
+```json
+{
+  "message": "Template re-index completed",
+  "result": {
+    "target": "all",
+    "sf": {
+      "filesScanned": 0,
+      "formsDetected": 0,
+      "upserted": 0,
+      "skippedNoMatch": 0
+    },
+    "ecr": {
+      "filesScanned": 0,
+      "created": 0,
+      "skippedExisting": 0
+    }
+  }
+}
+```
+
 ### 1. Get Student Grades by LRN
 ```
 GET http://100.93.66.120:3000/api/grades/student/:lrn
@@ -1173,6 +1227,216 @@ Let's test Tailscale once everyone's servers are running! 🚀
 .\test-tailscale-servers.ps1
 ```
 
+---
+
+## 🔗 Integration Routes (`/api/integration`)
+
+Routes that proxy data from EnrollPro, ATLAS, and AIMS into SMART.  
+Base URL: `http://localhost:5003`  
+All routes require `Authorization: Bearer <SMART_JWT>`.
+
+---
+
+### Health Check
+
+#### `GET /api/integration/status`
+Checks live connectivity to all 3 external systems.
+
+**Auth:** Any authenticated SMART user  
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "enrollpro": { "online": true },
+    "atlas": { "online": true },
+    "aims": { "online": true },
+    "checkedAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### EnrollPro Integration
+
+#### `GET /api/integration/enrollpro/my-advisory`
+Returns the logged-in teacher's advisory section and full student roster from EnrollPro.  
+Matched by teacher email. Uses `SY9` (2025–2026) data.
+
+**Auth:** `TEACHER` role  
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "teacher": { "enrollproId": 12, "name": "Juan Dela Cruz", "email": "juan@deped.edu.ph" },
+    "advisory": {
+      "enrollproSectionId": 5,
+      "sectionName": "7-Sampaguita",
+      "gradeLevel": "Grade 7",
+      "schoolYear": "2025-2026",
+      "studentCount": 45,
+      "students": [
+        { "enrollproId": 1, "lrn": "122564000001", "firstName": "Maria", "lastName": "Santos", "sex": "F", "status": "ENROLLED" }
+      ]
+    }
+  }
+}
+```
+
+---
+
+#### `GET /api/integration/enrollpro/sections`
+Returns all sections from EnrollPro with adviser info.
+
+**Auth:** Any authenticated user  
+**Response:** `{ "success": true, "data": [ ...EnrollPro sections... ] }`
+
+---
+
+#### `GET /api/integration/enrollpro/section-roster/:enrollproSectionId`
+Returns the student roster for a specific EnrollPro section.
+
+**Auth:** Any authenticated user  
+**Params:** `enrollproSectionId` — numeric EnrollPro section ID  
+**Response:** `{ "success": true, "data": { "learners": [...] } }`
+
+---
+
+#### `GET /api/integration/enrollpro/faculty`
+Returns all faculty from EnrollPro with advisory assignments.
+
+**Auth:** `ADMIN` or `REGISTRAR` role  
+**Response:** `{ "success": true, "data": [ ...EnrollPro faculty... ] }`
+
+---
+
+### ATLAS Integration
+
+#### `GET /api/integration/atlas/my-teaching-load`
+Returns the logged-in teacher's class assignments from the SMART local DB (synced from ATLAS every 30 min).
+
+**Auth:** `TEACHER` role  
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "teacherId": 42,
+    "teacherName": "Juan Dela Cruz",
+    "email": "juan@deped.edu.ph",
+    "classAssignments": [
+      {
+        "id": 1,
+        "subjectName": "Mathematics 7",
+        "sectionName": "7-Sampaguita",
+        "gradeLevel": "Grade 7",
+        "dayOfWeek": "Monday",
+        "startTime": "07:30",
+        "endTime": "08:30"
+      }
+    ],
+    "totalAssignments": 6
+  }
+}
+```
+
+---
+
+### AIMS Integration
+
+#### `POST /api/integration/aims/auth`
+Authenticates the logged-in teacher against AIMS using their DepEd email and AIMS-specific password.  
+Returns an `aimsToken` to use in subsequent AIMS requests via `X-Aims-Token` header.
+
+**Auth:** `TEACHER` role  
+**Request body:**
+```json
+{ "aimsPassword": "teacher_aims_password" }
+```
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "...",
+    "expiresIn": 900
+  }
+}
+```
+
+---
+
+#### `POST /api/integration/aims/refresh`
+Refreshes an expired AIMS access token using a refresh token.
+
+**Auth:** `TEACHER` role  
+**Request body:** `{ "refreshToken": "..." }`  
+**Response:** `{ "success": true, "data": { "accessToken": "...", "expiresIn": 900 } }`
+
+---
+
+#### `GET /api/integration/aims/courses`
+Returns the teacher's courses (section–subject combos) from AIMS.
+
+**Auth:** `TEACHER` role  
+**Headers:** `X-Aims-Token: <aimsToken>`  
+**Response:** `{ "success": true, "data": [ ...AIMS courses... ] }`
+
+---
+
+#### `GET /api/integration/aims/gradebook/:courseId`
+Returns the full DepEd-format gradebook for an AIMS course (WW/PT categories, quarterly grades).
+
+**Auth:** `TEACHER` role  
+**Headers:** `X-Aims-Token: <aimsToken>`  
+**Params:** `courseId` — AIMS course ID  
+**Response:** `{ "success": true, "data": { ...gradebook... } }`
+
+---
+
+#### `GET /api/integration/aims/students/:courseId`
+Returns students enrolled in an AIMS course.
+
+**Auth:** `TEACHER` role  
+**Headers:** `X-Aims-Token: <aimsToken>`  
+**Params:** `courseId` — AIMS course ID  
+**Response:** `{ "success": true, "data": [ ...students... ] }`
+
+---
+
+#### `GET /api/integration/aims/dashboard`
+Returns an overview of the teacher's dashboard stats from AIMS.
+
+**Auth:** `TEACHER` role  
+**Headers:** `X-Aims-Token: <aimsToken>`  
+**Response:** `{ "success": true, "data": { ...dashboard stats... } }`
+
+---
+
+### External System Credentials (Setup)
+
+These are configured in `server/.env` and are not exposed to the frontend:
+
+| Variable | Purpose |
+|---|---|
+| `ENROLLPRO_BASE_URL` | `https://dev-jegs.buru-degree.ts.net/api` |
+| `ENROLLPRO_ACCOUNT_NAME` | Admin account ID (e.g. `1000001`) — used as `accountName` in login |
+| `ENROLLPRO_PASSWORD` | Admin account password |
+| `ENROLLPRO_SCHOOL_YEAR_ID` | `28` (2025–2026, has real advisory data; `29` = 2026–2027 active/empty) |
+| `AIMS_BASE_URL` | `http://100.92.245.14:5000/api/v1` |
+| `ATLAS_SYSTEM_TOKEN` | Long-lived ATLAS SYSTEM_ADMIN JWT |
+
+> **EnrollPro API v2 notes (updated May 2026):**
+> - Auth: `POST /auth/login` with `{accountName, password}` — **no longer accepts `email`**
+> - Faculty teachers log in with their `employeeId` as `accountName`
+> - `/integration/v1/*` endpoints are **removed** — replaced by `/teachers`, `/sections`, `/students`
+> - Sections are returned grouped under `{gradeLevels: [{gradeLevelId, gradeLevelName, sections: [...]}]}`
+> - Advisory teacher per section is `section.advisingTeacher: {id, name}` — match via `/teachers` to get `employeeId`
+> - Students: `GET /students?sectionId=:id&schoolYearId=:sy` → `{students: [...], pagination: {...}}`
+
 ### Manual test - Check if all team servers are running:
 ```powershell
 # Test all teams at once (port 3000)
@@ -1373,3 +1637,40 @@ syncFromDevJegs();
 4. 📝 Get dev-jegs' exact endpoint names (/api/learners? /api/students? /api/enrollments?)
 5. 📝 Get njgrm's sections endpoint
 6. 🔗 Once confirmed, build the integration code to sync from dev-jegs
+
+---
+
+## EnrollPro Branding Sync
+
+### POST /api/admin/settings/sync-enrollpro
+
+**Auth:** Admin JWT required (Authorization: Bearer <token>)
+
+**Purpose:** Fetches school branding (name, logo, colors) from EnrollPro's public settings and saves them to SMART's local database. Also downloads the logo file locally.
+
+**Request Body:** None (empty POST)
+
+**Response (200 OK):**
+```json
+{
+  "message": "Settings synced from EnrollPro",
+  "settings": {
+    "id": 1,
+    "schoolName": "Hinigaran National High School",
+    "logoUrl": "/uploads/logo-enrollpro-sync.png",
+    "primaryColor": "#4b0000",
+    "secondaryColor": "#8a2020",
+    "accentColor": "#c13030",
+    "currentSchoolYear": "2026-2027",
+    "contactEmail": "302651@deped.gov.ph",
+    "lastEnrollProSync": "2026-05-15T10:30:00.000Z"
+  }
+}
+```
+
+**Notes:**
+- Colors are extracted from EnrollPro's colorScheme.palette (filters luminance 30�210, picks top 3 as primary/secondary/accent)
+- Logo is downloaded from https://dev-jegs.buru-degree.ts.net + EnrollPro's logoUrl and saved as uploads/logo-enrollpro-sync.png
+- A SMART audit log entry is created on each sync
+- An SSE broadcast (settings_updated) is sent to all connected clients
+- lastEnrollProSync records when the last sync occurred

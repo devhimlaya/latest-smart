@@ -185,6 +185,13 @@ export const gradesApi = {
     api.get<{
       classAssignment: ClassAssignment;
       classRecord: ClassRecord[];
+      effectiveWeights?: {
+        ww: number;
+        pt: number;
+        qa: number;
+        source: "subject" | "generic-fallback";
+        hasExactEcrTemplate: boolean;
+      };
     }>(`/grades/class-record/${classAssignmentId}`, {
       params: quarter ? { quarter } : {},
     }),
@@ -428,6 +435,8 @@ export interface AdvisorySummary {
 
 export const advisoryApi = {
   getMyAdvisory: () => api.get<AdvisoryData>("/advisory/my-advisory"),
+  syncFromEnrollPro: () => api.post("/advisory/sync"),
+
 
   getStudentGrades: (studentId: string, schoolYear?: string) =>
     api.get<StudentGradeProfile>(`/advisory/student/${studentId}/grades`, {
@@ -626,6 +635,7 @@ export interface AdminDashboardStats {
   totalUsers: number;
   totalTeachers: number;
   totalStudents: number;
+  studentCountSchoolYear?: string | null;
   totalAdmins: number;
   totalRegistrars: number;
   activeUsers: number;
@@ -721,6 +731,7 @@ export interface SystemSettings {
   maxLoginAttempts: number;
   passwordMinLength: number;
   requireSpecialChar: boolean;
+  lastEnrollProSync?: string;
 }
 
 export interface GradingConfig {
@@ -793,6 +804,9 @@ export const adminApi = {
       colors
     ),
 
+  syncFromEnrollPro: () =>
+    api.post<{ message: string; settings: SystemSettings }>("/admin/settings/sync-enrollpro", {}),
+
   // Grading Config
   getGradingConfig: () => api.get<{ configs: GradingConfig[] }>("/admin/grading-config"),
 
@@ -802,6 +816,23 @@ export const adminApi = {
   ) => api.put<{ message: string; config: GradingConfig }>(`/admin/grading-config/${subjectType}`, data),
 
   resetGradingConfig: () => api.post<{ message: string; configs: GradingConfig[] }>("/admin/grading-config/reset"),
+
+  // Class Assignments (Teaching Load)
+  getClassAssignmentOptions: (schoolYear?: string) =>
+    api.get<{ teachers: any[]; subjects: any[]; sections: any[] }>("/admin/class-assignments/options", {
+      params: schoolYear ? { schoolYear } : {},
+    }),
+
+  getClassAssignments: (schoolYear?: string) =>
+    api.get<{ assignments: any[] }>("/admin/class-assignments", {
+      params: schoolYear ? { schoolYear } : {},
+    }),
+
+  createClassAssignment: (data: { teacherId: string; subjectId: string; sectionId: string; schoolYear: string }) =>
+    api.post<{ message: string; assignment: any }>("/admin/class-assignments", data),
+
+  deleteClassAssignment: (id: string) =>
+    api.delete<{ message: string }>(`/admin/class-assignments/${id}`),
 };
 
 export default api;

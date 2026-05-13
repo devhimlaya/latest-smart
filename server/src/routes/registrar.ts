@@ -17,7 +17,7 @@ router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Respon
     }
 
     // Get current school year
-    const currentSchoolYear = "2025-2026";
+    const currentSchoolYear = process.env.CURRENT_SCHOOL_YEAR ?? "2026-2027";
 
     // Get all sections for current school year
     const sections = await prisma.section.findMany({
@@ -118,8 +118,9 @@ router.get("/school-years", authenticateToken, async (req: AuthRequest, res: Res
 
     const schoolYears = sections.map(s => s.schoolYear);
 
-    // Add some historical years if not present
+    // Add current and historical years if not present
     const allYears = new Set(schoolYears);
+    allYears.add("2026-2027");
     allYears.add("2025-2026");
     allYears.add("2024-2025");
 
@@ -142,7 +143,7 @@ router.get("/students", authenticateToken, async (req: AuthRequest, res: Respons
     }
 
     const { schoolYear, gradeLevel, sectionId, search } = req.query;
-    const currentSchoolYear = (schoolYear as string) || "2025-2026";
+    const currentSchoolYear = (schoolYear as string) || "2026-2027";
 
     // Build where clause for enrollments
     const enrollmentWhere: any = {
@@ -581,7 +582,7 @@ router.get("/forms/sf8", authenticateToken, async (req: AuthRequest, res: Respon
     }
 
     const { schoolYear, sectionId } = req.query;
-    const currentSchoolYear = (schoolYear as string) || "2025-2026";
+    const currentSchoolYear = (schoolYear as string) || "2026-2027";
 
     // Get all sections for school year
     const sections = await prisma.section.findMany({

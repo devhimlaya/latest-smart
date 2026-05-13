@@ -5,10 +5,13 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import * as XLSX from "xlsx";
 import { prisma } from "../lib/prisma";
 import { createAuditLog } from "../lib/audit";
 import { addSseClient, removeSseClient, addSettingsSseClient, removeSettingsSseClient, broadcastSettingsUpdate } from "../lib/sseManager";
-import { runAtlasSync, getSyncStatus } from "../lib/atlasSync";
+import { runAtlasSync, getSyncStatus, cleanupHomeroomMathConflicts } from "../lib/atlasSync";
+import { runEnrollProSync, getEnrollProSyncStatus } from "../lib/enrollproSync";
+import { syncEnrollProBranding } from "../lib/enrollproBrandingSync";
 
 const router = Router();
 
@@ -51,6 +54,86 @@ const requireAdmin = (req: AuthRequest, res: Response, next: () => void) => {
   next();
 };
 
+const SF_FORM_LABELS: Record<string, string> = {
+  SF1: "School Form 1 - School Register",
+  SF2: "School Form 2 - Daily Attendance",
+  SF3: "School Form 3 - Books Issued and Returned",
+  SF4: "School Form 4 - Monthly Learner Movement and Attendance",
+  SF5: "School Form 5 - Promotion and Proficiency",
+  SF6: "School Form 6 - Summary Promotion Report",
+  SF7: "School Form 7 - School Personnel Profile",
+  SF8: "School Form 8 - Learner's Basic Health and Nutrition Report",
+  SF9: "School Form 9 - Progress Report (JHS/SHS)",
+  SF10: "School Form 10 - Permanent Record",
+};
+
+const SF_SHEET_MATCHERS: Record<string, RegExp[]> = {
+  SF1: [/\bsf\s*1\b/i, /school\s*form\s*1/i, /school\s*register/i],
+  SF2: [/\bsf\s*2\b/i, /school\s*form\s*2/i, /attendance/i],
+  SF3: [/\bsf\s*3\b/i, /school\s*form\s*3/i, /books\s*issued/i],
+  SF4: [/\bsf\s*4\b/i, /school\s*form\s*4/i, /movement/i],
+  SF5: [/\bsf\s*5\b/i, /school\s*form\s*5/i, /promotion/i],
+  SF6: [/\bsf\s*6\b/i, /school\s*form\s*6/i, /summarized\s*report/i],
+  SF7: [/\bsf\s*7\b/i, /school\s*form\s*7/i, /personnel/i],
+  SF8: [/\bsf\s*8\b/i, /school\s*form\s*8/i, /health/i, /nutrition/i, /nutritional\s*status/i],
+  SF9: [/\bsf\s*9\b/i, /school\s*form\s*9/i, /report\s*card/i, /progress\s*report/i, /learner'?s\s*progress/i],
+  SF10: [/\bsf\s*10\b/i, /school\s*form\s*10/i, /permanent\s*record/i, /form\s*137/i, /front/i, /back/i],
+};
+
+function detectSfSheetMappings(filePath: string): Array<{ formType: string; sheetName: string }> {
+  const workbook = XLSX.readFile(filePath, { cellDates: true });
+  const sheetNames = workbook.SheetNames || [];
+  const mappings: Array<{ formType: string; sheetName: string }> = [];
+
+  for (const [formType, patterns] of Object.entries(SF_SHEET_MATCHERS)) {
+    const sheetName = sheetNames.find((candidate) => patterns.some((pattern) => pattern.test(candidate)));
+    if (sheetName) {
+      mappings.push({ formType, sheetName });
+    }
+  }
+
+  return mappings;
+}
+
+function deriveEcrSubjectName(fileName: string): string {
+  const withoutExt = fileName.replace(/\.(xlsx|xls)$/i, "");
+  const withoutPrefix = withoutExt.replace(/^ECR_/i, "");
+  const withoutTimestamp = withoutPrefix.replace(/_\d+$/, "");
+  const normalized = withoutTimestamp.replace(/[_-]+/g, " ").trim();
+  const withoutGenericToken = normalized.replace(/\becr\b/gi, " ").replace(/\s+/g, " ").trim();
+
+  if (!withoutGenericToken) {
+    return "Unlabeled Subject";
+  }
+
+  return withoutGenericToken
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function inferEcrSubjectType(subjectName: string, fileName: string): SubjectType | null {
+  const source = `${subjectName} ${fileName}`.toLowerCase();
+
+  if (/(math|algebra|geometry|science|biology|chemistry|physics)/i.test(source)) {
+    return 'MATH_SCIENCE' as SubjectType;
+  }
+
+  if (/(mapeh|music|arts|physical\s*education|pe\b|health)/i.test(source)) {
+    return SubjectType.MAPEH;
+  }
+
+  if (/(tle|technology|livelihood|home\s*economics|ict|cookery|industrial\s*arts|agri|entrepreneurship)/i.test(source)) {
+    return SubjectType.TLE;
+  }
+
+  if (/(english|filipino|esp|edukasyon|araling\s*panlipunan|ap\b|values)/i.test(source)) {
+    return SubjectType.CORE;
+  }
+
+  return null;
+}
+
 // ============================================
 // DASHBOARD ENDPOINTS
 // ============================================
@@ -58,6 +141,11 @@ const requireAdmin = (req: AuthRequest, res: Response, next: () => void) => {
 // Get admin dashboard stats
 router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Get system settings first to resolve the active school year for enrollment-based stats
+    const settings = await prisma.systemSettings.findUnique({
+      where: { id: "main" },
+    });
+
     // Get user counts by role
     const userCounts = await prisma.user.groupBy({
       by: ["role"],
@@ -69,8 +157,45 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
     const totalAdmins = userCounts.find((u) => u.role === "ADMIN")?._count || 0;
     const totalRegistrars = userCounts.find((u) => u.role === "REGISTRAR")?._count || 0;
 
-    // Get student count
-    const totalStudents = await prisma.student.count();
+    // Count active enrolled students from EnrollPro-synced enrollment records.
+    // Prefer current configured school year, but fall back to latest synced year when needed.
+    const configuredSchoolYear = settings?.currentSchoolYear ?? null;
+    const countDistinctEnrolledStudents = async (schoolYear: string) => {
+      const enrolledStudents = await prisma.enrollment.findMany({
+        where: {
+          schoolYear,
+          status: "ENROLLED",
+        },
+        distinct: ["studentId"],
+        select: { studentId: true },
+      });
+      return enrolledStudents.length;
+    };
+
+    let totalStudents = 0;
+    let studentCountSchoolYear: string | null = null;
+
+    if (configuredSchoolYear) {
+      totalStudents = await countDistinctEnrolledStudents(configuredSchoolYear);
+      studentCountSchoolYear = configuredSchoolYear;
+    }
+
+    if (totalStudents === 0) {
+      const latestEnrollment = await prisma.enrollment.findFirst({
+        where: { status: "ENROLLED" },
+        orderBy: { updatedAt: "desc" },
+        select: { schoolYear: true },
+      });
+
+      if (latestEnrollment?.schoolYear && latestEnrollment.schoolYear !== studentCountSchoolYear) {
+        totalStudents = await countDistinctEnrolledStudents(latestEnrollment.schoolYear);
+        studentCountSchoolYear = latestEnrollment.schoolYear;
+      }
+    }
+
+    if (totalStudents === 0) {
+      totalStudents = await prisma.student.count();
+    }
 
     // Get today's login count from audit logs
     const today = new Date();
@@ -97,11 +222,6 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
       },
     });
 
-    // Get system settings
-    const settings = await prisma.systemSettings.findUnique({
-      where: { id: "main" },
-    });
-
     res.json({
       stats: {
         totalUsers,
@@ -111,6 +231,7 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
         totalRegistrars,
         activeUsers,
         todayLogins,
+        studentCountSchoolYear,
       },
       recentLogs: recentLogs.map((log) => ({
         id: log.id,
@@ -569,8 +690,8 @@ router.get("/logs/export", authenticateToken, requireAdmin, async (req: AuthRequ
 // SYSTEM SETTINGS ENDPOINTS
 // ============================================
 
-// Get system settings
-router.get("/settings", authenticateToken, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+// Get system settings (readable by all authenticated users for theme/branding)
+router.get("/settings", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     let settings = await prisma.systemSettings.findUnique({
       where: { id: "main" },
@@ -804,8 +925,41 @@ router.put("/settings/colors", authenticateToken, requireAdmin, async (req: Auth
   }
 });
 
+// Sync branding and school info from EnrollPro
+router.post(
+  "/settings/sync-enrollpro",
+  authenticateToken,
+  requireAdmin,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const settings = await syncEnrollProBranding(
+        path.join(__dirname, "../../uploads")
+      );
+
+      await createAuditLog(
+        AuditAction.CONFIG,
+        req.user!,
+        "System Settings",
+        "Config",
+        "Synced branding and school info from EnrollPro",
+        req.ip,
+        AuditSeverity.INFO
+      );
+
+      res.json({ message: "Successfully synced from EnrollPro", settings });
+    } catch (error) {
+      console.error("Error syncing from EnrollPro:", error instanceof Error ? error.message : error);
+      res.status(500).json({
+        message: "Failed to sync from EnrollPro",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+);
+
+
 // Real-time SSE stream for settings updates
-router.get("/settings/stream", authenticateToken, requireAdmin, (req: AuthRequest, res: Response): void => {
+router.get("/settings/stream", authenticateToken, (req: AuthRequest, res: Response): void => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -843,7 +997,6 @@ router.get("/grading-config", authenticateToken, requireAdmin, async (req: AuthR
         { subjectType: 'MATH_SCIENCE' as SubjectType, ww: 40, pt: 40, qa: 20 },
         { subjectType: SubjectType.MAPEH, ww: 20, pt: 60, qa: 20 },
         { subjectType: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
-        { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
       ];
 
       for (const config of defaultConfigs) {
@@ -929,7 +1082,6 @@ router.post("/grading-config/reset", authenticateToken, requireAdmin, async (req
       { subjectType: 'MATH_SCIENCE' as SubjectType, ww: 40, pt: 40, qa: 20 },
       { subjectType: SubjectType.MAPEH, ww: 20, pt: 60, qa: 20 },
       { subjectType: SubjectType.TLE, ww: 20, pt: 60, qa: 20 },
-      { subjectType: SubjectType.PE_HEALTH, ww: 20, pt: 60, qa: 20 },
     ];
 
     for (const config of defaults) {
@@ -986,6 +1138,283 @@ router.post("/atlas-sync/run", authenticateToken, async (req: AuthRequest, res: 
   if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
   const result = await runAtlasSync();
   res.json({ message: "Sync complete", result });
+});
+
+// POST /api/admin/atlas-sync/cleanup-homeroom — one-shot cleanup of stale MATH
+// assignments on Homeroom Guidance sections without running a full Atlas sync.
+router.post("/atlas-sync/cleanup-homeroom", authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
+  const removed = await cleanupHomeroomMathConflicts();
+  res.json({
+    message: removed > 0
+      ? `Cleanup complete. Removed ${removed} stale MATH assignment(s) from Homeroom Guidance sections.`
+      : `No stale MATH assignments found on Homeroom Guidance sections.`,
+    removed,
+  });
+});
+
+// ── EnrollPro Advisory Sync endpoints ────────────────────────────────────────
+
+// GET /api/admin/enrollpro-sync/status
+router.get("/enrollpro-sync/status", authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
+  res.json(getEnrollProSyncStatus());
+});
+
+// POST /api/admin/enrollpro-sync/run — manually trigger sync
+router.post("/enrollpro-sync/run", authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
+  const result = await runEnrollProSync();
+  res.json({ message: "EnrollPro sync complete", result });
+});
+
+// POST /api/admin/templates/reindex — reindex SF/ECR templates from uploads folder into DB
+router.post("/templates/reindex", authenticateToken, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const target = String(req.body?.target || "all").toLowerCase();
+    const includeSf = target === "all" || target === "sf";
+    const includeEcr = target === "all" || target === "ecr";
+
+    const result = {
+      target,
+      sf: {
+        filesScanned: 0,
+        formsDetected: 0,
+        upserted: 0,
+        skippedNoMatch: 0,
+      },
+      ecr: {
+        filesScanned: 0,
+        created: 0,
+        updatedExisting: 0,
+        skippedExisting: 0,
+      },
+    };
+
+    if (includeSf) {
+      const sfDir = path.join(__dirname, "../../uploads/templates");
+      if (fs.existsSync(sfDir)) {
+        const sfFiles = fs
+          .readdirSync(sfDir)
+          .filter((f) => /\.(xlsx|xls)$/i.test(f));
+
+        for (const fileName of sfFiles) {
+          result.sf.filesScanned++;
+          const filePath = path.join(sfDir, fileName);
+          const stat = fs.statSync(filePath);
+          const mappings = detectSfSheetMappings(filePath);
+
+          if (mappings.length === 0) {
+            result.sf.skippedNoMatch++;
+            continue;
+          }
+
+          result.sf.formsDetected += mappings.length;
+
+          for (const mapping of mappings) {
+            await prisma.excelTemplate.upsert({
+              where: { formType: mapping.formType as any },
+              create: {
+                formType: mapping.formType as any,
+                formName: SF_FORM_LABELS[mapping.formType] || `${mapping.formType} Template`,
+                description: "Re-indexed from uploads/templates",
+                filePath,
+                fileName,
+                fileSize: Number(stat.size),
+                placeholders: [],
+                instructions: "Re-indexed automatically by admin endpoint",
+                isActive: true,
+                uploadedBy: req.user!.id,
+                uploadedByName: "Admin",
+                sheetName: mapping.sheetName,
+              } as any,
+              update: {
+                formName: SF_FORM_LABELS[mapping.formType] || `${mapping.formType} Template`,
+                description: "Re-indexed from uploads/templates",
+                filePath,
+                fileName,
+                fileSize: Number(stat.size),
+                placeholders: [],
+                instructions: "Re-indexed automatically by admin endpoint",
+                isActive: true,
+                uploadedBy: req.user!.id,
+                uploadedByName: "Admin",
+                sheetName: mapping.sheetName,
+                updatedAt: new Date(),
+              } as any,
+            });
+            result.sf.upserted++;
+          }
+        }
+      }
+    }
+
+    if (includeEcr) {
+      const ecrDir = path.join(__dirname, "../../uploads/ecr-templates");
+      if (fs.existsSync(ecrDir)) {
+        const ecrFiles = fs
+          .readdirSync(ecrDir)
+          .filter((f) => /\.(xlsx|xls)$/i.test(f));
+
+        for (const fileName of ecrFiles) {
+          result.ecr.filesScanned++;
+          const filePath = path.join(ecrDir, fileName);
+          const inferredSubjectName = deriveEcrSubjectName(fileName);
+          const inferredSubjectType = inferEcrSubjectType(inferredSubjectName, fileName);
+          const existing = await prisma.eCRTemplate.findFirst({ where: { filePath } });
+          if (existing) {
+            const shouldRefreshName =
+              !existing.subjectName ||
+              /^\s*ecr\s*$/i.test(existing.subjectName) ||
+              /^\s*ecr[\s_-]*\d+\s*$/i.test(existing.subjectName);
+
+            const shouldUpdate =
+              shouldRefreshName ||
+              !existing.subjectType ||
+              existing.uploadedByName !== "Admin";
+
+            if (shouldUpdate) {
+              await prisma.eCRTemplate.update({
+                where: { id: existing.id },
+                data: {
+                  ...(shouldRefreshName ? { subjectName: inferredSubjectName } : {}),
+                  ...(!existing.subjectType && inferredSubjectType ? { subjectType: inferredSubjectType } : {}),
+                  uploadedByName: "Admin",
+                  uploadedBy: req.user!.id,
+                  updatedAt: new Date(),
+                } as any,
+              });
+              result.ecr.updatedExisting++;
+            } else {
+              result.ecr.skippedExisting++;
+            }
+            continue;
+          }
+
+          const stat = fs.statSync(filePath);
+          await prisma.eCRTemplate.create({
+            data: {
+              subjectName: inferredSubjectName,
+              subjectType: inferredSubjectType,
+              description: "Re-indexed from uploads/ecr-templates",
+              filePath,
+              fileName,
+              fileSize: Number(stat.size),
+              placeholders: [],
+              instructions: "Re-indexed automatically by admin endpoint",
+              isActive: true,
+              uploadedBy: req.user!.id,
+              uploadedByName: "Admin",
+            } as any,
+          });
+          result.ecr.created++;
+        }
+      }
+    }
+
+    await createAuditLog(
+      AuditAction.CONFIG,
+      req.user!,
+      "Template Re-index",
+      "Template",
+      `Re-indexed templates from uploads (target=${target})`,
+      req.ip,
+      AuditSeverity.INFO,
+      undefined,
+      result as any
+    );
+
+    res.json({ message: "Template re-index completed", result });
+  } catch (error: any) {
+    console.error("Error during template re-index:", error);
+    res.status(500).json({ message: "Template re-index failed", error: error.message });
+  }
+});
+
+// ── Class Assignment Management ──────────────────────────────────────────────
+
+// GET /api/admin/class-assignments/options — get teachers, subjects, sections for dropdowns
+router.get("/class-assignments/options", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  if (req.user?.role !== "ADMIN") { res.status(403).json({ message: "Forbidden" }); return; }
+  try {
+    const schoolYear = (req.query.schoolYear as string) || "2026-2027";
+    const [teachers, subjects, sections] = await Promise.all([
+      prisma.teacher.findMany({
+        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+        orderBy: { user: { lastName: "asc" } },
+      }),
+      prisma.subject.findMany({ orderBy: { name: "asc" } }),
+      prisma.section.findMany({
+        where: { schoolYear },
+        orderBy: [{ gradeLevel: "asc" }, { name: "asc" }],
+      }),
+    ]);
+    res.json({ teachers, subjects, sections });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/admin/class-assignments — list all with teacher/subject/section
+router.get("/class-assignments", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  if (req.user?.role !== "ADMIN") { res.status(403).json({ message: "Forbidden" }); return; }
+  try {
+    const schoolYear = (req.query.schoolYear as string) || "2026-2027";
+    const assignments = await prisma.classAssignment.findMany({
+      where: { schoolYear },
+      include: {
+        teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
+        subject: true,
+        section: true,
+      },
+      orderBy: [{ section: { gradeLevel: "asc" } }, { section: { name: "asc" } }],
+    });
+    res.json(assignments);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/admin/class-assignments — create a class assignment
+router.post("/class-assignments", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  if (req.user?.role !== "ADMIN") { res.status(403).json({ message: "Forbidden" }); return; }
+  try {
+    const { teacherId, subjectId, sectionId, schoolYear } = req.body;
+    if (!teacherId || !subjectId || !sectionId || !schoolYear) {
+      res.status(400).json({ message: "teacherId, subjectId, sectionId, and schoolYear are required" });
+      return;
+    }
+    const assignment = await prisma.classAssignment.create({
+      data: { teacherId, subjectId, sectionId, schoolYear },
+      include: {
+        teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
+        subject: true,
+        section: true,
+      },
+    });
+    res.status(201).json(assignment);
+  } catch (err: any) {
+    if (err.code === "P2002") {
+      res.status(409).json({ message: "This teacher is already assigned to that subject and section for this school year." });
+    } else {
+      res.status(500).json({ message: err.message });
+    }
+  }
+});
+
+// DELETE /api/admin/class-assignments/:id — delete a class assignment
+router.delete("/class-assignments/:id", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  if (req.user?.role !== "ADMIN") { res.status(403).json({ message: "Forbidden" }); return; }
+  try {
+    await prisma.classAssignment.delete({ where: { id: req.params.id } });
+    res.json({ message: "Deleted" });
+  } catch (err: any) {
+    if (err.code === "P2025") {
+      res.status(404).json({ message: "Assignment not found" });
+    } else {
+      res.status(500).json({ message: err.message });
+    }
+  }
 });
 
 export default router;
