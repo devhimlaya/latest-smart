@@ -54,7 +54,67 @@ interface SchoolForm {
   color: string;
 }
 
+interface SF1Response {
+  section: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    schoolYear?: string;
+    adviser: string | null;
+  };
+  students: Array<{
+    no: number;
+    lrn: string;
+    lastName: string;
+    firstName: string;
+    middleName?: string;
+    suffix?: string;
+    gender?: string;
+    birthDate?: string;
+    address?: string;
+  }>;
+}
+
+interface SF2Response {
+  section: {
+    name: string;
+    gradeLevel: string;
+    schoolYear?: string;
+    adviser: string | null;
+  };
+  month: string;
+  daysInMonth: number;
+  students: Array<{
+    no: number;
+    id: string;
+    name: string;
+    attendance: Record<number, string>;
+    totals: {
+      present: number;
+      absent: number;
+      late: number;
+      excused: number;
+    };
+  }>;
+}
+
 const schoolForms: SchoolForm[] = [
+  {
+    id: "SF1",
+    name: "School Register",
+    fullName: "School Form 1 - School Register",
+    description: "Master list of enrolled learners per section and school year.",
+    icon: Users,
+    color: "indigo",
+  },
+  {
+    id: "SF2",
+    name: "Attendance",
+    fullName: "School Form 2 - Daily Attendance Report",
+    description: "Monthly attendance monitoring per learner with daily statuses.",
+    icon: FileText,
+    color: "amber",
+  },
   {
     id: "SF8",
     name: "Health & Nutrition",
@@ -90,9 +150,10 @@ const formatGradeLevel = (gradeLevel: string) => {
 };
 
 type ViewMode = "list" | "sf8" | "sf9" | "sf10";
+type ExtendedViewMode = ViewMode | "sf1" | "sf2";
 
 export default function SchoolForms() {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ExtendedViewMode>("list");
   const [_loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [schoolYear, setSchoolYear] = useState("2026-2027");
@@ -101,6 +162,7 @@ export default function SchoolForms() {
   const [students, setStudents] = useState<FormStudent[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const { colors: themeColors, schoolName, schoolRegion, schoolDivision, logoUrl } = useTheme();
   const fullLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${SERVER_URL}${logoUrl}`) : null;
   
@@ -108,6 +170,8 @@ export default function SchoolForms() {
   const [sf8Data, setSf8Data] = useState<any>(null);
   const [sf9Data, setSf9Data] = useState<any>(null);
   const [sf10Data, setSf10Data] = useState<any>(null);
+  const [sf1Data, setSf1Data] = useState<SF1Response | null>(null);
+  const [sf2Data, setSf2Data] = useState<SF2Response | null>(null);
 
   // Load sections on mount
   useEffect(() => {
@@ -164,6 +228,34 @@ export default function SchoolForms() {
     }
   };
 
+  const handleViewSF1 = async () => {
+    if (!selectedSection) return;
+    setLoading(true);
+    try {
+      const response = await registrarApi.getSF1(selectedSection, schoolYear);
+      setSf1Data(response.data as SF1Response);
+      setViewMode("sf1");
+    } catch (error) {
+      console.error("Error loading SF1:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewSF2 = async () => {
+    if (!selectedSection) return;
+    setLoading(true);
+    try {
+      const response = await registrarApi.getSF2(selectedSection, schoolYear, selectedMonth);
+      setSf2Data(response.data as SF2Response);
+      setViewMode("sf2");
+    } catch (error) {
+      console.error("Error loading SF2:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewSF9 = async (studentId?: string) => {
     const id = studentId || selectedStudent;
     if (!id) return;
@@ -199,6 +291,8 @@ export default function SchoolForms() {
     setSf8Data(null);
     setSf9Data(null);
     setSf10Data(null);
+    setSf1Data(null);
+    setSf2Data(null);
   };
 
   const filteredStudents = students.filter((student) => {
@@ -248,7 +342,7 @@ export default function SchoolForms() {
         {/* Filters */}
         <Card className="border-0 shadow-lg rounded-2xl p-0">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <div className="flex items-center gap-1 mb-2">
                   <label className="block text-sm font-medium text-gray-700">School Year</label>
@@ -307,6 +401,15 @@ export default function SchoolForms() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Month (for SF2)</label>
+                <Input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -342,12 +445,14 @@ export default function SchoolForms() {
                   <div className="flex justify-end">
                     <Button
                       onClick={() => {
-                        if (form.id === "SF8") handleViewSF8();
+                        if (form.id === "SF1") handleViewSF1();
+                        else if (form.id === "SF2") handleViewSF2();
+                        else if (form.id === "SF8") handleViewSF8();
                         else if (form.id === "SF9") handleViewSF9();
                         else if (form.id === "SF10") handleViewSF10();
                       }}
                       disabled={
-                        (form.id === "SF8" && !selectedSection) ||
+                        ((form.id === "SF1" || form.id === "SF2" || form.id === "SF8") && !selectedSection) ||
                         ((form.id === "SF9" || form.id === "SF10") && !selectedStudent)
                       }
                       className="rounded-xl text-white"
@@ -439,6 +544,141 @@ export default function SchoolForms() {
             </CardContent>
           </Card>
         )}
+      </div>
+    );
+  }
+
+  if (viewMode === "sf1" && sf1Data) {
+    const handlePrint = () => window.print();
+
+    return (
+      <div className="space-y-6 animate-fade-in max-w-[1100px] mx-auto">
+        <div className="flex items-center justify-between print-hide">
+          <Button variant="ghost" onClick={handleBack} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <Button onClick={handlePrint} className="rounded-xl text-white" style={{ backgroundColor: themeColors.primary }}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print Form
+          </Button>
+        </div>
+
+        <div className="bg-white border-2 border-gray-300 shadow-xl print-form p-8">
+          <div className="text-center mb-5">
+            <p className="text-xs text-gray-700">Republic of the Philippines</p>
+            <p className="text-sm font-bold text-gray-900">Department of Education</p>
+            <p className="text-sm text-gray-800">{schoolRegion || "Region _____________"}</p>
+            <p className="text-sm text-gray-800">{schoolDivision ? `Division of ${schoolDivision}` : "Division of _____________"}</p>
+            <p className="text-sm text-gray-800">{schoolName || "School Name"}</p>
+            <h1 className="text-lg font-bold text-gray-900 mt-2">School Form 1 (SF1) - School Register</h1>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+            <p><span className="font-semibold">Section:</span> {sf1Data.section.name}</p>
+            <p><span className="font-semibold">Grade Level:</span> {formatGradeLevel(sf1Data.section.gradeLevel)}</p>
+            <p><span className="font-semibold">School Year:</span> {sf1Data.section.schoolYear || schoolYear}</p>
+            <p><span className="font-semibold">Adviser:</span> {sf1Data.section.adviser || "Not Assigned"}</p>
+          </div>
+
+          <table className="w-full border border-gray-500 text-xs">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-500 p-2">No.</th>
+                <th className="border border-gray-500 p-2">LRN</th>
+                <th className="border border-gray-500 p-2">Last Name</th>
+                <th className="border border-gray-500 p-2">First Name</th>
+                <th className="border border-gray-500 p-2">Middle Name</th>
+                <th className="border border-gray-500 p-2">Sex</th>
+                <th className="border border-gray-500 p-2">Birth Date</th>
+                <th className="border border-gray-500 p-2">Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sf1Data.students.map((student) => (
+                <tr key={`${student.lrn}-${student.no}`}>
+                  <td className="border border-gray-300 p-1 text-center">{student.no}</td>
+                  <td className="border border-gray-300 p-1 text-center font-mono">{student.lrn}</td>
+                  <td className="border border-gray-300 p-1">{student.lastName}</td>
+                  <td className="border border-gray-300 p-1">{student.firstName}</td>
+                  <td className="border border-gray-300 p-1">{student.middleName || ""}</td>
+                  <td className="border border-gray-300 p-1 text-center">{student.gender || ""}</td>
+                  <td className="border border-gray-300 p-1 text-center">{student.birthDate || ""}</td>
+                  <td className="border border-gray-300 p-1">{student.address || ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewMode === "sf2" && sf2Data) {
+    const handlePrint = () => window.print();
+    const days = Array.from({ length: sf2Data.daysInMonth }, (_, i) => i + 1);
+    const symbolMap: Record<string, string> = {
+      PRESENT: "P",
+      ABSENT: "A",
+      LATE: "L",
+      EXCUSED: "E",
+    };
+
+    return (
+      <div className="space-y-6 animate-fade-in max-w-[1200px] mx-auto">
+        <div className="flex items-center justify-between print-hide">
+          <Button variant="ghost" onClick={handleBack} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <Button onClick={handlePrint} className="rounded-xl text-white" style={{ backgroundColor: themeColors.primary }}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print Form
+          </Button>
+        </div>
+
+        <div className="bg-white border-2 border-gray-300 shadow-xl print-form p-8 overflow-x-auto">
+          <div className="text-center mb-4">
+            <h1 className="text-lg font-bold text-gray-900">School Form 2 (SF2) - Daily Attendance Report</h1>
+            <p className="text-sm text-gray-700">
+              {sf2Data.section.name} | Grade {formatGradeLevel(sf2Data.section.gradeLevel)} | {sf2Data.month}
+            </p>
+            <p className="text-sm text-gray-700">Adviser: {sf2Data.section.adviser || "Not Assigned"}</p>
+          </div>
+
+          <table className="w-full border border-gray-500 text-[11px]">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-500 p-1">No.</th>
+                <th className="border border-gray-500 p-1 min-w-[180px]">Name</th>
+                {days.map((day) => (
+                  <th key={day} className="border border-gray-500 p-1">{day}</th>
+                ))}
+                <th className="border border-gray-500 p-1">Total Present</th>
+                <th className="border border-gray-500 p-1">Total Absent</th>
+                <th className="border border-gray-500 p-1">Total Late</th>
+                <th className="border border-gray-500 p-1">Total Excused</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sf2Data.students.map((student) => (
+                <tr key={student.id}>
+                  <td className="border border-gray-300 p-1 text-center">{student.no}</td>
+                  <td className="border border-gray-300 p-1">{student.name}</td>
+                  {days.map((day) => (
+                    <td key={`${student.id}-${day}`} className="border border-gray-300 p-1 text-center">
+                      {symbolMap[String(student.attendance[day] || "")] || ""}
+                    </td>
+                  ))}
+                  <td className="border border-gray-300 p-1 text-center font-semibold">{student.totals.present}</td>
+                  <td className="border border-gray-300 p-1 text-center font-semibold">{student.totals.absent}</td>
+                  <td className="border border-gray-300 p-1 text-center font-semibold">{student.totals.late}</td>
+                  <td className="border border-gray-300 p-1 text-center font-semibold">{student.totals.excused}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }

@@ -24,8 +24,10 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { gradesApi, type ClassAssignment } from "@/lib/api";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { gradesApi, adminApi, type ClassAssignment } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
+import QuarterDeadlineBanner from "@/components/QuarterDeadlineBanner";
 import {
   Select,
   SelectContent,
@@ -112,6 +114,7 @@ export default function TeacherDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [masteryData, setMasteryData] = useState<MasteryDistribution | null>(null);
+  const [currentQuarter, setCurrentQuarter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedHonorsClass, setSelectedHonorsClass] = useState<string>("all");
@@ -134,14 +137,16 @@ export default function TeacherDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [dashboardRes, statsRes, masteryRes] = await Promise.all([
+        const [dashboardRes, statsRes, masteryRes, settingsRes] = await Promise.all([
           gradesApi.getDashboard(),
           gradesApi.getDashboardStats(),
           gradesApi.getMasteryDistribution(),
+          adminApi.getSettings(),
         ]);
         setData(dashboardRes.data);
         setStats(statsRes.data);
         setMasteryData(masteryRes.data);
+        setCurrentQuarter(settingsRes.data.settings?.currentQuarter ?? null);
       } catch (err) {
         setError("Failed to load dashboard data");
         console.error(err);
@@ -246,6 +251,8 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto pb-12">
+      <QuarterDeadlineBanner />
+
       {/* Hero Welcome Section - Refined for "Professional Settings" */}
       <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-8 md:p-12 shadow-xl shadow-slate-200/50">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-slate-50/50 -skew-x-12 translate-x-1/2" />
@@ -254,9 +261,9 @@ export default function TeacherDashboard() {
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
           <div className="max-w-2xl">
             <div className="flex items-center gap-3 mb-6">
-              <Badge variant="secondary" className="px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-widest border-indigo-100">
+              <Badge variant="secondary" className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-primary/20">
                 <Target className="w-3 h-3 mr-2" />
-                Teacher Portal v2.0
+                {currentQuarter ? `NOW ENCODING: ${currentQuarter}` : 'TEACHER PORTAL V2.0'}
               </Badge>
               <div className="h-4 w-px bg-slate-200" />
               <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
@@ -267,18 +274,18 @@ export default function TeacherDashboard() {
             
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-[1.1] tracking-tight">
               Good day, <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-indigo-600">
                 Teacher {data.teacher.name.split(',')[0]}
               </span>
             </h1>
             
             <p className="text-slate-500 text-lg mt-6 max-w-lg leading-relaxed font-medium">
-              You're currently managing <span className="text-slate-900 font-bold underline decoration-indigo-200 decoration-4 underline-offset-4">{data.stats.totalStudents} students</span> across <span className="text-slate-900 font-bold underline decoration-emerald-200 decoration-4 underline-offset-4">{data.stats.totalClasses} sections</span>.
+              You're currently managing <span className="text-slate-900 font-bold underline decoration-primary/20 decoration-4 underline-offset-4">{data.stats.totalStudents} students</span> across <span className="text-slate-900 font-bold underline decoration-emerald-200 decoration-4 underline-offset-4">{data.stats.totalClasses} sections</span>.
             </p>
             
             <div className="flex flex-wrap items-center gap-4 mt-10">
               <Link to="/teacher/advisory">
-                <Button className="h-14 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-200 border-0 transition-all active:scale-95 group font-bold">
+                <Button className="h-14 px-8 rounded-2xl bg-primary hover:opacity-90 text-primary-foreground shadow-xl shadow-primary/20 border-0 transition-all active:scale-95 group font-bold">
                   <Users className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform" />
                   My Advisory
                 </Button>
@@ -322,7 +329,7 @@ export default function TeacherDashboard() {
             label: "Active Students", 
             value: data.stats.totalStudents, 
             icon: Users, 
-            bg: "bg-indigo-50", fg: "text-indigo-600",
+            bg: "bg-primary/10", fg: "text-primary",
             desc: "Currently enrolled"
           },
           { 
@@ -384,7 +391,7 @@ export default function TeacherDashboard() {
                   if (val) setSelectedGradeLevel(val);
                   setSelectedSection("all");
                 }}>
-                  <SelectTrigger className="h-9 w-[110px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
+                  <SelectTrigger className="h-9 w-[110px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-primary/10 transition-all">
                     <SelectValue placeholder="Grade" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 shadow-xl">
@@ -395,7 +402,7 @@ export default function TeacherDashboard() {
                   </SelectContent>
                 </Select>
                 <Select value={selectedSection} onValueChange={(val) => val && setSelectedSection(val)}>
-                  <SelectTrigger className="h-9 w-[130px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
+                  <SelectTrigger className="h-9 w-[130px] bg-white border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-primary/10 transition-all">
                     <SelectValue placeholder="Section" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 shadow-xl">
@@ -469,46 +476,43 @@ export default function TeacherDashboard() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-8 pt-4 flex-1">
-            <div className="space-y-7">
-              {stats?.classStats.slice(0, 5).map((classStat, idx) => {
+          <CardContent className="p-8 pt-4 flex-1 flex flex-col">
+            <div className="space-y-7 max-h-[380px] overflow-y-auto pr-4 custom-scrollbar mb-6">
+              {stats?.classStats.map((classStat) => {
                 const percentage = classStat.totalStudents > 0 
                   ? Math.round((classStat.gradedCount / classStat.totalStudents) * 100)
                   : 0;
-                const colorPairs = [
-                  { text: 'text-indigo-600', bar: 'bg-indigo-500' },
-                  { text: 'text-emerald-600', bar: 'bg-emerald-500' },
-                  { text: 'text-amber-600', bar: 'bg-amber-500' },
-                  { text: 'text-rose-600', bar: 'bg-rose-500' },
-                  { text: 'text-violet-600', bar: 'bg-violet-500' },
-                ];
-                const colorPair = colorPairs[idx % colorPairs.length];
+                
+                // Using a themed color (Primary) for a professional look
+                const colorPair = { text: 'text-primary', bar: 'bg-primary' };
                 
                 return (
                   <div key={classStat.id} className="group cursor-default">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div>
-                        <span className="text-sm font-black text-slate-900">{classStat.sectionName}</span>
-                        <p className="text-[9px] font-black text-slate-400 uppercase mt-0.5 tracking-widest">
-                          {classStat.subjectName}
-                        </p>
+                    <div className="mb-2">
+                      <span className="text-sm font-black text-slate-900">
+                        {classStat.gradeLevel.replace('GRADE_', '')} - {classStat.sectionName}
+                      </span>
+                      <p className="text-[9px] font-black text-slate-400 uppercase mt-0.5 tracking-widest">
+                        {classStat.subjectName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${colorPair.bar}`}
+                          style={{ width: `${percentage}%` }}
+                        />
                       </div>
-                      <div className={`text-xs font-black ${colorPair.text}`}>
+                      <div className={`text-xs font-black min-w-[35px] text-right ${colorPair.text}`}>
                         {percentage}%
                       </div>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-1000 ease-out ${colorPair.bar}`}
-                        style={{ width: `${percentage}%` }}
-                      />
                     </div>
                   </div>
                 );
               })}
             </div>
             
-            <div className="mt-10">
+            <div className="mt-auto">
               <Link to="/teacher/classes">
                 <Button className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 transition-all font-black text-[10px] tracking-[0.2em] uppercase">
                   VIEW DETAILED REPORTS
@@ -585,7 +589,7 @@ export default function TeacherDashboard() {
                             <td className="px-6 py-5">
                               <div className="flex items-center gap-3">
                                 <Avatar className="w-9 h-9 border-2 border-white shadow-sm">
-                                  <AvatarFallback className="bg-indigo-50 text-indigo-600 font-black text-xs">
+                                  <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
                                     {student.name.charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
@@ -594,7 +598,7 @@ export default function TeacherDashboard() {
                             </td>
                             <td className="px-6 py-5 text-slate-500 font-bold text-xs">{student.class}</td>
                             <td className="px-6 py-5 text-center">
-                              <span className="font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl text-xs">{student.grade}</span>
+                              <span className="font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl text-xs">{student.grade}</span>
                             </td>
                             <td className="px-6 py-5 text-right">
                               <Badge className="bg-emerald-500 text-white border-0 text-[9px] font-black uppercase px-3 py-1 rounded-lg shadow-lg shadow-emerald-500/20">

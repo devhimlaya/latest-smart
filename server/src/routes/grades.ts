@@ -163,6 +163,7 @@ router.get(
         where: {
           teacherId: teacher.id,
           schoolYear: currentSchoolYear,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -172,6 +173,7 @@ router.get(
                 where: {
                   schoolYear: currentSchoolYear,
                   status: 'ENROLLED',
+                  isActive: true,
                 },
                 include: {
                   student: true,
@@ -222,6 +224,7 @@ router.get(
         where: {
           id: classAssignmentId,
           teacherId: teacher.id,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -239,6 +242,8 @@ router.get(
         where: {
           sectionId: classAssignment.sectionId,
           schoolYear: classAssignment.schoolYear,
+          status: 'ENROLLED',
+          isActive: true,
         },
         include: {
           student: true,
@@ -315,6 +320,7 @@ router.post(
         where: {
           id: classAssignmentId,
           teacherId: teacher.id,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -399,13 +405,13 @@ router.post(
             quarter,
           },
         },
-        update: gradePayload,
+        update: gradePayload as any,
         create: {
           studentId,
           classAssignmentId,
           quarter,
           ...gradePayload,
-        },
+        } as any,
       });
 
       // Fetch student and teacher names for audit log
@@ -521,6 +527,7 @@ router.get(
         where: {
           teacherId: teacher.id,
           schoolYear: currentSchoolYear,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -528,7 +535,13 @@ router.get(
             include: {
               _count: {
                 select: {
-                  enrollments: true,
+                  enrollments: {
+                    where: {
+                      schoolYear: currentSchoolYear,
+                      status: 'ENROLLED',
+                      isActive: true,
+                    },
+                  },
                 },
               },
             },
@@ -583,17 +596,24 @@ router.get(
 
       const sysSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
       const currentSY = sysSettings?.currentSchoolYear ?? '2026-2027';
+      const currentQuarter: Quarter = (sysSettings?.currentQuarter as Quarter) ?? "Q1";
 
       const classAssignments = await prisma.classAssignment.findMany({
         where: {
           teacherId: teacher.id,
           schoolYear: currentSY,
+          isActive: true,
         },
         include: {
           subject: true,
           section: {
             include: {
               enrollments: {
+                where: {
+                  schoolYear: currentSY,
+                  status: 'ENROLLED',
+                  isActive: true,
+                },
                 include: {
                   student: true,
                 },
@@ -601,7 +621,7 @@ router.get(
             },
           },
           grades: {
-            where: { quarter: "Q1" },
+            where: { quarter: currentQuarter },
           },
         },
       });
@@ -704,6 +724,108 @@ router.get(
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  }
+);
+
+router.get(
+  "/deadline-status",
+  authenticateToken,
+  authorizeRoles("TEACHER"),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const settings = await prisma.systemSettings.findUnique({ where: { id: "main" } });
+      if (!settings) {
+        res.json({ notification: null });
+        return;
+      }
+
+      const now = new Date();
+      const currentQuarter = settings.currentQuarter;
+
+      const endDateMap: Record<string, Date | null> = {
+        Q1: settings.q1EndDate,
+        Q2: settings.q2EndDate,
+        Q3: settings.q3EndDate,
+        Q4: settings.q4EndDate,
+      };
+
+      const endDate = endDateMap[currentQuarter];
+      if (!endDate) {
+        res.json({ notification: null });
+        return;
+      }
+
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      let tier: "reminder" | "warning" | "urgent" | "overdue" | null = null;
+      if (daysLeft < 0) tier = "overdue";
+      else if (daysLeft === 0 || daysLeft === 1) tier = "urgent";
+      else if (daysLeft <= 3) tier = "warning";
+      else if (daysLeft <= 7) tier = "reminder";
+
+      if (!tier) {
+        res.json({ notification: null });
+        return;
+      }
+
+      const teacher = await prisma.teacher.findUnique({ where: { userId: req.user?.id } });
+
+      let classesWithMissingGrades = 0;
+      if (teacher) {
+        const assignments = await prisma.classAssignment.findMany({
+          where: {
+            teacherId: teacher.id,
+            schoolYear: settings.currentSchoolYear,
+            isActive: true,
+          },
+          include: {
+            subject: true,
+            section: {
+              include: {
+                enrollments: {
+                  where: {
+                    status: "ENROLLED",
+                    schoolYear: settings.currentSchoolYear,
+                    isActive: true,
+                  },
+                },
+              },
+            },
+            grades: {
+              where: {
+                quarter: currentQuarter as Quarter,
+              },
+            },
+          },
+        });
+
+        for (const assignment of assignments) {
+          const isHG =
+            isHomeroomGuidanceSubjectCode(assignment.subject.code) ||
+            /homeroom|hg/i.test(assignment.subject.name);
+          if (isHG) continue;
+
+          const enrolled = assignment.section.enrollments.length;
+          const graded = assignment.grades.length;
+          if (graded < enrolled) {
+            classesWithMissingGrades++;
+          }
+        }
+      }
+
+      res.json({
+        notification: {
+          tier,
+          daysLeft,
+          quarter: currentQuarter,
+          endDate: endDate.toISOString(),
+          classesWithMissingGrades,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching deadline status:", error);
+      res.status(500).json({ message: "Failed to fetch deadline status" });
     }
   }
 );
@@ -837,9 +959,15 @@ router.get(
         return;
       }
 
+      const sysSettings = await prisma.systemSettings.findUnique({ where: { id: 'main' } });
+      const currentSY = sysSettings?.currentSchoolYear ?? '2026-2027';
+      const currentQuarter: Quarter = (sysSettings?.currentQuarter as Quarter) ?? "Q1";
+
       // Build filter for class assignments
       const classAssignmentFilter: any = {
         teacherId: teacher.id,
+        schoolYear: currentSY,
+        isActive: true,
       };
 
       if (sectionId) {
@@ -850,8 +978,9 @@ router.get(
         where: classAssignmentFilter,
         include: {
           section: true,
+          subject: true,
           grades: {
-            where: { quarter: "Q1" },
+            where: { quarter: currentQuarter },
           },
         },
       });
@@ -880,6 +1009,8 @@ router.get(
       const allSections = await prisma.classAssignment.findMany({
         where: {
           teacherId: teacher.id,
+          schoolYear: currentSY,
+          isActive: true,
         },
         include: { section: true, subject: true },
         distinct: ['sectionId'],
@@ -1227,12 +1358,17 @@ router.post(
         where: {
           id: classAssignmentId,
           teacherId: teacher.id,
+          isActive: true,
         },
         include: {
           subject: true,
           section: {
             include: {
               enrollments: {
+                where: {
+                  status: 'ENROLLED',
+                  isActive: true,
+                },
                 include: { student: true },
               },
             },
@@ -1258,7 +1394,7 @@ router.post(
       }
 
       // Get enrolled students for matching
-      const enrolledStudents = classAssignment.section.enrollments.map(e => e.student);
+      const enrolledStudents = classAssignment.section.enrollments.map((e: any) => e.student);
 
       // Match ECR students to database students
       const matchResults = quarters.map(q => ({
@@ -1269,7 +1405,7 @@ router.post(
           return {
             ...ecrStudent,
             matchedStudentId: match?.id || null,
-            matchedStudent: match ? enrolledStudents.find(s => s.id === match.id) : null,
+            matchedStudent: match ? enrolledStudents.find((s: any) => s.id === match.id) : null,
           };
         }),
       }));
@@ -1345,12 +1481,17 @@ router.post(
         where: {
           id: classAssignmentId,
           teacherId: teacher.id,
+          isActive: true,
         },
         include: {
           subject: true,
           section: {
             include: {
               enrollments: {
+                where: {
+                  status: 'ENROLLED',
+                  isActive: true,
+                },
                 include: { student: true },
               },
             },
@@ -1375,7 +1516,7 @@ router.post(
         return;
       }
 
-      const enrolledStudents = classAssignment.section.enrollments.map(e => e.student);
+      const enrolledStudents = classAssignment.section.enrollments.map((e: any) => e.student);
       const weights = {
         ww: classAssignment.subject.writtenWorkWeight,
         pt: classAssignment.subject.perfTaskWeight,
@@ -1531,6 +1672,7 @@ router.get(
         where: {
           id: classAssignmentId,
           teacherId: teacher.id,
+          isActive: true,
         },
         select: {
           id: true,

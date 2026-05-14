@@ -47,6 +47,7 @@ import {
   type ScoreItem,
 } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
+import QuarterDeadlineBanner from "@/components/QuarterDeadlineBanner";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -192,14 +193,14 @@ const LedgerRow = React.memo(({
     (displayInitialGrade !== null ? transmuteGrade(displayInitialGrade) : null);
 
   const cellClass = "text-center text-[10px] font-bold border-r border-slate-100 p-0 h-9";
-  const inputClass = "w-full h-full bg-transparent text-center focus:bg-white focus:ring-1 focus:ring-inset focus:ring-indigo-500/30 outline-none transition-all px-1 font-bold";
+  const inputClass = "w-full h-full bg-transparent text-center focus:bg-white focus:ring-1 focus:ring-inset focus:ring-primary/30 outline-none transition-all px-1 font-bold";
 
   return (
-    <TableRow className={`${isHps ? 'bg-slate-800 text-white border-y border-slate-700 sticky top-0 z-20 shadow-lg' : 'hover:bg-indigo-50/10'} transition-all border-b border-slate-100 group h-9`}>
-      <TableCell className={`text-center font-bold text-[9px] border-r border-slate-100 ${isHps ? 'text-indigo-300' : 'text-slate-300'}`}>{isHps ? "MAX" : idx + 1}</TableCell>
+    <TableRow className={`${isHps ? 'bg-slate-800 text-white border-y border-slate-700 sticky top-0 z-20 shadow-lg' : 'hover:bg-primary/5'} transition-all border-b border-slate-100 group h-9`}>
+      <TableCell className={`text-center font-bold text-[9px] border-r border-slate-100 ${isHps ? 'text-primary/70' : 'text-slate-300'}`}>{isHps ? "MAX" : idx + 1}</TableCell>
       <TableCell className={`font-mono text-[9px] font-medium border-r border-slate-100 px-3 truncate ${isHps ? 'text-slate-500' : 'text-slate-400'}`}>{isHps ? "—" : record?.student.lrn}</TableCell>
       <TableCell className="border-r border-slate-200 px-3 min-w-[200px]">
-        <p className={`font-bold text-[10px] tracking-tight uppercase truncate ${isHps ? 'text-indigo-300' : 'text-slate-700'}`}>
+        <p className={`font-bold text-[10px] tracking-tight uppercase truncate ${isHps ? 'text-primary/70' : 'text-slate-700'}`}>
           {isHps ? "HIGHEST POSSIBLE SCORE" : `${record?.student.lastName}, ${record?.student.firstName}`}
         </p>
       </TableCell>
@@ -211,7 +212,7 @@ const LedgerRow = React.memo(({
             type="number"
             defaultValue={isHps ? (wwScores[i]?.maxScore || 0) : (wwScores[i]?.score || '')}
             placeholder="0"
-            className={`${inputClass} ${isHps ? 'text-indigo-300 font-black' : 'text-slate-600'}`}
+            className={`${inputClass} ${isHps ? 'text-primary/70 font-black' : 'text-slate-600'}`}
             onBlur={(e) => {
               const val = e.target.value === '' ? 0 : Number(e.target.value);
               if (isHps) onHpsUpdate('WW', i, val);
@@ -223,10 +224,10 @@ const LedgerRow = React.memo(({
       <TableCell className={`text-center text-[10px] font-black border-r border-slate-100 ${isHps ? 'bg-slate-700' : 'bg-slate-50/50 text-slate-500'}`}>
         {isHps ? wwMaxTotal : wwTotal}
       </TableCell>
-      <TableCell className="text-center font-black text-[10px] text-indigo-600 border-r border-slate-100 bg-indigo-50/5">
+      <TableCell className="text-center font-black text-[10px] text-primary border-r border-slate-100 bg-primary/5">
         {isHps ? "100.0" : formatNum(displayWWPS)}
       </TableCell>
-      <TableCell className="text-center font-black text-[10px] text-indigo-700 border-r border-slate-200 bg-indigo-50/10">
+      <TableCell className="text-center font-black text-[10px] text-primary border-r border-slate-200 bg-primary/10">
         {isHps ? weights.ww.toFixed(1) : formatNum(displayWWWS)}
       </TableCell>
       
@@ -753,8 +754,8 @@ export default function ClassRecordView() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+          <div className="w-20 h-20 bg-primary/5 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
           </div>
           <p className="text-slate-500 font-black text-xs uppercase tracking-widest">Fetching Class Records...</p>
         </div>
@@ -766,6 +767,8 @@ export default function ClassRecordView() {
 
   return (
     <div className="space-y-8 animate-fade-in max-w-full mx-auto px-6 pb-12">
+      <QuarterDeadlineBanner />
+
       {/* Toast Messages */}
       {(error || success) && (
         <div className={`fixed top-20 right-6 z-[100] flex items-center gap-4 px-6 py-4 rounded-[1.5rem] shadow-2xl border-0 animate-slide-in-right ${error ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}`}>
@@ -777,17 +780,17 @@ export default function ClassRecordView() {
 
       {/* Header Section */}
       <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 p-8 shadow-xl shadow-slate-200/50">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="flex items-center gap-6">
             <Link to="/teacher/classes">
-              <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all border border-slate-100 shadow-sm">
+              <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 hover:bg-primary hover:text-primary-foreground transition-all border border-slate-100 shadow-sm">
                 <ArrowLeft className="w-6 h-6" />
               </Button>
             </Link>
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black uppercase tracking-widest px-3">{gradeLevelLabels[classAssignment.section.gradeLevel]}</Badge>
+                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-widest px-3">{gradeLevelLabels[classAssignment.section.gradeLevel]}</Badge>
                 <div className="h-4 w-px bg-slate-200" />
                 <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Section {classAssignment.section.name}</span>
               </div>
@@ -834,7 +837,7 @@ export default function ClassRecordView() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-200 shadow-2xl p-2">
                   {quarters.map((q) => (
-                    <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-indigo-50 focus:text-indigo-600 transition-colors cursor-pointer">
+                    <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-primary/10 focus:text-primary transition-colors cursor-pointer">
                       {q}
                     </SelectItem>
                   ))}
@@ -894,7 +897,7 @@ export default function ClassRecordView() {
       {!isHGClass && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "indigo" },
+            { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "primary" },
             { label: "Passing Rate", value: `${Math.round((stats.passed/classRecord.length)*100)}%`, icon: TrendingUp, color: "emerald" },
             { label: "Highest Grade", value: stats.highest, icon: Award, color: "amber" },
             { label: "Needs Support", value: classRecord.length - stats.passed, icon: TrendingDown, color: "rose" },
@@ -902,7 +905,7 @@ export default function ClassRecordView() {
             <Card key={stat.label} className="border-0 shadow-lg shadow-slate-200/50 rounded-[2rem] bg-white overflow-hidden group hover:-translate-y-1 transition-all duration-300">
               <CardContent className="p-7 flex flex-col justify-between h-full">
                 <div className="p-3 rounded-2xl w-fit mb-4 bg-slate-50 group-hover:bg-white transition-colors shadow-sm">
-                  <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                  <stat.icon className={`w-6 h-6 ${stat.color === 'primary' ? 'text-primary' : `text-${stat.color}-600`}`} />
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
@@ -924,14 +927,14 @@ export default function ClassRecordView() {
               <Button 
                 variant="ghost" 
                 onClick={() => setSeparateByGender(false)} 
-                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!separateByGender ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!separateByGender ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 Alphabetical
               </Button>
               <Button 
                 variant="ghost" 
                 onClick={() => setSeparateByGender(true)} 
-                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${separateByGender ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${separateByGender ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 Gendered
               </Button>
@@ -945,7 +948,7 @@ export default function ClassRecordView() {
               </SelectTrigger>
               <SelectContent className="rounded-xl border-slate-200 shadow-2xl p-2">
                 {quarters.map((q) => (
-                  <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-indigo-50 focus:text-indigo-600 transition-colors cursor-pointer">
+                  <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-primary/10 focus:text-primary transition-colors cursor-pointer">
                     {q}
                   </SelectItem>
                 ))}
@@ -960,14 +963,14 @@ export default function ClassRecordView() {
               {/* Grouped Header Row */}
               <TableRow className="hover:bg-transparent border-0 bg-slate-50/50 h-10">
                 <TableHead colSpan={3} className="border-r border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-0 w-[400px]">LEARNER INFORMATION</TableHead>
-                <TableHead colSpan={wwCount + 3} className="border-r border-slate-200 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center px-0 bg-indigo-50/30">
+                <TableHead colSpan={wwCount + 3} className="border-r border-slate-200 text-[10px] font-black text-primary uppercase tracking-widest text-center px-0 bg-primary/5">
                   <div className="flex items-center justify-center gap-3">
                     WRITTEN WORK ({effectiveWeights?.ww ?? classAssignment.subject.writtenWorkWeight}%)
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       disabled={wwCount <= 1}
-                      className="w-6 h-6 rounded-full bg-white text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-6 h-6 rounded-full bg-white text-primary shadow-sm border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => removeTask('WW')}
                     >
                       <Minus className="w-3 h-3" />
@@ -975,7 +978,7 @@ export default function ClassRecordView() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="w-6 h-6 rounded-full bg-white text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all"
+                      className="w-6 h-6 rounded-full bg-white text-primary shadow-sm border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all"
                       onClick={() => addTask('WW')}
                     >
                       <Plus className="w-3 h-3" />
@@ -1018,8 +1021,8 @@ export default function ClassRecordView() {
                   <TableHead key={`h-ww-${i}`} className="w-10 text-center text-[9px] font-black text-slate-400 uppercase border-r border-slate-100">{i + 1}</TableHead>
                 ))}
                 <TableHead className="w-12 text-center text-[9px] font-black text-slate-500 uppercase border-r border-slate-100 bg-slate-100/50">Total</TableHead>
-                <TableHead className="w-12 text-center text-[9px] font-black text-indigo-600 uppercase border-r border-slate-100 bg-indigo-50/30">PS</TableHead>
-                <TableHead className="w-12 text-center text-[9px] font-black text-indigo-700 uppercase border-r border-slate-200 bg-indigo-100/50">WS</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-primary uppercase border-r border-slate-100 bg-primary/10">PS</TableHead>
+                <TableHead className="w-12 text-center text-[9px] font-black text-primary uppercase border-r border-slate-200 bg-primary/20">WS</TableHead>
                 
                 {/* Dynamic PT Columns */}
                 {Array.from({ length: ptCount }).map((_, i) => (

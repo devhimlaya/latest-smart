@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { adminApi, SERVER_URL } from "@/lib/api";
+import api, { adminApi, SERVER_URL } from "@/lib/api";
 import type { SystemSettings as SystemSettingsType } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -294,7 +294,14 @@ export default function SystemSettings() {
   const handleCancelLogo = () => {
     // kept for compatibility â€” no longer used
   };
-
+  const handleTestConnection = async () => {
+    try {
+      await api.get("/health");
+      alert("✅ Database connection is healthy.");
+    } catch {
+      alert("❌ Could not reach the server. Check your connection.");
+    }
+  };
   const handleSyncFromEnrollPro = async () => {
     try {
       setSyncing(true);
@@ -974,7 +981,7 @@ export default function SystemSettings() {
                 <p className="text-xs text-gray-500">Connected and operational</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2">
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={handleTestConnection}>
               <RefreshCw className="w-4 h-4" />
               Test Connection
             </Button>

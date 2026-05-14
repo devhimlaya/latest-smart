@@ -51,6 +51,7 @@ const navigation: NavItem[] = [
       { name: "ECR Templates", href: "/admin/ecr-templates", icon: BookOpen },
     ],
   },
+  { name: "System Monitor", href: "/admin/system", icon: Activity },
   { name: "System Settings", href: "/admin/settings", icon: Settings },
 ];
 

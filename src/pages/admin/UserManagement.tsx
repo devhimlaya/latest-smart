@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Trash2,
   Save,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -113,9 +115,11 @@ export default function UserManagement() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [formData, setFormData] = useState<UserFormData>(initialFormData);
   const [saving, setSaving] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -240,6 +244,25 @@ export default function UserManagement() {
   const openDeleteDialog = (user: AdminUser) => {
     setSelectedUser(user);
     setIsDeleteOpen(true);
+  };
+
+  const openResetDialog = (user: AdminUser) => {
+    setSelectedUser(user);
+    setTempPassword(null);
+    setIsResetOpen(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    try {
+      setSaving(true);
+      const response = await adminApi.resetUserPassword(selectedUser.id);
+      setTempPassword(response.data.tempPassword);
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to reset password");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -495,6 +518,10 @@ export default function UserManagement() {
                             <DropdownMenuItem className="rounded-lg" onClick={() => openEditDialog(user)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="rounded-lg" onClick={() => openResetDialog(user)}>
+                              <KeyRound className="w-4 h-4 mr-2" />
+                              Reset Password
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
@@ -881,6 +908,81 @@ export default function UserManagement() {
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+        <DialogContent className="sm:max-w-[420px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary}15` }}>
+                <KeyRound className="w-5 h-5" style={{ color: colors.primary }} />
+              </div>
+              Reset Password
+            </DialogTitle>
+            <DialogDescription>
+              Generate a temporary password and provide it to the user immediately.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedUser && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <p className="text-sm font-semibold text-slate-900">
+                  {selectedUser.firstName} {selectedUser.lastName}
+                </p>
+                <p className="text-xs text-slate-500">@{selectedUser.username}</p>
+              </div>
+
+              {tempPassword ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Temporary Password</p>
+                  <div className="flex items-center gap-2">
+                    <Input value={tempPassword} readOnly className="font-mono rounded-xl" />
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(tempPassword);
+                        } catch {
+                          // no-op
+                        }
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-700">Share this password securely right away. The user should change it on next login.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">Click Generate to create a temporary password.</p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setIsResetOpen(false);
+                setTempPassword(null);
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              className="rounded-xl text-white"
+              style={{ backgroundColor: colors.primary }}
+              onClick={handleResetPassword}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+              {tempPassword ? "Regenerate" : "Generate"}
             </Button>
           </DialogFooter>
         </DialogContent>

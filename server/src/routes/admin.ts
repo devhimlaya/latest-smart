@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { Role, SubjectType, AuditAction, AuditSeverity, Quarter, WorkloadType } from "@prisma/client";
+import { Role, SubjectType, AuditAction, AuditSeverity, Quarter } from "@prisma/client";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import bcrypt from "bcryptjs";
 import multer from "multer";
@@ -79,6 +79,17 @@ const SF_SHEET_MATCHERS: Record<string, RegExp[]> = {
   SF9: [/\bsf\s*9\b/i, /school\s*form\s*9/i, /report\s*card/i, /progress\s*report/i, /learner'?s\s*progress/i],
   SF10: [/\bsf\s*10\b/i, /school\s*form\s*10/i, /permanent\s*record/i, /form\s*137/i, /front/i, /back/i],
 };
+
+let pingCache:
+  | {
+      data: {
+        enrollpro: any;
+        atlas: any;
+        aims: any;
+      };
+      cachedAt: number;
+    }
+  | null = null;
 
 function detectSfSheetMappings(filePath: string): Array<{ formType: string; sheetName: string }> {
   const workbook = XLSX.readFile(filePath, { cellDates: true });
@@ -165,6 +176,7 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
         where: {
           schoolYear,
           status: "ENROLLED",
+          isActive: true,
         },
         distinct: ["studentId"],
         select: { studentId: true },
@@ -182,7 +194,7 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
 
     if (totalStudents === 0) {
       const latestEnrollment = await prisma.enrollment.findFirst({
-        where: { status: "ENROLLED" },
+        where: { status: "ENROLLED", isActive: true },
         orderBy: { updatedAt: "desc" },
         select: { schoolYear: true },
       });
@@ -193,9 +205,7 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
       }
     }
 
-    if (totalStudents === 0) {
-      totalStudents = await prisma.student.count();
-    }
+    // Keep dashboard parity strict to active enrollment mirror data.
 
     // Get today's login count from audit logs
     const today = new Date();
@@ -257,7 +267,10 @@ router.get("/dashboard", authenticateToken, requireAdmin, async (req: AuthReques
       systemStatus: {
         database: "healthy",
         lastBackup: "N/A",
-        uptime: "99.9%",
+        uptime: (() => {
+          const s = Math.floor(process.uptime());
+          return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+        })(),
       },
       settings: settings
         ? {
@@ -548,6 +561,43 @@ router.delete("/users/:id", authenticateToken, requireAdmin, async (req: AuthReq
   } catch (error) {
     console.error("Error deleting user:", error);
     res.status(500).json({ message: "Failed to delete user" });
+  }
+});
+
+router.post("/users/:id/reset-password", authenticateToken, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const words = ["Cloud", "Rain", "Star", "Blue", "Moon", "Fire", "Tree", "Stone"];
+    const word1 = words[Math.floor(Math.random() * words.length)];
+    const word2 = words[Math.floor(Math.random() * words.length)];
+    const num = Math.floor(Math.random() * 90) + 10;
+    const tempPassword = `${word1}${word2}${num}`;
+
+    const hashed = await bcrypt.hash(tempPassword, 10);
+    await prisma.user.update({ where: { id }, data: { password: hashed } });
+
+    await createAuditLog(
+      AuditAction.UPDATE,
+      req.user!,
+      `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username,
+      "User",
+      "Password reset by admin",
+      req.ip,
+      AuditSeverity.WARNING,
+      user.id
+    );
+
+    res.json({ message: "Password reset successful", tempPassword });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ message: "Failed to reset password" });
   }
 });
 
@@ -1059,11 +1109,11 @@ router.put("/grading-config/:subjectType", authenticateToken, requireAdmin, asyn
     await createAuditLog(
       AuditAction.CONFIG,
       req.user!,
-      "Grading Weights",
+      `GradingConfig:${subjectType}`,
       "Config",
-      `Updated ${subjectType} grading weights: WW ${writtenWorkWeight}%, PT ${performanceTaskWeight}%, QA ${quarterlyAssessWeight}%`,
+      `Updated grading weights for ${subjectType}: WW ${writtenWorkWeight}% / PT ${performanceTaskWeight}% / QA ${quarterlyAssessWeight}%`,
       req.ip,
-      AuditSeverity.CRITICAL
+      AuditSeverity.INFO
     );
 
     res.json({ message: "Grading configuration updated successfully", config });
@@ -1122,6 +1172,120 @@ router.post("/grading-config/reset", authenticateToken, requireAdmin, async (req
   } catch (error) {
     console.error("Error resetting grading configs:", error);
     res.status(500).json({ message: "Failed to reset grading configurations" });
+  }
+});
+
+router.get("/system-status", authenticateToken, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uptimeSec = Math.floor(process.uptime());
+    const uptimeFormatted = `${Math.floor(uptimeSec / 3600)}h ${Math.floor((uptimeSec % 3600) / 60)}m`;
+    const memUsed = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    const memHeap = Math.round(process.memoryUsage().heapTotal / 1024 / 1024);
+
+    let dbStatus = "connected";
+    let dbLatencyMs = 0;
+    try {
+      const dbStart = Date.now();
+      await prisma.$queryRaw`SELECT 1`;
+      dbLatencyMs = Date.now() - dbStart;
+    } catch {
+      dbStatus = "error";
+    }
+
+    const atlasSyncStatus = getSyncStatus();
+    const enrollProSyncStatus = getEnrollProSyncStatus();
+
+    const now = Date.now();
+    if (!pingCache || now - pingCache.cachedAt > 30000) {
+      const ping = async (url: string | undefined, name: string) => {
+        if (!url) return { status: "not_configured", name };
+
+        const start = Date.now();
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
+          await fetch(url, { signal: controller.signal });
+          clearTimeout(timeout);
+          return {
+            status: "reachable",
+            latencyMs: Date.now() - start,
+            name,
+            checkedAt: new Date().toISOString(),
+          };
+        } catch (error: any) {
+          return {
+            status: "unreachable",
+            error: error?.message ?? "timeout",
+            name,
+            checkedAt: new Date().toISOString(),
+          };
+        }
+      };
+
+      const [enrollpro, atlas, aims] = await Promise.all([
+        ping(process.env.ENROLLPRO_URL, "EnrollPro"),
+        ping(process.env.ATLAS_URL, "ATLAS"),
+        ping(process.env.AIMS_URL, "AIMS"),
+      ]);
+
+      pingCache = {
+        data: { enrollpro, atlas, aims },
+        cachedAt: now,
+      };
+    }
+
+    res.json({
+      server: {
+        uptimeSeconds: uptimeSec,
+        uptimeFormatted,
+        nodeVersion: process.version,
+        memoryUsedMB: memUsed,
+        memoryHeapMB: memHeap,
+        environment: process.env.NODE_ENV ?? "development",
+      },
+      database: {
+        status: dbStatus,
+        latencyMs: dbLatencyMs,
+      },
+      sync: {
+        atlas: {
+          lastSyncAt: atlasSyncStatus.lastSyncAt,
+          result: atlasSyncStatus.result,
+        },
+        enrollpro: {
+          lastSyncAt: enrollProSyncStatus.lastSyncAt,
+          result: enrollProSyncStatus.lastSyncResult,
+        },
+      },
+      externalSystems: pingCache?.data ?? {
+        enrollpro: { status: "unreachable", name: "EnrollPro" },
+        atlas: { status: "unreachable", name: "ATLAS" },
+        aims: { status: "unreachable", name: "AIMS" },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching system status:", error);
+    res.status(500).json({ message: "Failed to fetch system status" });
+  }
+});
+
+router.post("/sync/atlas", authenticateToken, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await runAtlasSync();
+    res.json({ message: "ATLAS sync completed", result });
+  } catch (error) {
+    console.error("Error running ATLAS sync:", error);
+    res.status(500).json({ message: "Failed to run ATLAS sync" });
+  }
+});
+
+router.post("/sync/enrollpro", authenticateToken, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await runEnrollProSync();
+    res.json({ message: "EnrollPro sync completed", result });
+  } catch (error) {
+    console.error("Error running EnrollPro sync:", error);
+    res.status(500).json({ message: "Failed to run EnrollPro sync" });
   }
 });
 
@@ -1348,19 +1512,20 @@ router.get("/class-assignments", authenticateToken, async (req: AuthRequest, res
   try {
     const schoolYear = (req.query.schoolYear as string) || "2026-2027";
     const assignments = await prisma.classAssignment.findMany({
-      where: { schoolYear },
+      where: { schoolYear, isActive: true },
       include: {
         teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
         subject: true,
         section: true,
       },
       orderBy: [{ section: { gradeLevel: "asc" } }, { section: { name: "asc" } }],
-    });
+    }) as any[];
 
-    const advisoryEntries = await prisma.workloadEntry.findMany({
+    const advisoryEntries = await (prisma as any).workloadEntry.findMany({
       where: {
         schoolYear,
-        type: WorkloadType.ADVISORY_ROLE,
+        type: "ADVISORY_ROLE",
+        isActive: true,
       },
       include: {
         teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
@@ -1406,7 +1571,7 @@ router.get("/class-assignments", authenticateToken, async (req: AuthRequest, res
       return bucket;
     };
 
-    for (const assignment of assignments) {
+    for (const assignment of assignments as any[]) {
       const teacherName = `${assignment.teacher.user.lastName}, ${assignment.teacher.user.firstName}`;
       const bucket = ensureBucket(
         assignment.teacherId,
@@ -1476,6 +1641,7 @@ router.post("/class-assignments", authenticateToken, async (req: AuthRequest, re
         subjectId,
         sectionId,
         schoolYear,
+        isActive: true,
         teachingMinutes: subject.code.startsWith('HG') ? 60 : null,
       },
       include: {
@@ -1498,8 +1664,18 @@ router.post("/class-assignments", authenticateToken, async (req: AuthRequest, re
 router.delete("/class-assignments/:id", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   if (req.user?.role !== "ADMIN") { res.status(403).json({ message: "Forbidden" }); return; }
   try {
-    await prisma.classAssignment.delete({ where: { id: req.params.id } });
-    res.json({ message: "Deleted" });
+    const rawId = req.params.id;
+    const id = Array.isArray(rawId) ? rawId[0] : rawId;
+    if (!id) {
+      res.status(400).json({ message: "Invalid assignment id" });
+      return;
+    }
+
+    await (prisma.classAssignment as any).update({
+      where: { id },
+      data: { isActive: false } as any,
+    });
+    res.json({ message: "Marked inactive" });
   } catch (err: any) {
     if (err.code === "P2025") {
       res.status(404).json({ message: "Assignment not found" });

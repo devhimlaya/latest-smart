@@ -17,11 +17,14 @@ export async function syncAdvisoryWorkloadEntry(params: {
   const { teacherId, sectionId, schoolYear } = params;
 
   if (!teacherId) {
-    await prisma.workloadEntry.deleteMany({
+    await prisma.workloadEntry.updateMany({
       where: {
         sectionId,
         schoolYear,
         type: WorkloadType.ADVISORY_ROLE,
+      },
+      data: {
+        isActive: false,
       },
     });
     return;
@@ -37,12 +40,16 @@ export async function syncAdvisoryWorkloadEntry(params: {
         type: WorkloadType.ADVISORY_ROLE,
       },
     },
-    update: { minutes },
+    update: {
+      minutes,
+      isActive: true,
+    },
     create: {
       teacherId,
       sectionId,
       schoolYear,
       type: WorkloadType.ADVISORY_ROLE,
+      isActive: true,
       minutes,
     },
   });

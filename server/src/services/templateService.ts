@@ -53,7 +53,7 @@ export class TemplateService {
     
     // Write to buffer and return
     const buffer = await workbook.xlsx.writeBuffer();
-    return buffer as Buffer;
+    return Buffer.from(buffer);
   }
 
   private getWorksheetsToProcess(workbook: ExcelJS.Workbook, targetSheetName?: string): ExcelJS.Worksheet[] {

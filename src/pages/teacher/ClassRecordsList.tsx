@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { gradesApi, advisoryApi, type ClassAssignment } from "@/lib/api";
+import { gradesApi, advisoryApi, adminApi, type ClassAssignment } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
+import QuarterDeadlineBanner from "@/components/QuarterDeadlineBanner";
 
 const gradeLevelLabels: Record<string, string> = {
   GRADE_7: "Grade 7",
@@ -35,6 +36,7 @@ export default function ClassRecordsList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [currentQuarter, setCurrentQuarter] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -49,6 +51,11 @@ export default function ClassRecordsList() {
     };
 
     fetchClasses();
+
+    adminApi
+      .getSettings()
+      .then((res) => setCurrentQuarter(res.data.settings?.currentQuarter ?? null))
+      .catch(() => {});
 
     // Silent background sync — pulls fresh Atlas + EnrollPro data, then re-fetches
     advisoryApi.syncFromEnrollPro()
@@ -86,19 +93,26 @@ export default function ClassRecordsList() {
 
   return (
     <div className="space-y-10 animate-fade-in max-w-7xl mx-auto pb-12">
+      <QuarterDeadlineBanner />
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-100">
+            <div className="p-2.5 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/20">
               <BookOpen className="w-6 h-6" />
             </div>
-            <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black uppercase tracking-widest px-3">
+            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-widest px-3">
               {classes.length} ACTIVE CLASSES
             </Badge>
           </div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">Class Records</h1>
           <p className="text-slate-500 font-medium text-lg">Select a section to manage student performance and mastery</p>
+          {currentQuarter && (
+            <Badge className="mt-2 w-fit bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-widest px-3">
+              Now encoding: {currentQuarter} grades
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -107,14 +121,14 @@ export default function ClassRecordsList() {
         <CardContent className="p-8">
           <div className="flex flex-col lg:flex-row gap-6 items-center">
             <div className="relative flex-1 w-full group">
-              <div className="absolute left-5 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-slate-100 text-slate-400 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-all">
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-slate-100 text-slate-400 group-focus-within:bg-primary group-focus-within:text-primary-foreground transition-all">
                 <Search className="w-4 h-4" />
               </div>
               <Input
                 placeholder="Search by subject, section, or grade..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-16 h-14 bg-slate-50/50 border-0 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-indigo-50 rounded-2xl text-base font-bold transition-all placeholder:text-slate-400"
+                className="pl-16 h-14 bg-slate-50/50 border-0 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-primary/10 rounded-2xl text-base font-bold transition-all placeholder:text-slate-400"
               />
             </div>
             
@@ -128,7 +142,7 @@ export default function ClassRecordsList() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-11 w-11 rounded-xl transition-all ${viewMode === "grid" ? "bg-white text-indigo-600 shadow-md" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`h-11 w-11 rounded-xl transition-all ${viewMode === "grid" ? "bg-white text-primary shadow-md" : "text-slate-400 hover:text-slate-600"}`}
                   onClick={() => setViewMode("grid")}
                 >
                   <LayoutGrid className="w-5 h-5" />
@@ -136,7 +150,7 @@ export default function ClassRecordsList() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-11 w-11 rounded-xl transition-all ${viewMode === "list" ? "bg-white text-indigo-600 shadow-md" : "text-slate-400 hover:text-slate-600"}`}
+                  className={`h-11 w-11 rounded-xl transition-all ${viewMode === "list" ? "bg-white text-primary shadow-md" : "text-slate-400 hover:text-slate-600"}`}
                   onClick={() => setViewMode("list")}
                 >
                   <List className="w-5 h-5" />
@@ -157,25 +171,25 @@ export default function ClassRecordsList() {
               className="animate-slide-up group"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <Card className="h-full border-0 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500 rounded-[2.5rem] bg-white overflow-hidden flex flex-col relative group-hover:-translate-y-2">
+              <Card className="h-full border-0 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 rounded-[2.5rem] bg-white overflow-hidden flex flex-col relative group-hover:-translate-y-2">
                 {/* Visual Accent */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[4rem] -mr-10 -mt-10 group-hover:bg-indigo-50 transition-colors" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[4rem] -mr-10 -mt-10 group-hover:bg-primary/5 transition-colors" />
                 
                 <CardHeader className="p-8 pb-4 relative z-10">
                   <div className="flex items-start justify-between mb-8">
                     <Badge
-                      className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black uppercase tracking-[0.1em] px-4 py-1.5 rounded-full"
+                      className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-[0.1em] px-4 py-1.5 rounded-full"
                     >
                       {gradeLevelLabels[assignment.section.gradeLevel]}
                     </Badge>
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-300 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-500 shadow-sm">
                       <ArrowUpRight className="w-5 h-5" />
                     </div>
                   </div>
                   
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Subject Title</p>
-                    <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
+                    <h3 className="text-2xl font-black text-slate-900 group-hover:text-primary transition-colors leading-tight">
                       {assignment.subject.name}
                     </h3>
                   </div>
@@ -190,7 +204,7 @@ export default function ClassRecordsList() {
                 <CardContent className="p-8 pt-6 mt-auto relative z-10">
                   <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors shadow-sm">
                         <Users className="w-5 h-5" />
                       </div>
                       <div>
@@ -227,13 +241,13 @@ export default function ClassRecordsList() {
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="p-8 hover:bg-slate-50/50 transition-all duration-300 flex flex-col sm:flex-row sm:items-center gap-8 group">
-                  <div className="w-16 h-16 rounded-[1.5rem] bg-slate-50 text-slate-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-xl group-hover:shadow-indigo-100 transition-all duration-500">
+                  <div className="w-16 h-16 rounded-[1.5rem] bg-slate-50 text-slate-300 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/20 transition-all duration-500">
                     <BookOpen className="w-8 h-8" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <h3 className="text-xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      <h3 className="text-xl font-black text-slate-900 group-hover:text-primary transition-colors">
                         {assignment.subject.name}
                       </h3>
                       <Badge className="bg-slate-100 text-slate-500 border-0 text-[10px] font-black uppercase tracking-widest px-3">

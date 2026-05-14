@@ -198,10 +198,24 @@ router.get(
         where: {
           teacherId: teacher.id,
           schoolYear: '2026-2027',
+          isActive: true,
         },
         include: {
           subject: true,
-          section: { include: { _count: { select: { enrollments: { where: { status: 'ENROLLED' } } } } } },
+          section: {
+            include: {
+              _count: {
+                select: {
+                  enrollments: {
+                    where: {
+                      status: 'ENROLLED',
+                      isActive: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 

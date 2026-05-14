@@ -369,7 +369,7 @@ router.post('/sync/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), uplo
         section: {
           include: {
             enrollments: {
-              where: { status: 'ENROLLED' },
+              where: { status: 'ENROLLED', isActive: true },
               include: { student: true }
             }
           }
@@ -656,7 +656,7 @@ router.post('/generate/:classAssignmentId', authorizeRoles('ADMIN', 'TEACHER'), 
           section: {
             include: {
               enrollments: {
-                where: { status: 'ENROLLED' },
+                where: { status: 'ENROLLED', isActive: true },
                 include: { student: true },
                 orderBy: { student: { lastName: 'asc' } }
               }

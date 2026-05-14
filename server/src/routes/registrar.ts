@@ -24,7 +24,15 @@ router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Respon
       where: { schoolYear: currentSchoolYear },
       include: {
         _count: {
-          select: { enrollments: true }
+          select: {
+            enrollments: {
+              where: {
+                schoolYear: currentSchoolYear,
+                status: "ENROLLED",
+                isActive: true,
+              },
+            },
+          }
         },
         adviser: {
           include: {
@@ -38,7 +46,8 @@ router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Respon
     const totalStudents = await prisma.enrollment.count({
       where: { 
         schoolYear: currentSchoolYear,
-        status: "ENROLLED"
+        status: "ENROLLED",
+        isActive: true,
       }
     });
 
@@ -47,7 +56,8 @@ router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Respon
       by: ['sectionId'],
       where: { 
         schoolYear: currentSchoolYear,
-        status: "ENROLLED"
+        status: "ENROLLED",
+        isActive: true,
       },
       _count: true
     });
@@ -148,7 +158,8 @@ router.get("/students", authenticateToken, async (req: AuthRequest, res: Respons
     // Build where clause for enrollments
     const enrollmentWhere: any = {
       schoolYear: currentSchoolYear,
-      status: "ENROLLED"
+      status: "ENROLLED",
+      isActive: true,
     };
 
     if (sectionId && sectionId !== "all") {
@@ -313,7 +324,8 @@ router.get("/forms/sf9/:studentId", authenticateToken, async (req: AuthRequest, 
     const enrollment = await prisma.enrollment.findFirst({
       where: {
         studentId: studentId,
-        schoolYear: currentSchoolYear
+        schoolYear: currentSchoolYear,
+        isActive: true,
       },
       include: {
         section: {
@@ -337,7 +349,8 @@ router.get("/forms/sf9/:studentId", authenticateToken, async (req: AuthRequest, 
         studentId: studentId,
         classAssignment: {
           sectionId: enrollment.sectionId,
-          schoolYear: currentSchoolYear
+          schoolYear: currentSchoolYear,
+          isActive: true,
         }
       },
       include: {
@@ -592,7 +605,15 @@ router.get("/forms/sf8", authenticateToken, async (req: AuthRequest, res: Respon
           include: { user: true }
         },
         _count: {
-          select: { enrollments: true }
+          select: {
+            enrollments: {
+              where: {
+                schoolYear: currentSchoolYear,
+                status: "ENROLLED",
+                isActive: true,
+              },
+            },
+          }
         }
       },
       orderBy: [
@@ -614,7 +635,8 @@ router.get("/forms/sf8", authenticateToken, async (req: AuthRequest, res: Respon
         where: {
           sectionId: sectionId as string,
           schoolYear: currentSchoolYear,
-          status: "ENROLLED"
+          status: "ENROLLED",
+          isActive: true,
         },
         include: {
           student: true
@@ -629,7 +651,8 @@ router.get("/forms/sf8", authenticateToken, async (req: AuthRequest, res: Respon
       const classAssignments = await prisma.classAssignment.findMany({
         where: {
           sectionId: sectionId as string,
-          schoolYear: currentSchoolYear
+          schoolYear: currentSchoolYear,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -770,6 +793,160 @@ router.get("/sections", authenticateToken, async (req: AuthRequest, res: Respons
   }
 });
 
+// Get SF1 (School Register) JSON for section
+router.get("/sf1/:sectionId", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== "REGISTRAR") {
+      res.status(403).json({ message: "Access denied. Registrar only." });
+      return;
+    }
+
+    const { sectionId } = req.params as { sectionId: string };
+    const { schoolYear } = req.query as { schoolYear?: string };
+
+    const settings = await prisma.systemSettings.findUnique({ where: { id: "main" } });
+    const sy = schoolYear || settings?.currentSchoolYear;
+
+    const section = await prisma.section.findUnique({
+      where: { id: sectionId },
+      include: {
+        adviser: { include: { user: true } },
+        enrollments: {
+          where: {
+            schoolYear: sy,
+            status: "ENROLLED",
+            isActive: true,
+          },
+          include: { student: true },
+          orderBy: [{ student: { lastName: "asc" } }, { student: { firstName: "asc" } }],
+        },
+      },
+    });
+
+    if (!section) {
+      res.status(404).json({ message: "Section not found" });
+      return;
+    }
+
+    res.json({
+      section: {
+        id: section.id,
+        name: section.name,
+        gradeLevel: section.gradeLevel,
+        schoolYear: sy,
+        adviser: section.adviser
+          ? `${section.adviser.user.lastName}, ${section.adviser.user.firstName}`
+          : null,
+      },
+      students: section.enrollments.map((e, i) => ({
+        no: i + 1,
+        lrn: e.student.lrn,
+        lastName: e.student.lastName,
+        firstName: e.student.firstName,
+        middleName: e.student.middleName ?? "",
+        suffix: e.student.suffix ?? "",
+        gender: e.student.gender ?? "",
+        birthDate: e.student.birthDate?.toISOString().split("T")[0] ?? "",
+        address: e.student.address ?? "",
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching SF1:", error);
+    res.status(500).json({ message: "Failed to fetch SF1" });
+  }
+});
+
+// Get SF2 (Daily Attendance) JSON for section/month
+router.get("/sf2/:sectionId", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== "REGISTRAR") {
+      res.status(403).json({ message: "Access denied. Registrar only." });
+      return;
+    }
+
+    const { sectionId } = req.params as { sectionId: string };
+    const { schoolYear, month } = req.query as { schoolYear?: string; month?: string };
+    const settings = await prisma.systemSettings.findUnique({ where: { id: "main" } });
+    const sy = schoolYear || settings?.currentSchoolYear;
+
+    const targetMonth = month ? new Date(`${month}-01`) : new Date();
+    const safeMonth = Number.isNaN(targetMonth.getTime()) ? new Date() : targetMonth;
+    const startDate = new Date(safeMonth.getFullYear(), safeMonth.getMonth(), 1);
+    const endDate = new Date(safeMonth.getFullYear(), safeMonth.getMonth() + 1, 0);
+    const daysInMonth = endDate.getDate();
+
+    const section = await prisma.section.findUnique({
+      where: { id: sectionId },
+      include: {
+        adviser: { include: { user: true } },
+        enrollments: {
+          where: {
+            schoolYear: sy,
+            status: "ENROLLED",
+            isActive: true,
+          },
+          include: { student: true },
+          orderBy: [{ student: { lastName: "asc" } }, { student: { firstName: "asc" } }],
+        },
+      },
+    });
+
+    if (!section) {
+      res.status(404).json({ message: "Section not found" });
+      return;
+    }
+
+    const studentIds = section.enrollments.map((e) => e.studentId);
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: {
+        sectionId,
+        studentId: { in: studentIds },
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const attendanceMap: Record<string, Record<number, string>> = {};
+    for (const record of attendanceRecords) {
+      const day = new Date(record.date).getDate();
+      if (!attendanceMap[record.studentId]) attendanceMap[record.studentId] = {};
+      attendanceMap[record.studentId][day] = String(record.status);
+    }
+
+    res.json({
+      section: {
+        name: section.name,
+        gradeLevel: section.gradeLevel,
+        schoolYear: sy,
+        adviser: section.adviser
+          ? `${section.adviser.user.lastName}, ${section.adviser.user.firstName}`
+          : null,
+      },
+      month: month || safeMonth.toISOString().slice(0, 7),
+      daysInMonth,
+      students: section.enrollments.map((e, i) => {
+        const attendance = attendanceMap[e.student.id] ?? {};
+        return {
+          no: i + 1,
+          id: e.student.id,
+          name: `${e.student.lastName}, ${e.student.firstName}`,
+          attendance,
+          totals: {
+            present: Object.values(attendance).filter((s) => s === "PRESENT").length,
+            absent: Object.values(attendance).filter((s) => s === "ABSENT").length,
+            late: Object.values(attendance).filter((s) => s === "LATE").length,
+            excused: Object.values(attendance).filter((s) => s === "EXCUSED").length,
+          },
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("Error fetching SF2:", error);
+    res.status(500).json({ message: "Failed to fetch SF2" });
+  }
+});
+
 // Export SF1 - School Register (Student Master List)
 router.get("/export/sf1/:sectionId", authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -792,7 +969,7 @@ router.get("/export/sf1/:sectionId", authenticateToken, async (req: AuthRequest,
       where: { id: sectionId },
       include: {
         enrollments: {
-          where: { status: "ENROLLED" },
+          where: { status: "ENROLLED", isActive: true },
           include: { 
             student: true 
           },

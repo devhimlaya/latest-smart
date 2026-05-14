@@ -33,6 +33,7 @@ const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
 const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'))
 const GradingConfig = lazy(() => import('./pages/admin/GradingConfig'))
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'))
+const SystemMonitor = lazy(() => import('./pages/admin/SystemMonitor'))
 const TemplateManager = lazy(() => import('./pages/admin/TemplateManager'))
 const ECRTemplateManager = lazy(() => import('./pages/admin/ECRTemplateManager'))
 const ClassAssignments = lazy(() => import('./pages/admin/ClassAssignments'))
@@ -81,6 +82,7 @@ function App() {
         <Route path="users" element={<UserManagement />} />
         <Route path="logs" element={<AuditLogs />} />
         <Route path="grading" element={<GradingConfig />} />
+        <Route path="system" element={<SystemMonitor />} />
         <Route path="settings" element={<SystemSettings />} />
         <Route path="templates" element={<TemplateManager />} />
         <Route path="ecr-templates" element={<ECRTemplateManager />} />

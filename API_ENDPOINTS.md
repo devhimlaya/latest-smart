@@ -617,6 +617,96 @@ link.click();
 link.remove();
 ```
 
+### 7.1 SF1 - School Register (JSON)
+```
+GET http://100.93.66.120:3000/api/registrar/sf1/:sectionId?schoolYear=2026-2027
+```
+
+**Purpose:** Return SF1 data for in-app preview/print rendering.
+
+**Auth:** REGISTRAR
+
+**Response (sample):**
+```json
+{
+  "section": {
+    "id": "sec_123",
+    "name": "Sampaguita",
+    "gradeLevel": "GRADE_7",
+    "schoolYear": "2026-2027",
+    "adviser": "Dela Cruz, Juan"
+  },
+  "students": [
+    {
+      "no": 1,
+      "lrn": "123456789012",
+      "lastName": "Reyes",
+      "firstName": "Ana",
+      "middleName": "Santos",
+      "gender": "Female",
+      "birthDate": "2013-08-12",
+      "address": "Purok 1"
+    }
+  ]
+}
+```
+
+### 7.2 SF2 - Daily Attendance (JSON)
+```
+GET http://100.93.66.120:3000/api/registrar/sf2/:sectionId?schoolYear=2026-2027&month=2026-10
+```
+
+**Purpose:** Return monthly attendance grid data for in-app SF2 preview/print rendering.
+
+**Auth:** REGISTRAR
+
+**Response (sample):**
+```json
+{
+  "section": {
+    "name": "Sampaguita",
+    "gradeLevel": "GRADE_7",
+    "schoolYear": "2026-2027",
+    "adviser": "Dela Cruz, Juan"
+  },
+  "month": "2026-10",
+  "daysInMonth": 31,
+  "students": [
+    {
+      "no": 1,
+      "id": "std_1",
+      "name": "Reyes, Ana",
+      "attendance": { "1": "PRESENT", "2": "ABSENT" },
+      "totals": { "present": 1, "absent": 1, "late": 0, "excused": 0 }
+    }
+  ]
+}
+```
+
+### Admin System Monitor Endpoints
+
+#### `GET /api/admin/system-status`
+Returns server/runtime health, DB latency, latest sync summaries, and external system reachability (`reachable`, `unreachable`, `not_configured`).
+
+#### `POST /api/admin/sync/atlas`
+Triggers manual ATLAS teaching-load sync.
+
+#### `POST /api/admin/sync/enrollpro`
+Triggers manual EnrollPro advisory/student sync.
+
+#### `POST /api/admin/users/:id/reset-password`
+Generates a temporary password for a user and updates the account password hash.
+
+**Auth:** ADMIN
+
+**Response:**
+```json
+{
+  "message": "Password reset successful",
+  "tempPassword": "CloudMoon42"
+}
+```
+
 ---
 
 ### 6. ECR Template Management (Electronic Class Record Templates)
@@ -1388,6 +1478,33 @@ Returns class assignments and workload summary lines for admin load review.
 - Allowed HG descriptors: `No Improvement`, `Needs Improvement`, `Developing`, `Sufficiently Developed`.
 - Numeric fields are ignored for HG; HG grade records are stored as qualitative entries.
 - ECR endpoints (`/api/grades/ecr/preview`, `/api/grades/ecr/import`, `/api/grades/ecr/status/:classAssignmentId`) return `400` for HG classes.
+
+### Quarter Deadline Notification (Teacher)
+
+#### `GET /api/grades/deadline-status`
+Returns the current quarter deadline notification state for the logged-in teacher.
+
+**Auth:** `TEACHER` role
+
+**Response:**
+```json
+{
+  "notification": {
+    "tier": "reminder",
+    "daysLeft": 5,
+    "quarter": "Q2",
+    "endDate": "2026-10-31T00:00:00.000Z",
+    "classesWithMissingGrades": 2
+  }
+}
+```
+
+If no active notification window exists, returns:
+```json
+{
+  "notification": null
+}
+```
 
 ---
 

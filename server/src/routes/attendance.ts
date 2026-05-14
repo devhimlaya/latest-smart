@@ -36,7 +36,7 @@ router.get(
         where: { id: sectionId },
         include: {
           enrollments: {
-            where: { status: "ENROLLED" },
+            where: { status: "ENROLLED", isActive: true },
             include: { student: true },
             orderBy: { student: { lastName: "asc" } },
           },
@@ -303,7 +303,7 @@ router.get(
         where: { id: sectionId },
         include: {
           enrollments: {
-            where: { status: "ENROLLED" },
+            where: { status: "ENROLLED", isActive: true },
             include: { student: true },
             orderBy: { student: { lastName: "asc" } },
           },

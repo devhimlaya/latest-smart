@@ -152,8 +152,8 @@ async function upsertLearner(
   learner: any,
   sectionId: string,
   schoolYear: string,
-): Promise<boolean> {
-  if (!learner?.lrn) return false;
+): Promise<string | null> {
+  if (!learner?.lrn) return null;
   const student = await prisma.student.upsert({
     where: { lrn: learner.lrn },
     update: {
@@ -175,10 +175,10 @@ async function upsertLearner(
   });
   await prisma.enrollment.upsert({
     where: { studentId_sectionId_schoolYear: { studentId: student.id, sectionId, schoolYear } },
-    update: { status: 'ENROLLED' },
-    create: { studentId: student.id, sectionId, schoolYear, status: 'ENROLLED' },
+    update: { status: 'ENROLLED', isActive: true },
+    create: { studentId: student.id, sectionId, schoolYear, status: 'ENROLLED', isActive: true },
   });
-  return true;
+  return student.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +195,51 @@ async function upsertSection(
     update: adviserId ? { adviserId } : {},
     create: { name, gradeLevel, schoolYear, ...(adviserId ? { adviserId } : {}) },
   });
+}
+
+async function reconcileSectionLearnersStrict(params: {
+  sectionId: string;
+  schoolYear: string;
+  learners: any[];
+}): Promise<number> {
+  const { sectionId, schoolYear, learners } = params;
+  const activeStudentIds: string[] = [];
+  let upserted = 0;
+
+  for (const rec of learners) {
+    const learner = rec.learner ?? rec;
+    const studentId = await upsertLearner(learner, sectionId, schoolYear);
+    if (studentId) {
+      activeStudentIds.push(studentId);
+      upserted++;
+    }
+  }
+
+  if (activeStudentIds.length === 0) {
+    await prisma.enrollment.updateMany({
+      where: {
+        sectionId,
+        schoolYear,
+        status: 'ENROLLED',
+        isActive: true,
+      },
+      data: { isActive: false },
+    });
+    return upserted;
+  }
+
+  await prisma.enrollment.updateMany({
+    where: {
+      sectionId,
+      schoolYear,
+      status: 'ENROLLED',
+      isActive: true,
+      studentId: { notIn: Array.from(new Set(activeStudentIds)) },
+    },
+    data: { isActive: false },
+  });
+
+  return upserted;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,14 +362,14 @@ export async function syncTeacherOnLogin(
     result.studentsFound = learners.length;
     console.log(`[TeacherSync] Advisory "${section.name}": ${learners.length} learners`);
 
-    for (const rec of learners) {
-      const learner = rec.learner ?? rec;
-      try {
-        const ok = await upsertLearner(learner, section.id, schoolYearLabel);
-        if (ok) result.studentsUpserted++;
-      } catch (err: any) {
-        result.errors.push(`Advisory LRN ${learner?.lrn}: ${err.message}`);
-      }
+    try {
+      result.studentsUpserted += await reconcileSectionLearnersStrict({
+        sectionId: section.id,
+        schoolYear: schoolYearLabel,
+        learners,
+      });
+    } catch (err: any) {
+      result.errors.push(`Advisory reconcile failed: ${err.message}`);
     }
 
     return true;
@@ -365,14 +410,14 @@ export async function syncTeacherOnLogin(
             result.studentsFound = learners.length;
             console.log(`[TeacherSync] Advisory "${section.name}": ${learners.length} learners`);
 
-            for (const rec of learners) {
-              const learner = rec.learner ?? rec;
-              try {
-                const ok = await upsertLearner(learner, section.id, schoolYearLabel);
-                if (ok) result.studentsUpserted++;
-              } catch (err: any) {
-                result.errors.push(`Advisory LRN ${learner?.lrn}: ${err.message}`);
-              }
+            try {
+              result.studentsUpserted += await reconcileSectionLearnersStrict({
+                sectionId: section.id,
+                schoolYear: schoolYearLabel,
+                learners,
+              });
+            } catch (err: any) {
+              result.errors.push(`Advisory reconcile failed: ${err.message}`);
             }
           } else {
             result.errors.push(`Could not determine grade level for "${epFaculty.advisorySectionName}"`);
@@ -425,14 +470,14 @@ export async function syncTeacherOnLogin(
               `(EP sectionId=${mySection.id}) learners=${learners.length}`,
             );
 
-            for (const rec of learners) {
-              const learner = rec.learner ?? rec;
-              try {
-                const ok = await upsertLearner(learner, section.id, schoolYearLabel);
-                if (ok) result.studentsUpserted++;
-              } catch (err: any) {
-                result.errors.push(`Advisory fallback LRN ${learner?.lrn}: ${err.message}`);
-              }
+            try {
+              result.studentsUpserted += await reconcileSectionLearnersStrict({
+                sectionId: section.id,
+                schoolYear: schoolYearLabel,
+                learners,
+              });
+            } catch (err: any) {
+              result.errors.push(`Advisory fallback reconcile failed: ${err.message}`);
             }
           } else {
             result.errors.push(`Advisory fallback: could not map grade level for section "${mySection.name}"`);
@@ -527,6 +572,12 @@ export async function syncTeacherOnLogin(
 
       let pubEntries: any[] = [];
       const homeroomLabelUpdated = new Set<string>();
+      const activeAtlasAssignmentKeys: Array<{
+        teacherId: string;
+        subjectId: string;
+        sectionId: string;
+        schoolYear: string;
+      }> = [];
       if (flatAssignments.length === 0) {
         // Try 2: published schedule (actual timetable entries with sectionId)
         const pubData = await atlasGet(
@@ -592,8 +643,14 @@ export async function syncTeacherOnLogin(
           try {
             await (prisma.classAssignment as any).upsert({
               where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
-              update: { teachingMinutes },
-              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
+              update: { teachingMinutes, isActive: true },
+              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes, isActive: true },
+            });
+            activeAtlasAssignmentKeys.push({
+              teacherId: smartTeacherId,
+              subjectId: subject.id,
+              sectionId: section.id,
+              schoolYear: schoolYearLabel,
             });
             result.classAssignmentsCreated++;
           } catch { /* concurrent duplicate */ }
@@ -643,8 +700,14 @@ export async function syncTeacherOnLogin(
           try {
             await (prisma.classAssignment as any).upsert({
               where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
-              update: { teachingMinutes },
-              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
+              update: { teachingMinutes, isActive: true },
+              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes, isActive: true },
+            });
+            activeAtlasAssignmentKeys.push({
+              teacherId: smartTeacherId,
+              subjectId: subject.id,
+              sectionId: section.id,
+              schoolYear: schoolYearLabel,
             });
             result.classAssignmentsCreated++;
           } catch { /* concurrent duplicate */ }
@@ -703,8 +766,14 @@ export async function syncTeacherOnLogin(
             try {
               await (prisma.classAssignment as any).upsert({
                 where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
-                update: { teachingMinutes },
-                create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
+                update: { teachingMinutes, isActive: true },
+                create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes, isActive: true },
+              });
+              activeAtlasAssignmentKeys.push({
+                teacherId: smartTeacherId,
+                subjectId: subject.id,
+                sectionId: section.id,
+                schoolYear: schoolYearLabel,
               });
               result.classAssignmentsCreated++;
               console.log(`[TeacherSync] Upserted: ${subject.code} → ${section.name}`);
@@ -713,6 +782,38 @@ export async function syncTeacherOnLogin(
         }
       } else {
         console.log(`[TeacherSync] Atlas: no assignments or published schedule for this teacher yet`);
+      }
+
+      const uniqueActiveAtlasKeys = Array.from(
+        new Map(
+          activeAtlasAssignmentKeys.map((k) => [
+            `${k.teacherId}|${k.subjectId}|${k.sectionId}|${k.schoolYear}`,
+            k,
+          ])
+        ).values()
+      );
+
+      if (uniqueActiveAtlasKeys.length === 0) {
+        await prisma.classAssignment.updateMany({
+          where: {
+            teacherId: smartTeacherId,
+            schoolYear: schoolYearLabel,
+            isActive: true,
+          },
+          data: { isActive: false },
+        });
+      } else {
+        await prisma.classAssignment.updateMany({
+          where: {
+            teacherId: smartTeacherId,
+            schoolYear: schoolYearLabel,
+            isActive: true,
+            NOT: {
+              OR: uniqueActiveAtlasKeys,
+            },
+          },
+          data: { isActive: false },
+        });
       }
 
       // ── 3.5 ATLAS advisory fallback ──────────────────────────────────────
@@ -756,14 +857,14 @@ export async function syncTeacherOnLogin(
                 console.log(
                   `[TeacherSync] ATLAS advisory "${sectionName}": ${learners.length} learners from EnrollPro`,
                 );
-                for (const rec of learners) {
-                  const learner = rec.learner ?? rec;
-                  try {
-                    const ok = await upsertLearner(learner, section.id, schoolYearLabel);
-                    if (ok) result.studentsUpserted++;
-                  } catch (err: any) {
-                    result.errors.push(`ATLAS advisory LRN ${learner?.lrn}: ${err.message}`);
-                  }
+                try {
+                  result.studentsUpserted += await reconcileSectionLearnersStrict({
+                    sectionId: section.id,
+                    schoolYear: schoolYearLabel,
+                    learners,
+                  });
+                } catch (err: any) {
+                  result.errors.push(`ATLAS advisory reconcile failed: ${err.message}`);
                 }
               } else {
                 console.log(
@@ -807,7 +908,7 @@ export async function syncTeacherOnLogin(
   try {
     // Get all unique sections this teacher teaches
     const teachingAssignments = await prisma.classAssignment.findMany({
-      where: { teacherId: smartTeacherId, schoolYear: schoolYearLabel },
+      where: { teacherId: smartTeacherId, schoolYear: schoolYearLabel, isActive: true },
       include: { section: true },
       distinct: ['sectionId'],
     });
@@ -872,13 +973,14 @@ export async function syncTeacherOnLogin(
           `${learners.length} learners`,
         );
 
-        for (const rec of learners) {
-          const learner = rec.learner ?? rec;
-          try {
-            await upsertLearner(learner, smartSection.id, schoolYearLabel);
-          } catch (err: any) {
-            result.errors.push(`Teaching LRN ${learner?.lrn}: ${err.message}`);
-          }
+        try {
+          await reconcileSectionLearnersStrict({
+            sectionId: smartSection.id,
+            schoolYear: schoolYearLabel,
+            learners,
+          });
+        } catch (err: any) {
+          result.errors.push(`Teaching section reconcile failed (${smartSection.name}): ${err.message}`);
         }
       }
     }
@@ -905,6 +1007,7 @@ export async function syncTeacherOnLogin(
           teacherId: smartTeacherId,
           sectionId: advisorySectionSmartId,
           schoolYear: schoolYearLabel,
+          isActive: true,
         },
       });
 

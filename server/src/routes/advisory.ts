@@ -59,7 +59,7 @@ router.get(
         where: { adviserId: teacher.id, schoolYear: currentSchoolYear } as any,
         include: {
           enrollments: {
-            where: { status: "ENROLLED" },
+            where: { status: "ENROLLED", isActive: true },
             include: {
               student: true,
             },
@@ -71,7 +71,12 @@ router.get(
           },
           _count: {
             select: {
-              enrollments: true,
+              enrollments: {
+                where: {
+                  status: "ENROLLED",
+                  isActive: true,
+                },
+              },
             },
           },
         },
@@ -92,7 +97,7 @@ router.get(
 
       // Get class assignments for this section (to know which subjects they have)
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { sectionId: advisorySection.id },
+        where: { sectionId: advisorySection.id, isActive: true },
         include: {
           subject: true,
           teacher: {
@@ -179,7 +184,7 @@ router.get(
         where: { id: studentId },
         include: {
           enrollments: {
-            where: schoolYear ? { schoolYear } : {},
+            where: schoolYear ? { schoolYear, isActive: true } : { isActive: true },
             include: {
               section: true,
             },
@@ -215,6 +220,7 @@ router.get(
         where: {
           teacherId: teacher.id,
           sectionId: currentEnrollment.sectionId,
+          isActive: true,
         },
       });
 
@@ -228,6 +234,7 @@ router.get(
         where: { 
           sectionId: currentEnrollment.sectionId,
           schoolYear: currentEnrollment.schoolYear,
+          isActive: true,
         },
         include: {
           subject: true,
@@ -394,7 +401,7 @@ router.get(
         where: { adviserId: teacher.id, schoolYear: currentSchoolYear } as any,
         include: {
           enrollments: {
-            where: { status: "ENROLLED" },
+            where: { status: "ENROLLED", isActive: true },
             include: {
               student: true,
             },
@@ -409,7 +416,7 @@ router.get(
 
       // Get all grades for students in this section
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { sectionId: advisorySection.id },
+        where: { sectionId: advisorySection.id, isActive: true },
         include: {
           subject: { select: { code: true } },
           grades: {

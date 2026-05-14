@@ -94,6 +94,7 @@ model ClassAssignment {
   subjectId       String
   sectionId       String
   schoolYear      String
+  isActive        Boolean   @default(true)
   teachingMinutes Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -107,6 +108,7 @@ model ClassAssignment {
 
   @@unique([teacherId, subjectId, sectionId, schoolYear])
   @@index([schoolYear])
+  @@index([isActive])
 }
 
 model Enrollment {
@@ -114,6 +116,7 @@ model Enrollment {
   studentId  String
   sectionId  String
   schoolYear String
+  isActive   Boolean          @default(true)
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
   status     EnrollmentStatus @default(ENROLLED)
@@ -122,6 +125,7 @@ model Enrollment {
 
   @@unique([studentId, sectionId, schoolYear])
   @@index([schoolYear, status])
+  @@index([schoolYear, status, isActive])
   @@index([sectionId, schoolYear, status])
   @@index([studentId, schoolYear])
 }
@@ -176,6 +180,7 @@ model WorkloadEntry {
   classAssignmentId String?
   schoolYear       String
   type             WorkloadType
+  isActive         Boolean        @default(true)
   minutes          Int
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -186,6 +191,7 @@ model WorkloadEntry {
   @@unique([teacherId, sectionId, schoolYear, type])
   @@index([teacherId, schoolYear])
   @@index([type, schoolYear])
+  @@index([isActive])
 }
 
 model AuditLog {

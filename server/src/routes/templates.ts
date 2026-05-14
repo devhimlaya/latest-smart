@@ -247,6 +247,11 @@ function buildAuditUser(req: AuthRequest) {
   };
 }
 
+function normalizeRouteParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
 router.use(authenticateToken);
 
 router.get('/', authorizeRoles('ADMIN', 'REGISTRAR'), async (_req: AuthRequest, res: Response): Promise<void> => {
@@ -264,7 +269,12 @@ router.get('/', authorizeRoles('ADMIN', 'REGISTRAR'), async (_req: AuthRequest, 
 
 router.get('/:formType', authorizeRoles('ADMIN', 'REGISTRAR', 'TEACHER'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { formType } = req.params;
+    const formType = normalizeRouteParam(req.params.formType);
+
+    if (!formType) {
+      res.status(400).json({ success: false, error: 'Form type is required' });
+      return;
+    }
 
     if (!isFormType(formType)) {
       res.status(400).json({ success: false, error: 'Invalid form type' });
@@ -289,7 +299,12 @@ router.get('/:formType', authorizeRoles('ADMIN', 'REGISTRAR', 'TEACHER'), async 
 
 router.get('/:id/structure', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = normalizeRouteParam(req.params.id);
+
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Template ID is required' });
+      return;
+    }
 
     const template = await prisma.excelTemplate.findUnique({
       where: { id }
@@ -342,7 +357,11 @@ router.get('/:id/structure', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: A
 
 router.get('/:id/preview', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = normalizeRouteParam(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Template ID is required' });
+      return;
+    }
     const maxRows = Math.min(Math.max(Number(req.query.maxRows) || 120, 20), 300);
     const maxCols = Math.min(Math.max(Number(req.query.maxCols) || 30, 10), 80);
 
@@ -408,7 +427,11 @@ router.get('/:id/preview', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: Aut
 // NEW: Get template with high-fidelity styling for pixel-perfect rendering
 router.get('/:id/styled-preview', authorizeRoles('ADMIN', 'REGISTRAR'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = normalizeRouteParam(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Template ID is required' });
+      return;
+    }
     const sheetName = req.query.sheet as string | undefined;
 
     const template = await prisma.excelTemplate.findUnique({
@@ -727,7 +750,11 @@ router.post('/upload', authorizeRoles('ADMIN'), upload.single('file'), async (re
 
 router.delete('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = normalizeRouteParam(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Template ID is required' });
+      return;
+    }
 
     const template = await prisma.excelTemplate.findUnique({
       where: { id }
@@ -764,7 +791,11 @@ router.delete('/:id', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Res
 
 router.post('/:id/toggle', authorizeRoles('ADMIN'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = normalizeRouteParam(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Template ID is required' });
+      return;
+    }
 
     const template = await prisma.excelTemplate.findUnique({
       where: { id }
@@ -800,7 +831,12 @@ router.post('/:id/toggle', authorizeRoles('ADMIN'), async (req: AuthRequest, res
 
 router.get('/:formType/download', authorizeRoles('ADMIN', 'REGISTRAR', 'TEACHER'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { formType } = req.params;
+    const formType = normalizeRouteParam(req.params.formType);
+
+    if (!formType) {
+      res.status(400).json({ success: false, error: 'Form type is required' });
+      return;
+    }
 
     if (!isFormType(formType)) {
       res.status(400).json({ success: false, error: 'Invalid form type' });

@@ -466,42 +466,7 @@ export default function RegistrarDashboard() {
         </Card>
       </div>
 
-      {/* Recent Activities */}
-      <Card className="border-0 shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-2xl p-0">
-        <CardHeader className="border-b border-gray-100 px-6 py-5" style={{ backgroundColor: `${colors.accent}10` }}>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl text-white shadow-lg" style={{ backgroundColor: colors.accent }}>
-              <ClipboardList className="w-5 h-5" />
-            </div>
-            <div>
-              <CardTitle className="text-lg font-bold text-gray-900">Recent Activities</CardTitle>
-              <CardDescription className="text-gray-500 text-sm">Latest updates and actions</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            {/* Activity items - these would normally come from an API */}
-            {[
-              { action: "Student enrolled", detail: "Maria Santos enrolled in Grade 7 - Einstein", time: "2 hours ago", icon: UserPlus, opacity: "18" },
-              { action: "Record updated", detail: "Juan Reyes grade record updated for Q1", time: "5 hours ago", icon: FileText, opacity: "20" },
-              { action: "Form generated", detail: "SF10 generated for Angela Cruz", time: "Yesterday", icon: FolderOpen, opacity: "25" },
-              { action: "Section created", detail: "New section 'Luna' added to Grade 9", time: "2 days ago", icon: Users, opacity: "28" },
-            ].map((activity, index) => (
-              <div key={index} className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="p-2 rounded-lg mt-0.5" style={{ backgroundColor: `${colors.primary}${activity.opacity}`, color: colors.primary }}>
-                  <activity.icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{activity.action}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">{activity.detail}</p>
-                </div>
-                <span className="text-xs text-gray-400 whitespace-nowrap">{activity.time}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }

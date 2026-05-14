@@ -198,6 +198,17 @@ export const gradesApi = {
       params: quarter ? { quarter } : {},
     }),
 
+  getDeadlineStatus: () =>
+    api.get<{
+      notification: {
+        tier: "reminder" | "warning" | "urgent" | "overdue";
+        daysLeft: number;
+        quarter: string;
+        endDate: string;
+        classesWithMissingGrades: number;
+      } | null;
+    }>("/grades/deadline-status"),
+
   saveGrade: (data: {
     studentId: string;
     classAssignmentId: string;
@@ -627,6 +638,12 @@ export const registrarApi = {
   getSF10: (studentId: string) =>
     api.get<SF10Data>(`/registrar/forms/sf10/${studentId}`),
 
+  getSF1: (sectionId: string, schoolYear?: string) =>
+    api.get(`/registrar/sf1/${sectionId}`, { params: { schoolYear } }),
+
+  getSF2: (sectionId: string, schoolYear?: string, month?: string) =>
+    api.get(`/registrar/sf2/${sectionId}`, { params: { schoolYear, month } }),
+
   getSections: (params?: { schoolYear?: string; gradeLevel?: string }) =>
     api.get<Section[]>("/registrar/sections", { params }),
 };
@@ -747,6 +764,36 @@ export interface GradingConfig {
   isDepEdDefault: boolean;
 }
 
+export interface SystemStatusResponse {
+  server: {
+    uptimeSeconds: number;
+    uptimeFormatted: string;
+    nodeVersion: string;
+    memoryUsedMB: number;
+    memoryHeapMB: number;
+    environment: string;
+  };
+  database: {
+    status: string;
+    latencyMs: number;
+  };
+  sync: {
+    atlas: {
+      lastSyncAt: string | null;
+      result: any;
+    };
+    enrollpro: {
+      lastSyncAt: string | null;
+      result: any;
+    };
+  };
+  externalSystems: {
+    enrollpro: any;
+    atlas: any;
+    aims: any;
+  };
+}
+
 export const adminApi = {
   // Dashboard
   getDashboard: () => api.get<AdminDashboard>("/admin/dashboard"),
@@ -782,9 +829,16 @@ export const adminApi = {
 
   deleteUser: (id: string) => api.delete<{ message: string }>(`/admin/users/${id}`),
 
+  resetUserPassword: (id: string) =>
+    api.post<{ message: string; tempPassword: string }>(`/admin/users/${id}/reset-password`),
+
   // Audit Logs
   getLogs: (params?: { action?: string; severity?: string; search?: string; limit?: number; offset?: number }) =>
     api.get<AuditLogResponse>("/admin/logs", { params }),
+
+  getSystemStatus: () => api.get<SystemStatusResponse>("/admin/system-status"),
+  triggerAtlasSync: () => api.post("/admin/sync/atlas"),
+  triggerEnrollProSync: () => api.post("/admin/sync/enrollpro"),
 
   exportLogs: () => api.get("/admin/logs/export", { responseType: "blob" }),
 

@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getAcronym } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
-import { SERVER_URL } from "@/lib/api";
+import { SERVER_URL, gradesApi } from "@/lib/api";
 
 interface UserData {
   id: string;
@@ -38,6 +38,7 @@ export default function TeacherLayout() {
   const location = useLocation();
   const [user, setUser] = useState<UserData | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deadlineTier, setDeadlineTier] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('teacherSidebarCollapsed');
     return saved === 'true';
@@ -62,6 +63,13 @@ export default function TeacherLayout() {
 
     setUser(parsedUser);
   }, [navigate]);
+
+  useEffect(() => {
+    gradesApi
+      .getDeadlineStatus()
+      .then((res) => setDeadlineTier(res.data.notification?.tier ?? null))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
@@ -166,6 +174,17 @@ export default function TeacherLayout() {
                 if (item.href === "/teacher/classes" && location.pathname.startsWith("/teacher/records/")) isActive = true;
                 if (item.href === "/teacher/advisory" && location.pathname.startsWith("/teacher/advisory/")) isActive = true;
               }
+
+              const dotColor = {
+                reminder: "bg-blue-500",
+                warning: "bg-amber-500",
+                urgent: "bg-red-500",
+                overdue: "bg-red-600",
+              }[deadlineTier ?? ""];
+              const showDeadlineDot =
+                item.href === "/teacher/classes" &&
+                Boolean(dotColor) &&
+                ["warning", "urgent", "overdue"].includes(deadlineTier ?? "");
               
               return (
                 <Link
@@ -188,6 +207,9 @@ export default function TeacherLayout() {
                         isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
                       )} />
                     </div>
+                    {showDeadlineDot && (
+                      <span className={cn("w-2 h-2 rounded-full animate-pulse ml-2", dotColor)} />
+                    )}
                     <span className={cn(
                       "ml-4 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] origin-left whitespace-nowrap flex-shrink-0",
                       sidebarCollapsed ? "opacity-0 scale-90 -translate-x-4 pointer-events-none" : "opacity-100 scale-100 translate-x-0"

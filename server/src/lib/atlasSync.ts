@@ -27,6 +27,47 @@ function normalizeAtlasSubjectCode(code: string | null | undefined): string {
   return (code ?? '').trim().toUpperCase();
 }
 
+function extractAssignmentOwnerIds(a: any): number[] {
+  const candidates = [
+    a?.facultyId,
+    a?.teacherId,
+    a?.instructorId,
+    a?.faculty?.id,
+    a?.teacher?.id,
+    a?.instructor?.id,
+    a?.assignedFacultyId,
+    a?.assignedTeacherId,
+  ];
+  return candidates
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+}
+
+function isAssignmentOwnedByFaculty(a: any, atlasFacultyId: number): boolean {
+  const ownerIds = extractAssignmentOwnerIds(a);
+  // If payload provides owner IDs, enforce strict ownership.
+  if (ownerIds.length > 0) {
+    return ownerIds.includes(Number(atlasFacultyId));
+  }
+
+  const ownerEmails = [
+    a?.facultyEmail,
+    a?.teacherEmail,
+    a?.instructorEmail,
+    a?.faculty?.contactInfo,
+    a?.teacher?.contactInfo,
+    a?.instructor?.contactInfo,
+  ]
+    .map((v) => String(v ?? '').trim().toLowerCase())
+    .filter(Boolean);
+  if (ownerEmails.length > 0) {
+    return false;
+  }
+
+  // If no owner metadata exists, trust faculty-scoped endpoint but do not infer cross-faculty.
+  return true;
+}
+
 const HOMEROOM_GUIDANCE_LABEL = 'Homeroom Guidance';
 const HOMEROOM_GUIDANCE_MINUTES = 60;
 
@@ -116,7 +157,10 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
 
     // 1. Get all faculty from ATLAS
     const facultyData = await get(`${ATLAS_BASE}/faculty?schoolId=${ATLAS_SCHOOL_ID}`, authHeader);
-    const atlasFaculty: any[] = facultyData.faculty ?? [];
+    const atlasFaculty: any[] = Array.isArray(facultyData?.faculty) ? facultyData.faculty : [];
+    if (atlasFaculty.length === 0) {
+      throw new Error('ATLAS payload verification failed: empty faculty list');
+    }
 
     // 2. Build email → SMART teacher ID map (case-insensitive)
     const emailToTeacherId = new Map<string, string>();
@@ -144,9 +188,12 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
     let epSectionById = new Map<number, any>();
     try {
       const epSections = await getIntegrationV1Sections(SCHOOL_YEAR_ID);
+      if (!Array.isArray(epSections) || epSections.length === 0) {
+        throw new Error('empty sections payload');
+      }
       epSectionById = new Map<number, any>(epSections.map((s: any) => [Number(s.id), s]));
     } catch (err: any) {
-      errors.push(`EnrollPro sections lookup failed: ${err.message}`);
+      throw new Error(`EnrollPro sections lookup failed: ${err.message}`);
     }
 
     // 4. Build subject code → SMART subject map
@@ -157,21 +204,32 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
     // 5. Fetch teaching loads from ATLAS per faculty
     const loads: Array<{ smartTeacherId: string; subjectCode: string; sectionName: string }> = [];
 
+    let matchedFacultyFetchFailures = 0;
+    let matchedFacultyFetchSuccesses = 0;
+
     for (const af of atlasFaculty) {
       try {
+        const smartTeacherId = atlasIdToSmartTeacherId.get(af.id);
+        if (!smartTeacherId) continue;
+
         const detail = await get(
           `${ATLAS_BASE}/faculty-assignments/${af.id}?schoolYearId=${SCHOOL_YEAR_ID}`,
           authHeader,
         );
         const assignmentsPayload = detail?.assignments ?? detail?.data ?? detail ?? [];
+        if (!Array.isArray(assignmentsPayload)) {
+          matchedFacultyFetchFailures++;
+          errors.push(`Faculty ${af.id}: invalid assignments payload shape`);
+          continue;
+        }
+
         const assignments: any[] = Array.isArray(assignmentsPayload) ? assignmentsPayload : [];
+        matchedFacultyFetchSuccesses++;
         if (assignments.length === 0) continue;
 
-        const smartTeacherId = atlasIdToSmartTeacherId.get(af.id);
-        if (!smartTeacherId) continue;
-
-        const flatAssignments = assignments.filter((a) => a && (a.subjectCode || a.sectionId));
-        const nestedAssignments = assignments.filter((a) => a && (a.subject?.code || a.sections));
+        const ownedAssignments = assignments.filter((a) => a && isAssignmentOwnedByFaculty(a, af.id));
+        const flatAssignments = ownedAssignments.filter((a) => a && (a.subjectCode || a.sectionId));
+        const nestedAssignments = ownedAssignments.filter((a) => a && (a.subject?.code || a.sections));
 
         const teacherLoads: Array<{ smartTeacherId: string; subjectCode: string; sectionName: string }> = [];
         if (flatAssignments.length > 0) {
@@ -203,23 +261,35 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
         teachersWithLoads++;
         loads.push(...teacherLoads);
       } catch (err: any) {
+        if (atlasIdToSmartTeacherId.has(af.id)) {
+          matchedFacultyFetchFailures++;
+        }
         errors.push(`Faculty ${af.firstName} ${af.lastName}: ${err.message}`);
       }
     }
 
-    // 6. Delete assignments only for teachers that have Atlas data, then recreate
-    //    This preserves manually-created or teacherSync-created assignments for
-    //    teachers not yet configured in Atlas.
-    const teacherIdsWithAtlasData = [...new Set(loads.map((l) => l.smartTeacherId))];
-
-    if (teacherIdsWithAtlasData.length > 0) {
-      const del = await prisma.classAssignment.deleteMany({
-        where: { schoolYear: SCHOOL_YEAR, teacherId: { in: teacherIdsWithAtlasData } },
-      });
-      deleted = del.count;
+    // Emergency brake: if any matched teacher payload failed, abort to preserve current data.
+    if (matchedFacultyFetchFailures > 0) {
+      throw new Error(
+        `ATLAS payload verification failed: ${matchedFacultyFetchFailures} matched faculty assignment fetch(es) failed`,
+      );
     }
 
+    if (matchedFacultyFetchSuccesses === 0) {
+      throw new Error('ATLAS payload verification failed: no matched faculty assignment payloads returned');
+    }
+
+    // 6. Strict mirror reconciliation for class assignments (soft-delete only).
+    // Incoming ATLAS rows are reactivated/upserted; missing rows are marked inactive.
     const warnedSubjects = new Set<string>();
+    const activeAssignments: Array<{
+      teacherId: string;
+      subjectId: string;
+      sectionId: string;
+      schoolYear: string;
+      teachingMinutes: number | null;
+    }> = [];
+
     for (const load of loads) {
       const section = sectionByName.get(load.sectionName);
       if (!section) continue;
@@ -246,28 +316,75 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
       await ensureHomeroomGuidanceLabel(subject, homeroomLabelUpdated);
       const teachingMinutes = subject.code.startsWith('HG') ? HOMEROOM_GUIDANCE_MINUTES : null;
 
-      try {
-        await prisma.classAssignment.upsert({
+      activeAssignments.push({
+        teacherId: load.smartTeacherId,
+        subjectId: subject.id,
+        sectionId: section.id,
+        schoolYear: SCHOOL_YEAR,
+        teachingMinutes,
+      });
+    }
+
+    const uniqueActiveAssignments = Array.from(
+      new Map(
+        activeAssignments.map((a) => [
+          `${a.teacherId}|${a.subjectId}|${a.sectionId}|${a.schoolYear}`,
+          a,
+        ])
+      ).values()
+    );
+
+    await prisma.$transaction(async (tx) => {
+      for (const assignment of uniqueActiveAssignments) {
+        await tx.classAssignment.upsert({
           where: {
             teacherId_subjectId_sectionId_schoolYear: {
-              teacherId: load.smartTeacherId,
-              subjectId: subject.id,
-              sectionId: section.id,
-              schoolYear: SCHOOL_YEAR,
+              teacherId: assignment.teacherId,
+              subjectId: assignment.subjectId,
+              sectionId: assignment.sectionId,
+              schoolYear: assignment.schoolYear,
             },
           },
-          update: { teachingMinutes },
+          update: {
+            teachingMinutes: assignment.teachingMinutes,
+            isActive: true,
+          },
           create: {
-            teacherId: load.smartTeacherId,
-            subjectId: subject.id,
-            sectionId: section.id,
-            schoolYear: SCHOOL_YEAR,
-            teachingMinutes,
+            teacherId: assignment.teacherId,
+            subjectId: assignment.subjectId,
+            sectionId: assignment.sectionId,
+            schoolYear: assignment.schoolYear,
+            teachingMinutes: assignment.teachingMinutes,
+            isActive: true,
           },
         });
-        created++;
-      } catch { /* duplicate or constraint */ }
-    }
+      }
+
+      if (uniqueActiveAssignments.length === 0) {
+        throw new Error('ATLAS guardrail: empty effective assignment payload; sync aborted to protect existing data');
+      }
+
+      const activeKeysWhere = uniqueActiveAssignments.map((assignment) => ({
+        teacherId: assignment.teacherId,
+        subjectId: assignment.subjectId,
+        sectionId: assignment.sectionId,
+        schoolYear: assignment.schoolYear,
+      }));
+
+      const deactivated = await tx.classAssignment.updateMany({
+        where: {
+          schoolYear: SCHOOL_YEAR,
+          isActive: true,
+          NOT: {
+            OR: activeKeysWhere,
+          },
+        },
+        data: { isActive: false },
+      });
+      deleted = deactivated.count;
+    });
+
+    created = uniqueActiveAssignments.length;
 
     if (warnedSubjects.size > 0) {
       console.warn(

@@ -26,9 +26,9 @@ import {
   getEnrollProTeachers,
 } from './enrollproClient';
 import { prisma } from './prisma';
-import type { GradeLevel } from '@prisma/client';
+import { WorkloadType, type GradeLevel } from '@prisma/client';
 import { broadcastSyncStatus } from './sseManager';
-import { syncAdvisoryWorkloadEntry } from './workload';
+import { getAdvisoryEquivalentMinutes } from './workload';
 
 // ---------------------------------------------------------------------------
 // Grade level mapping
@@ -112,144 +112,237 @@ export async function runEnrollProSync() {
 
     // 4. Fetch all sections from EnrollPro integration v1 (no auth)
     const epSections = await getIntegrationV1Sections(schoolYearId);
+    if (!Array.isArray(epSections) || epSections.length === 0) {
+      throw new Error('EnrollPro payload verification failed: empty sections list');
+    }
     console.log(`[EnrollProSync] Loaded ${epSections.length} sections from EnrollPro`);
 
-    // 5. Upsert ALL sections into SMART
-    const epSectionNameToSmartSectionId = new Map<string, string>();
+    const sectionInputs: Array<{
+      name: string;
+      gradeLevel: GradeLevel;
+      teacherId: string | null;
+      hasAdviser: boolean;
+    }> = [];
 
     for (const epSection of epSections) {
-      try {
-        const gradeLevelName: string = epSection.gradeLevel?.name ?? '';
-        const gradeLevel = mapGradeLevel(gradeLevelName);
-        if (!gradeLevel) {
-          errors.push(`Unknown grade level "${gradeLevelName}" for section "${epSection.name}"`);
-          continue;
-        }
-
-        // Resolve adviser
-        const epAdviserTeacherId: number | undefined = epSection.advisingTeacher?.id;
-        const adviserEmployeeId = epAdviserTeacherId ? epTeacherIdToEmpId.get(epAdviserTeacherId) : undefined;
-        const teacherId = adviserEmployeeId ? (empIdToSmartTeacherId.get(adviserEmployeeId) ?? null) : null;
-        if (teacherId) teachersMatched++;
-
-        const section = await (prisma.section as any).upsert({
-          where: {
-            name_gradeLevel_schoolYear: {
-              name: epSection.name,
-              gradeLevel,
-              schoolYear: schoolYearLabel,
-            },
-          },
-          update: { adviserId: teacherId },
-          create: {
-            name: epSection.name,
-            gradeLevel,
-            schoolYear: schoolYearLabel,
-            adviserId: teacherId,
-          },
-        });
-
-        await syncAdvisoryWorkloadEntry({
-          teacherId,
-          sectionId: section.id,
-          schoolYear: schoolYearLabel,
-        });
-
-        epSectionNameToSmartSectionId.set(epSection.name, section.id);
-        if (epSection.advisingTeacher) advisoriesSynced++;
-      } catch (err: any) {
-        errors.push(`Section "${epSection.name}": ${err.message}`);
+      const gradeLevelName: string = epSection.gradeLevel?.name ?? '';
+      const gradeLevel = mapGradeLevel(gradeLevelName);
+      if (!gradeLevel) {
+        errors.push(`Unknown grade level "${gradeLevelName}" for section "${epSection.name}"`);
+        continue;
       }
+
+      const epAdviserTeacherId: number | undefined = epSection.advisingTeacher?.id;
+      const adviserEmployeeId = epAdviserTeacherId ? epTeacherIdToEmpId.get(epAdviserTeacherId) : undefined;
+      const teacherId = adviserEmployeeId ? (empIdToSmartTeacherId.get(adviserEmployeeId) ?? null) : null;
+      if (teacherId) teachersMatched++;
+
+      sectionInputs.push({
+        name: epSection.name,
+        gradeLevel,
+        teacherId,
+        hasAdviser: Boolean(epSection.advisingTeacher),
+      });
     }
-    console.log(`[EnrollProSync] Sections upserted: ${epSectionNameToSmartSectionId.size}`);
+
+    const uniqueSectionInputs = Array.from(
+      new Map(
+        sectionInputs.map((s) => [`${s.name}|${s.gradeLevel}|${schoolYearLabel}`, s])
+      ).values()
+    );
 
     // 6. Fetch ALL enrolled learners
     console.log(`[EnrollProSync] Fetching all learners from Integration v1...`);
     let allLearners: any[] = [];
     try {
       allLearners = await getAllIntegrationV1Learners(schoolYearId);
+      if (!Array.isArray(allLearners)) {
+        throw new Error('invalid learners payload shape');
+      }
       console.log(`[EnrollProSync] Fetched ${allLearners.length} learners`);
     } catch (err: any) {
-      errors.push(`Integration v1 learners fetch failed: ${err.message}`);
+      throw new Error(`Integration v1 learners fetch failed: ${err.message}`);
     }
 
-    // 7. Upsert each learner + their enrollment
-    for (const record of allLearners) {
-      if (record.status !== 'ENROLLED') continue;
+    // Emergency brake: do not deactivate on suspicious all-empty payloads.
+    if (allLearners.length === 0) {
+      throw new Error('EnrollPro guardrail: empty learners payload; sync aborted to protect existing data');
+    }
 
-      const learner = record.learner;
-      const sectionName: string = record.section?.name ?? '';
-      const gradeLevelName: string = record.gradeLevel?.name ?? '';
+    // 7. Transactional sync-and-purge (strict mirror, non-destructive)
+    const activeEnrollmentKeys: Array<{ studentId: string; sectionId: string; schoolYear: string }> = [];
+    const syncedSectionIds: string[] = [];
+    const advisoryMinutes = getAdvisoryEquivalentMinutes();
 
-      if (!learner?.lrn) continue;
+    await prisma.$transaction(async (tx) => {
+      const epSectionNameToSmartSectionId = new Map<string, string>();
 
-      let resolvedSectionId = epSectionNameToSmartSectionId.get(sectionName);
-      if (!resolvedSectionId) {
-        const gradeLevel = mapGradeLevel(gradeLevelName);
-        if (gradeLevel) {
-          try {
-            const sec = await (prisma.section as any).upsert({
-              where: {
-                name_gradeLevel_schoolYear: {
-                  name: sectionName,
-                  gradeLevel,
-                  schoolYear: schoolYearLabel,
-                },
-              },
-              update: {},
-              create: { name: sectionName, gradeLevel, schoolYear: schoolYearLabel, adviserId: null },
-            });
-            epSectionNameToSmartSectionId.set(sectionName, sec.id);
-            resolvedSectionId = sec.id;
-          } catch { /* ignore */ }
-        }
-      }
-
-      if (!resolvedSectionId) continue;
-
-      try {
-        const saved = await prisma.student.upsert({
-          where: { lrn: learner.lrn },
-          update: {
-            firstName: learner.firstName,
-            lastName: learner.lastName,
-            middleName: learner.middleName ?? null,
-            gender: learner.sex ?? null,
-            birthDate: learner.birthdate ? new Date(learner.birthdate) : undefined,
-          },
-          create: {
-            lrn: learner.lrn,
-            firstName: learner.firstName,
-            lastName: learner.lastName,
-            middleName: learner.middleName ?? null,
-            suffix: learner.extensionName ?? null,
-            gender: learner.sex ?? null,
-            birthDate: learner.birthdate ? new Date(learner.birthdate) : null,
-          },
-        });
-
-        await prisma.enrollment.upsert({
+      for (const sectionInput of uniqueSectionInputs) {
+        const section = await (tx.section as any).upsert({
           where: {
-            studentId_sectionId_schoolYear: {
-              studentId: saved.id,
-              sectionId: resolvedSectionId,
+            name_gradeLevel_schoolYear: {
+              name: sectionInput.name,
+              gradeLevel: sectionInput.gradeLevel,
               schoolYear: schoolYearLabel,
             },
           },
-          update: { status: 'ENROLLED' },
+          update: { adviserId: sectionInput.teacherId },
           create: {
-            studentId: saved.id,
-            sectionId: resolvedSectionId,
+            name: sectionInput.name,
+            gradeLevel: sectionInput.gradeLevel,
             schoolYear: schoolYearLabel,
-            status: 'ENROLLED',
+            adviserId: sectionInput.teacherId,
           },
         });
 
-        studentsSynced++;
-      } catch (err: any) {
-        errors.push(`Student LRN ${learner.lrn}: ${err.message}`);
+        epSectionNameToSmartSectionId.set(sectionInput.name, section.id);
+        syncedSectionIds.push(section.id);
+
+        if (sectionInput.hasAdviser) advisoriesSynced++;
+
+        if (!sectionInput.teacherId) {
+          await tx.workloadEntry.updateMany({
+            where: {
+              sectionId: section.id,
+              schoolYear: schoolYearLabel,
+              type: WorkloadType.ADVISORY_ROLE,
+            },
+            data: { isActive: false },
+          });
+        } else {
+          await tx.workloadEntry.upsert({
+            where: {
+              teacherId_sectionId_schoolYear_type: {
+                teacherId: sectionInput.teacherId,
+                sectionId: section.id,
+                schoolYear: schoolYearLabel,
+                type: WorkloadType.ADVISORY_ROLE,
+              },
+            },
+            update: {
+              minutes: advisoryMinutes,
+              isActive: true,
+            },
+            create: {
+              teacherId: sectionInput.teacherId,
+              sectionId: section.id,
+              schoolYear: schoolYearLabel,
+              type: WorkloadType.ADVISORY_ROLE,
+              minutes: advisoryMinutes,
+              isActive: true,
+            },
+          });
+        }
       }
-    }
+
+      for (const record of allLearners) {
+        if (record.status !== 'ENROLLED') continue;
+
+        const learner = record.learner;
+        const sectionName: string = record.section?.name ?? '';
+        const gradeLevelName: string = record.gradeLevel?.name ?? '';
+
+        if (!learner?.lrn) continue;
+
+        let resolvedSectionId = epSectionNameToSmartSectionId.get(sectionName);
+        if (!resolvedSectionId) {
+          const gradeLevel = mapGradeLevel(gradeLevelName);
+          if (!gradeLevel) continue;
+
+          const sec = await (tx.section as any).upsert({
+            where: {
+              name_gradeLevel_schoolYear: {
+                name: sectionName,
+                gradeLevel,
+                schoolYear: schoolYearLabel,
+              },
+            },
+            update: {},
+            create: { name: sectionName, gradeLevel, schoolYear: schoolYearLabel, adviserId: null },
+          });
+
+          resolvedSectionId = sec.id;
+          epSectionNameToSmartSectionId.set(sectionName, sec.id);
+          syncedSectionIds.push(sec.id);
+        }
+
+        if (!resolvedSectionId) continue;
+
+        try {
+          const saved = await tx.student.upsert({
+            where: { lrn: learner.lrn },
+            update: {
+              firstName: learner.firstName,
+              lastName: learner.lastName,
+              middleName: learner.middleName ?? null,
+              gender: learner.sex ?? null,
+              birthDate: learner.birthdate ? new Date(learner.birthdate) : undefined,
+            },
+            create: {
+              lrn: learner.lrn,
+              firstName: learner.firstName,
+              lastName: learner.lastName,
+              middleName: learner.middleName ?? null,
+              suffix: learner.extensionName ?? null,
+              gender: learner.sex ?? null,
+              birthDate: learner.birthdate ? new Date(learner.birthdate) : null,
+            },
+          });
+
+          await tx.enrollment.upsert({
+            where: {
+              studentId_sectionId_schoolYear: {
+                studentId: saved.id,
+                sectionId: resolvedSectionId,
+                schoolYear: schoolYearLabel,
+              },
+            },
+            update: {
+              status: 'ENROLLED',
+              isActive: true,
+            },
+            create: {
+              studentId: saved.id,
+              sectionId: resolvedSectionId,
+              schoolYear: schoolYearLabel,
+              status: 'ENROLLED',
+              isActive: true,
+            },
+          });
+
+          activeEnrollmentKeys.push({
+            studentId: saved.id,
+            sectionId: resolvedSectionId,
+            schoolYear: schoolYearLabel,
+          });
+          studentsSynced++;
+        } catch (err: any) {
+          errors.push(`Student LRN ${learner.lrn}: ${err.message}`);
+        }
+      }
+
+      const uniqueSectionIds = Array.from(new Set(syncedSectionIds));
+      if (uniqueSectionIds.length > 0) {
+        if (activeEnrollmentKeys.length === 0) {
+          throw new Error('EnrollPro guardrail: no active enrollment keys resolved; aborting deactivation');
+        } else {
+          await tx.enrollment.updateMany({
+            where: {
+              schoolYear: schoolYearLabel,
+              sectionId: { in: uniqueSectionIds },
+              status: 'ENROLLED',
+              isActive: true,
+              NOT: {
+                OR: activeEnrollmentKeys,
+              },
+            },
+            data: { isActive: false },
+          });
+        }
+      }
+    });
+
+    console.log(`[EnrollProSync] Sections upserted: ${uniqueSectionInputs.length}`);
 
     lastSyncResult = { advisoriesSynced, studentsSynced, teachersMatched, errors };
     lastSyncAt = new Date();

@@ -227,7 +227,7 @@ export default function Attendance() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg">
+            <div className="p-2 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               <ClipboardCheck className="w-5 h-5" />
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Daily Attendance</h1>
@@ -243,7 +243,7 @@ export default function Attendance() {
             <div className="space-y-2">
               <Label htmlFor="section" className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Target Section</Label>
               <Select value={selectedSection} onValueChange={setSelectedSection}>
-                <SelectTrigger id="section" className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all">
+                <SelectTrigger id="section" className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-primary/20 transition-all">
                   <SelectValue placeholder="Select section">
                     {selectedSection && sections.length > 0 ? (
                       (() => {
@@ -272,7 +272,7 @@ export default function Attendance() {
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
-                  className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all pl-10"
+                  className="h-12 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-primary/20 transition-all pl-10"
                 />
                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
