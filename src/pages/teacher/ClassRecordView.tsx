@@ -2,35 +2,23 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
-  Save,
-  Edit,
-  Trash2,
   Plus,
   Minus,
   AlertCircle,
   CheckCircle,
-  BookOpen,
-  Users,
   Award,
-  FileText,
-  ClipboardList,
   Loader2,
   TrendingUp,
   TrendingDown,
   Target,
   FileSpreadsheet,
   Upload,
-  RefreshCw,
   X,
-  SplitSquareHorizontal,
   Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -41,9 +29,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -59,7 +44,6 @@ import {
   SERVER_URL,
   type ClassAssignment,
   type ClassRecord,
-  type Grade,
   type ScoreItem,
 } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -72,6 +56,12 @@ const gradeLevelLabels: Record<string, string> = {
 };
 
 const quarters = ["Q1", "Q2", "Q3", "Q4"] as const;
+const HG_DESCRIPTORS = [
+  'No Improvement',
+  'Needs Improvement',
+  'Developing',
+  'Sufficiently Developed',
+] as const;
 
 function getGradeColor(grade: number | null): string {
   if (grade === null) return "text-slate-300";
@@ -316,14 +306,11 @@ export default function ClassRecordView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [savingDescriptorStudentId, setSavingDescriptorStudentId] = useState<string | null>(null);
 
-  const [ecrSyncStatus, setEcrSyncStatus] = useState<{
-    hasSynced: boolean;
-    ecrLastSyncedAt: string | null;
-    ecrFileName: string | null;
-  } | null>(null);
   const [separateByGender, setSeparateByGender] = useState(false);
   const ecrFileInputRef = useRef<HTMLInputElement>(null);
+  const isHGClass = (classAssignment?.subject?.code ?? '').startsWith('HG');
 
   // Dynamic Column Counts
   const wwCount = useMemo(() => {
@@ -399,10 +386,10 @@ export default function ClassRecordView() {
   }, [classAssignmentId]); 
 
   useEffect(() => {
-    if (classAssignmentId) {
+    if (classAssignmentId && !isHGClass) {
       fetchEcrStatus();
     }
-  }, [classAssignmentId]);
+  }, [classAssignmentId, isHGClass]);
 
   useEffect(() => {
     if (error || success) {
@@ -433,8 +420,7 @@ export default function ClassRecordView() {
   const fetchEcrStatus = async () => {
     if (!classAssignmentId) return;
     try {
-      const response = await gradesApi.getEcrStatus(classAssignmentId);
-      setEcrSyncStatus(response.data);
+      await gradesApi.getEcrStatus(classAssignmentId);
     } catch (err) {
       console.error("Failed to fetch ECR status:", err);
     }
@@ -447,24 +433,15 @@ export default function ClassRecordView() {
     }
   };
 
-  const [ecrImporting, setEcrImporting] = useState(false);
   const handleEcrImport = async (file: File) => {
     if (!classAssignmentId) return;
     try {
-      setEcrImporting(true);
       const response = await gradesApi.importEcr(classAssignmentId, file);
-      setEcrSyncStatus({
-        hasSynced: true,
-        ecrLastSyncedAt: response.data.ecrLastSyncedAt,
-        ecrFileName: response.data.ecrFileName,
-      });
       setSuccess(`Successfully imported ${response.data.importedGrades} grades from ECR.`);
       fetchClassRecord();
     } catch (err: any) {
       console.error("Failed to import ECR:", err);
       setError(err.response?.data?.message || "Failed to import ECR grades");
-    } finally {
-      setEcrImporting(false);
     }
   };
 
@@ -617,6 +594,25 @@ export default function ClassRecordView() {
     }
   };
 
+  const handleDescriptorUpdate = async (studentId: string, descriptor: string) => {
+    if (!classAssignmentId) return;
+    try {
+      setSavingDescriptorStudentId(studentId);
+      await gradesApi.saveGrade({
+        studentId,
+        classAssignmentId,
+        quarter: selectedQuarter,
+        qualitativeDescriptor: descriptor,
+      });
+      setSuccess('Descriptor saved');
+      fetchClassRecord(true);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to save descriptor');
+    } finally {
+      setSavingDescriptorStudentId(null);
+    }
+  };
+
   const addTask = async (category: 'WW' | 'PT') => {
     const targetIdx = category === 'WW' ? wwCount : ptCount;
     handleHpsUpdate(category, targetIdx, 10);
@@ -705,7 +701,6 @@ export default function ClassRecordView() {
   const maleRecords = useMemo(() => sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'male'), [sortedRecords]);
   const femaleRecords = useMemo(() => sortedRecords.filter(r => r.student.gender?.toLowerCase() === 'female'), [sortedRecords]);
 
-  const [downloadingECR, setDownloadingECR] = useState(false);
   const [ecrProgress, setEcrProgress] = useState<string>('');
   const [ecrPercentage, setEcrPercentage] = useState<number>(0);
   const [showEcrGenerationDialog, setShowEcrGenerationDialog] = useState(false);
@@ -713,7 +708,6 @@ export default function ClassRecordView() {
   const downloadECR = async () => {
     if (!classAssignment) return;
     try {
-      setDownloadingECR(true);
       setShowEcrGenerationDialog(true);
       setEcrPercentage(0);
       setEcrProgress('Initializing compilation...');
@@ -752,8 +746,6 @@ export default function ClassRecordView() {
     } catch (error: any) {
       setError(error.message);
       setShowEcrGenerationDialog(false);
-    } finally {
-      setDownloadingECR(false);
     }
   };
 
@@ -800,7 +792,7 @@ export default function ClassRecordView() {
                 <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Section {classAssignment.section.name}</span>
               </div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">{classAssignment.subject.name}</h1>
-              {effectiveWeights?.source === "generic-fallback" && (
+              {effectiveWeights?.source === "generic-fallback" && !isHGClass && (
                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mt-2">
                   Generic WW/PT/QA fallback active (no exact ECR template for this subject)
                 </p>
@@ -808,19 +800,98 @@ export default function ClassRecordView() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" className="h-12 px-6 rounded-2xl border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all shadow-sm" onClick={downloadECR}>
-              <Download className="w-4 h-4 mr-2" />EXPORT ECR
-            </Button>
-            <Button className="h-12 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-[10px] tracking-widest uppercase transition-all shadow-xl shadow-slate-300" onClick={() => ecrFileInputRef.current?.click()}>
-              <Upload className="w-4 h-4 mr-3" />IMPORT ECR
-            </Button>
-            <input type="file" ref={ecrFileInputRef} onChange={handleEcrFileSelect} accept=".xlsx,.xls" className="hidden" />
+            {!isHGClass ? (
+              <>
+                <Button variant="outline" className="h-12 px-6 rounded-2xl border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all shadow-sm" onClick={downloadECR}>
+                  <Download className="w-4 h-4 mr-2" />EXPORT ECR
+                </Button>
+                <Button className="h-12 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-[10px] tracking-widest uppercase transition-all shadow-xl shadow-slate-300" onClick={() => ecrFileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-3" />IMPORT ECR
+                </Button>
+                <input type="file" ref={ecrFileInputRef} onChange={handleEcrFileSelect} accept=".xlsx,.xls" className="hidden" />
+              </>
+            ) : (
+              <Badge className="h-9 px-4 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold">
+                Qualitative Grading Mode
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
+      {isHGClass && (
+        <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white">
+          <CardHeader className="p-8 border-0 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Homeroom Guidance Descriptors</h2>
+              <p className="text-slate-500 text-sm mt-1">Select one qualitative descriptor per learner for {selectedQuarter}.</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period:</span>
+              <Select value={selectedQuarter} onValueChange={(val) => val && setSelectedQuarter(val)}>
+                <SelectTrigger className="h-11 w-40 bg-white border-slate-200 text-sm font-black uppercase rounded-xl shadow-sm px-6">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-200 shadow-2xl p-2">
+                  {quarters.map((q) => (
+                    <SelectItem key={q} value={q} className="text-xs font-black uppercase rounded-lg py-2.5 px-4 focus:bg-indigo-50 focus:text-indigo-600 transition-colors cursor-pointer">
+                      {q}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <div className="overflow-x-auto border-t border-slate-100">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">#</TableHead>
+                  <TableHead>LRN</TableHead>
+                  <TableHead>Learner</TableHead>
+                  <TableHead className="w-[320px]">Descriptor ({selectedQuarter})</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedRecords.map((record, index) => {
+                  const quarterGrade = record.grades.find((g) => g.quarter === selectedQuarter);
+                  const descriptor = quarterGrade?.qualitativeDescriptor ?? '';
+                  const isSaving = savingDescriptorStudentId === record.student.id;
+                  return (
+                    <TableRow key={record.student.id}>
+                      <TableCell className="font-semibold">{index + 1}</TableCell>
+                      <TableCell className="font-mono text-xs">{record.student.lrn}</TableCell>
+                      <TableCell className="font-semibold">{record.student.lastName}, {record.student.firstName}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={descriptor || undefined}
+                          onValueChange={(value) => {
+                            if (!value) return;
+                            handleDescriptorUpdate(record.student.id, value);
+                          }}
+                          disabled={isSaving}
+                        >
+                          <SelectTrigger className="h-10 rounded-xl">
+                            <SelectValue placeholder="Select descriptor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {HG_DESCRIPTORS.map((item) => (
+                              <SelectItem key={item} value={item}>{item}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
+
       {/* Analytics Insights */}
-      {stats && (
+      {!isHGClass && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { label: "Class Average", value: stats.avg.toFixed(1), icon: Target, color: "indigo" },
@@ -844,6 +915,7 @@ export default function ClassRecordView() {
       )}
 
       {/* Main Ledger Table */}
+      {!isHGClass && (
       <Card className="border-0 shadow-2xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden bg-white">
         <CardHeader className="p-8 border-0 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-8">
@@ -1064,6 +1136,7 @@ export default function ClassRecordView() {
           </Table>
         </div>
       </Card>
+      )}
 
       <Dialog open={showEcrGenerationDialog} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden bg-white">

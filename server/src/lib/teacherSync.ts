@@ -26,6 +26,7 @@ import {
   getIntegrationV1Sections,
   getEnrollProTeachers,
 } from './enrollproClient';
+import { syncAdvisoryWorkloadEntry } from './workload';
 import type { GradeLevel } from '@prisma/client';
 
 const ATLAS_BASE = 'http://100.88.55.125:5001/api/v1';
@@ -74,6 +75,22 @@ function resolveSubjectCode(atlasCode: string, gradeLevel: GradeLevel): string {
 
 function normalizeSubjectLabel(raw: string | null | undefined): string {
   return (raw ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+const HOMEROOM_GUIDANCE_LABEL = 'Homeroom Guidance';
+const HOMEROOM_GUIDANCE_MINUTES = 60;
+
+async function ensureHomeroomGuidanceLabel(
+  subject: { id: string; code: string; name: string },
+  updated: Set<string>,
+): Promise<void> {
+  if (!subject.code.startsWith('HG')) return;
+  if (subject.name === HOMEROOM_GUIDANCE_LABEL) return;
+  if (updated.has(subject.id)) return;
+
+  await prisma.subject.update({ where: { id: subject.id }, data: { name: HOMEROOM_GUIDANCE_LABEL } });
+  subject.name = HOMEROOM_GUIDANCE_LABEL;
+  updated.add(subject.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -500,17 +517,88 @@ export async function syncTeacherOnLogin(
         `/faculty-assignments/${atlasMember.id}?schoolYearId=${DEFAULT_SCHOOL_YEAR_ID}`,
         atlasToken,
       );
-      const assignments: any[] = assignmentsData?.assignments ?? [];
-      result.classAssignmentsFromAtlas = assignments.length;
+      const assignmentsPayload = assignmentsData?.assignments ?? assignmentsData?.data ?? assignmentsData ?? [];
+      const flatAssignments: any[] = Array.isArray(assignmentsPayload)
+        ? assignmentsPayload.filter((a) => a && (a.subjectCode || a.sectionId))
+        : [];
+      const nestedAssignments: any[] = Array.isArray(assignmentsPayload)
+        ? assignmentsPayload.filter((a) => a && (a.subject?.code || a.sections))
+        : [];
 
-      // Try 2: published schedule (actual timetable entries with sectionId)
-      const pubData = await atlasGet(
-        `/schools/${ATLAS_SCHOOL_ID}/schedules/published/faculty/${atlasMember.id}`,
-        atlasToken,
-      );
-      const pubEntries: any[] = pubData?.entries ?? [];
+      let pubEntries: any[] = [];
+      const homeroomLabelUpdated = new Set<string>();
+      if (flatAssignments.length === 0) {
+        // Try 2: published schedule (actual timetable entries with sectionId)
+        const pubData = await atlasGet(
+          `/schools/${ATLAS_SCHOOL_ID}/schedules/published/faculty/${atlasMember.id}`,
+          atlasToken,
+        );
+        pubEntries = pubData?.entries ?? [];
+      }
 
-      if (pubEntries.length > 0) {
+      if (flatAssignments.length > 0) {
+        console.log(`[TeacherSync] Atlas assignments: ${flatAssignments.length} subject-section assignments (flat)`);
+        result.classAssignmentsFromAtlas = flatAssignments.length;
+
+        const epSectionsF = await getIntegrationV1Sections(schoolYearId);
+        const epSectionByIdF = new Map<number, any>(epSectionsF.map((s: any) => [Number(s.id), s]));
+        const allSubjectsF = await prisma.subject.findMany();
+        const subjectByCodeF = new Map(allSubjectsF.map((s) => [s.code, s]));
+        const allSectionsF = await prisma.section.findMany({ where: { schoolYear: schoolYearLabel } });
+        const sectionByNameF = new Map(allSectionsF.map((s) => [s.name.trim(), s]));
+
+        for (const assignment of flatAssignments) {
+          const atlasCode = normalizeSubjectLabel(assignment?.subjectCode ?? assignment?.subject?.code);
+          const sectionId = Number(assignment?.sectionId);
+          if (!atlasCode || !Number.isFinite(sectionId)) continue;
+
+          const epSection = epSectionByIdF.get(sectionId);
+          if (!epSection) {
+            console.warn(
+              `[TeacherSync] System ID Mismatch: ATLAS assignment sectionId=${sectionId} not found in EnrollPro sections`,
+            );
+            result.errors.push(`System ID Mismatch: ATLAS sectionId=${sectionId} not found in EnrollPro sections`);
+            continue;
+          }
+
+          const gradeLevel = mapGradeLevel(epSection.gradeLevel?.name ?? epSection.gradeLevelName ?? epSection.name);
+          if (!gradeLevel) {
+            console.log(`[TeacherSync] Assignments: cannot map grade level for "${epSection.name}"`);
+            continue;
+          }
+
+          let section = sectionByNameF.get(epSection.name?.trim());
+          if (!section) {
+            section = await upsertSection(epSection.name, gradeLevel, schoolYearLabel);
+            if (section) sectionByNameF.set(epSection.name?.trim(), section);
+          }
+          if (!section) continue;
+
+          const smartCode = resolveSubjectCode(atlasCode, gradeLevel);
+          const subject = subjectByCodeF.get(smartCode) ?? subjectByCodeF.get(atlasCode);
+          if (!subject) {
+            console.warn(
+              `[TeacherSync] MISSING SUBJECT MAPPING: Atlas code "${atlasCode}" ` +
+              `(resolved "${smartCode}") for section "${epSection.name}" grade=${gradeLevel}. ` +
+              `Skipping — add this subject to SMART to enable this assignment.`,
+            );
+            result.errors.push(`MISSING SUBJECT MAPPING: Atlas code "${atlasCode}" (resolved "${smartCode}") — add to SMART subjects`);
+            continue;
+          }
+
+          await ensureHomeroomGuidanceLabel(subject, homeroomLabelUpdated);
+          const teachingMinutes = subject.code.startsWith('HG') ? HOMEROOM_GUIDANCE_MINUTES : null;
+
+          try {
+            await (prisma.classAssignment as any).upsert({
+              where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
+              update: { teachingMinutes },
+              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
+            });
+            result.classAssignmentsCreated++;
+          } catch { /* concurrent duplicate */ }
+        }
+      } else if (pubEntries.length > 0) {
         console.log(`[TeacherSync] Atlas published: ${pubEntries.length} schedule entries`);
         result.classAssignmentsFromAtlas = pubEntries.length;
 
@@ -523,6 +611,7 @@ export async function syncTeacherOnLogin(
         const epSectionByIdP = new Map<number, any>(epSectionsP.map((s: any) => [Number(s.id), s]));
 
         for (const entry of pubEntries) {
+          const atlasCode = normalizeSubjectLabel(entry.subjectCode ?? '');
           const epSection = epSectionByIdP.get(Number(entry.sectionId));
           if (!epSection) {
             console.warn(
@@ -538,8 +627,8 @@ export async function syncTeacherOnLogin(
           const gradeLevel = mapGradeLevel(epSection.gradeLevel?.name ?? epSection.gradeLevelName ?? epSection.name);
           if (!gradeLevel) continue;
           const section = await upsertSection(epSection.name, gradeLevel, schoolYearLabel);
-          const smartCode = resolveSubjectCode(entry.subjectCode ?? '', gradeLevel);
-          const subject = subjectByCodeP.get(smartCode) ?? subjectByCodeP.get(entry.subjectCode);
+          const smartCode = resolveSubjectCode(atlasCode, gradeLevel);
+          const subject = subjectByCodeP.get(smartCode) ?? subjectByCodeP.get(atlasCode);
           if (!subject) {
             console.warn(
               `[TeacherSync] MISSING SUBJECT MAPPING: Atlas code "${entry.subjectCode}" ` +
@@ -549,27 +638,29 @@ export async function syncTeacherOnLogin(
             result.errors.push(`MISSING SUBJECT MAPPING: Atlas code "${entry.subjectCode}" (resolved "${smartCode}") — add to SMART subjects`);
             continue;
           }
+          await ensureHomeroomGuidanceLabel(subject, homeroomLabelUpdated);
+          const teachingMinutes = subject.code.startsWith('HG') ? HOMEROOM_GUIDANCE_MINUTES : null;
           try {
-            await prisma.classAssignment.upsert({
+            await (prisma.classAssignment as any).upsert({
               where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
-              update: {},
-              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel },
+              update: { teachingMinutes },
+              create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
             });
             result.classAssignmentsCreated++;
           } catch { /* concurrent duplicate */ }
         }
-      } else if (assignments.length > 0) {
+      } else if (nestedAssignments.length > 0) {
         // assignments have subject + specific sections array
-        console.log(`[TeacherSync] Atlas assignments: ${assignments.length} subject-section assignments`);
-        result.classAssignmentsFromAtlas = assignments.length;
+        console.log(`[TeacherSync] Atlas assignments: ${nestedAssignments.length} subject-section assignments`);
+        result.classAssignmentsFromAtlas = nestedAssignments.length;
 
         const allSubjectsA = await prisma.subject.findMany();
         const subjectByCodeA = new Map(allSubjectsA.map((s) => [s.code, s]));
         const allSectionsA = await prisma.section.findMany({ where: { schoolYear: schoolYearLabel } });
         const sectionByNameA = new Map(allSectionsA.map((s) => [s.name.trim(), s]));
 
-        for (const assignment of assignments) {
-          const atlasCode: string = assignment.subject?.code ?? '';
+        for (const assignment of nestedAssignments) {
+          const atlasCode = normalizeSubjectLabel(assignment.subject?.code ?? '');
           const atlasSections: any[] = assignment.sections ?? [];
 
           for (const atlasSection of atlasSections) {
@@ -606,11 +697,14 @@ export async function syncTeacherOnLogin(
               continue;
             }
 
+            await ensureHomeroomGuidanceLabel(subject, homeroomLabelUpdated);
+            const teachingMinutes = subject.code.startsWith('HG') ? HOMEROOM_GUIDANCE_MINUTES : null;
+
             try {
-              await prisma.classAssignment.upsert({
+              await (prisma.classAssignment as any).upsert({
                 where: { teacherId_subjectId_sectionId_schoolYear: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel } },
-                update: {},
-                create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel },
+                update: { teachingMinutes },
+                create: { teacherId: smartTeacherId, subjectId: subject.id, sectionId: section.id, schoolYear: schoolYearLabel, teachingMinutes },
               });
               result.classAssignmentsCreated++;
               console.log(`[TeacherSync] Upserted: ${subject.code} → ${section.name}`);
@@ -692,6 +786,14 @@ export async function syncTeacherOnLogin(
         } catch (advErr: any) {
           console.warn(`[TeacherSync] ATLAS advisers fallback error: ${advErr.message}`);
         }
+      }
+
+      if (advisorySectionSmartId) {
+        await syncAdvisoryWorkloadEntry({
+          teacherId: smartTeacherId,
+          sectionId: advisorySectionSmartId,
+          schoolYear: schoolYearLabel,
+        });
       }
     }
   } catch (err: any) {
@@ -811,45 +913,6 @@ export async function syncTeacherOnLogin(
           `[TeacherSync] Advisory section confirmed: ${atlasAssignmentCount} ATLAS assignment(s) present. ` +
           `EnrollPro label inference permanently disabled.`,
         );
-
-        // Cleanup pass: purge any MATH assignments from HG (Homeroom Guidance) sections
-        // that the old inference engine may have created.
-        const hgSubjects = await prisma.subject.findMany({
-          where: { code: { startsWith: 'HG' } },
-          select: { id: true },
-        });
-        if (hgSubjects.length > 0) {
-          const hgInSection = await prisma.classAssignment.count({
-            where: {
-              teacherId: smartTeacherId,
-              sectionId: advisorySectionSmartId,
-              schoolYear: schoolYearLabel,
-              subjectId: { in: hgSubjects.map((s) => s.id) },
-            },
-          });
-          if (hgInSection > 0) {
-            const mathSubjects = await prisma.subject.findMany({
-              where: { code: { startsWith: 'MATH' } },
-              select: { id: true },
-            });
-            if (mathSubjects.length > 0) {
-              const removed = await prisma.classAssignment.deleteMany({
-                where: {
-                  teacherId: smartTeacherId,
-                  sectionId: advisorySectionSmartId,
-                  schoolYear: schoolYearLabel,
-                  subjectId: { in: mathSubjects.map((s) => s.id) },
-                },
-              });
-              if (removed.count > 0) {
-                console.log(
-                  `[TeacherSync] Purged ${removed.count} stale MATH assignment(s) from ` +
-                  `Homeroom Guidance advisory section (employeeId=${employeeId}).`,
-                );
-              }
-            }
-          }
-        }
       } else {
         // ATLAS has no assignments yet for this advisory section.
         // Under universal policy we do NOT fall back to EnrollPro labels.

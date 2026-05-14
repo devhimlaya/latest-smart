@@ -92,6 +92,7 @@ export interface ClassAssignment {
   subjectId: string;
   sectionId: string;
   schoolYear: string;
+  teachingMinutes?: number | null;
   subject: Subject;
   section: Section;
   // ECR sync tracking
@@ -121,6 +122,7 @@ export interface Grade {
   quarterlyAssessPS: number | null;
   initialGrade: number | null;
   quarterlyGrade: number | null;
+  qualitativeDescriptor?: string | null;
   remarks?: string;
 }
 
@@ -204,6 +206,7 @@ export const gradesApi = {
     perfTaskScores?: ScoreItem[];
     quarterlyAssessScore?: number;
     quarterlyAssessMax?: number;
+    qualitativeDescriptor?: string;
   }) => api.post<Grade>("/grades/grade", data),
 
   deleteGrade: (gradeId: string) => api.delete(`/grades/grade/${gradeId}`),
@@ -358,6 +361,7 @@ export interface QuarterGrade {
   quarterlyAssessPS: number | null;
   initialGrade: number | null;
   quarterlyGrade: number | null;
+  qualitativeDescriptor?: string | null;
 }
 
 export interface SubjectGrade {
@@ -824,7 +828,20 @@ export const adminApi = {
     }),
 
   getClassAssignments: (schoolYear?: string) =>
-    api.get<{ assignments: any[] }>("/admin/class-assignments", {
+    api.get<{
+      assignments: any[];
+      workloadSummary?: Array<{
+        teacherId: string;
+        teacherName: string;
+        sectionId: string;
+        sectionName: string;
+        gradeLevel: string;
+        hgMinutes: number;
+        advisoryRoleMinutes: number;
+        otherSubjectMinutes: number;
+        totalMinutes: number;
+      }>;
+    }>("/admin/class-assignments", {
       params: schoolYear ? { schoolYear } : {},
     }),
 

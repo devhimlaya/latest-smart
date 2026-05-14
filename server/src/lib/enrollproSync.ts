@@ -21,7 +21,6 @@
 
 import {
   getIntegrationV1ActiveSchoolYear,
-  getIntegrationV1Faculty,
   getIntegrationV1Sections,
   getAllIntegrationV1Learners,
   getEnrollProTeachers,
@@ -29,6 +28,7 @@ import {
 import { prisma } from './prisma';
 import type { GradeLevel } from '@prisma/client';
 import { broadcastSyncStatus } from './sseManager';
+import { syncAdvisoryWorkloadEntry } from './workload';
 
 // ---------------------------------------------------------------------------
 // Grade level mapping
@@ -147,6 +147,12 @@ export async function runEnrollProSync() {
             schoolYear: schoolYearLabel,
             adviserId: teacherId,
           },
+        });
+
+        await syncAdvisoryWorkloadEntry({
+          teacherId,
+          sectionId: section.id,
+          schoolYear: schoolYearLabel,
         });
 
         epSectionNameToSmartSectionId.set(epSection.name, section.id);

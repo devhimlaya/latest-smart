@@ -26,6 +26,17 @@ const SCHOOL_YEARS = ["2026-2027", "2025-2026"];
 export default function ClassAssignments() {
   const [schoolYear, setSchoolYear] = useState("2026-2027");
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [workloadSummary, setWorkloadSummary] = useState<Array<{
+    teacherId: string;
+    teacherName: string;
+    sectionId: string;
+    sectionName: string;
+    gradeLevel: string;
+    hgMinutes: number;
+    advisoryRoleMinutes: number;
+    otherSubjectMinutes: number;
+    totalMinutes: number;
+  }>>([]);
   const [options, setOptions] = useState<{ teachers: any[]; subjects: any[]; sections: any[] }>({
     teachers: [],
     subjects: [],
@@ -46,8 +57,9 @@ export default function ClassAssignments() {
         adminApi.getClassAssignments(schoolYear),
         adminApi.getClassAssignmentOptions(schoolYear),
       ]);
-      setAssignments(assignRes.assignments ?? []);
-      setOptions(optRes);
+      setAssignments(assignRes.data?.assignments ?? []);
+      setWorkloadSummary(assignRes.data?.workloadSummary ?? []);
+      setOptions(optRes.data);
     } catch (e: any) {
       setError(e.message ?? "Failed to load class assignments");
     } finally {
@@ -282,6 +294,47 @@ export default function ClassAssignments() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Workload Summary (DepEd Compliance)</CardTitle>
+          <CardDescription>
+            Line 1: HG minutes, Line 2: Advisory role credit, Line 3: Other subject minutes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading workload summary...</div>
+          ) : workloadSummary.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No workload summary entries yet for {schoolYear}.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Teacher</TableHead>
+                  <TableHead>Section</TableHead>
+                  <TableHead>Line 1: HG</TableHead>
+                  <TableHead>Line 2: Advisory Role</TableHead>
+                  <TableHead>Line 3: Other Subjects</TableHead>
+                  <TableHead>Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workloadSummary.map((row) => (
+                  <TableRow key={`${row.teacherId}-${row.sectionId}`}>
+                    <TableCell className="font-medium">{row.teacherName}</TableCell>
+                    <TableCell>{row.sectionName} ({gradeLevelLabel(row.gradeLevel)})</TableCell>
+                    <TableCell>{row.hgMinutes} min</TableCell>
+                    <TableCell>{row.advisoryRoleMinutes} min</TableCell>
+                    <TableCell>{row.otherSubjectMinutes} min</TableCell>
+                    <TableCell className="font-semibold">{row.totalMinutes} min</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

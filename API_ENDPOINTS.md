@@ -1315,7 +1315,7 @@ Returns all faculty from EnrollPro with advisory assignments.
 ### ATLAS Integration
 
 #### `GET /api/integration/atlas/my-teaching-load`
-Returns the logged-in teacher's class assignments from the SMART local DB (synced from ATLAS every 30 min).
+Returns the logged-in teacher's class assignments from the SMART local DB (synced from ATLAS every 30 min). Homeroom Guidance (`HG`) is included as a regular subject assignment.
 
 **Auth:** `TEACHER` role  
 **Response:**
@@ -1323,24 +1323,71 @@ Returns the logged-in teacher's class assignments from the SMART local DB (synce
 {
   "success": true,
   "data": {
-    "teacherId": 42,
-    "teacherName": "Juan Dela Cruz",
-    "email": "juan@deped.edu.ph",
-    "classAssignments": [
+    "assignments": [
       {
-        "id": 1,
-        "subjectName": "Mathematics 7",
-        "sectionName": "7-Sampaguita",
-        "gradeLevel": "Grade 7",
-        "dayOfWeek": "Monday",
-        "startTime": "07:30",
-        "endTime": "08:30"
+        "id": "ca_123",
+        "subject": {
+          "id": "subj_123",
+          "code": "HG7",
+          "name": "Homeroom Guidance",
+          "type": "CORE"
+        },
+        "section": {
+          "id": "sec_123",
+          "name": "7-Sampaguita",
+          "gradeLevel": "GRADE_7",
+          "schoolYear": "2026-2027",
+          "studentCount": 42
+        },
+        "teachingMinutes": 60
       }
-    ],
-    "totalAssignments": 6
+    ]
   }
 }
 ```
+
+---
+
+### Admin Teaching Load Summary
+
+#### `GET /api/admin/class-assignments`
+Returns class assignments and workload summary lines for admin load review.
+
+**Auth:** `ADMIN` role
+
+**Response (excerpt):**
+```json
+{
+  "assignments": [
+    {
+      "id": "ca_123",
+      "schoolYear": "2026-2027",
+      "teachingMinutes": 60,
+      "subject": { "code": "HG7", "name": "Homeroom Guidance" }
+    }
+  ],
+  "workloadSummary": [
+    {
+      "teacherId": "t_1",
+      "teacherName": "Dela Cruz, Juan",
+      "sectionId": "sec_123",
+      "sectionName": "7-Sampaguita",
+      "gradeLevel": "GRADE_7",
+      "hgMinutes": 60,
+      "advisoryRoleMinutes": 60,
+      "otherSubjectMinutes": 180,
+      "totalMinutes": 300
+    }
+  ]
+}
+```
+
+### Grade Entry Rules (HG)
+
+- `POST /api/grades/grade` accepts `qualitativeDescriptor` for HG classes.
+- Allowed HG descriptors: `No Improvement`, `Needs Improvement`, `Developing`, `Sufficiently Developed`.
+- Numeric fields are ignored for HG; HG grade records are stored as qualitative entries.
+- ECR endpoints (`/api/grades/ecr/preview`, `/api/grades/ecr/import`, `/api/grades/ecr/status/:classAssignmentId`) return `400` for HG classes.
 
 ---
 

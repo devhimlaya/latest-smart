@@ -14,13 +14,34 @@
 import http from 'http';
 import https from 'https';
 import { prisma } from './prisma';
-import { Role } from '@prisma/client';
+import { getIntegrationV1Sections } from './enrollproClient';
+import { syncAdvisoryWorkloadEntry } from './workload';
 
 const ATLAS_BASE = 'http://100.88.55.125:5001/api/v1';
 const ENROLLPRO_BASE = 'https://dev-jegs.buru-degree.ts.net/api';
 const ATLAS_SCHOOL_ID = 1;      // ATLAS internal schoolId (EnrollPro uses schoolId=5 but ATLAS stores as 1)
 const SCHOOL_YEAR_ID = 8;       // EnrollPro/ATLAS schoolYearId for 2026-2027
 const SCHOOL_YEAR = '2026-2027';
+
+function normalizeAtlasSubjectCode(code: string | null | undefined): string {
+  return (code ?? '').trim().toUpperCase();
+}
+
+const HOMEROOM_GUIDANCE_LABEL = 'Homeroom Guidance';
+const HOMEROOM_GUIDANCE_MINUTES = 60;
+
+async function ensureHomeroomGuidanceLabel(
+  subject: { id: string; code: string; name: string },
+  updated: Set<string>,
+): Promise<void> {
+  if (!subject.code.startsWith('HG')) return;
+  if (subject.name === HOMEROOM_GUIDANCE_LABEL) return;
+  if (updated.has(subject.id)) return;
+
+  await prisma.subject.update({ where: { id: subject.id }, data: { name: HOMEROOM_GUIDANCE_LABEL } });
+  subject.name = HOMEROOM_GUIDANCE_LABEL;
+  updated.add(subject.id);
+}
 
 // -- State ------------------------------------------------------------------
 let syncRunning = false;
@@ -75,48 +96,6 @@ function post(url: string, body: any): Promise<any> {
   });
 }
 
-// -- Cleanup: remove stale MATH assignments for Homeroom Guidance sections --
-// For every (teacher, section) pair where ATLAS assigned HG (Homeroom Guidance),
-// delete any MATH assignments that should not be there. Called automatically
-// after each atlas sync so Admins and Registrars see clean data immediately.
-// Also exported so the admin route can trigger an immediate one-shot cleanup.
-export async function cleanupHomeroomMathConflicts(schoolYear: string = SCHOOL_YEAR): Promise<number> {
-  const hgSubjects = await prisma.subject.findMany({
-    where: { code: { startsWith: 'HG' } },
-    select: { id: true },
-  });
-  if (hgSubjects.length === 0) return 0;
-  const hgIds = hgSubjects.map((s) => s.id);
-
-  // Find every (teacher, section) pair that has a Homeroom Guidance assignment.
-  const hgAssignments = await prisma.classAssignment.findMany({
-    where: { subjectId: { in: hgIds }, schoolYear },
-    select: { teacherId: true, sectionId: true },
-  });
-  if (hgAssignments.length === 0) return 0;
-
-  const mathSubjects = await prisma.subject.findMany({
-    where: { code: { startsWith: 'MATH' } },
-    select: { id: true },
-  });
-  if (mathSubjects.length === 0) return 0;
-  const mathIds = mathSubjects.map((s) => s.id);
-
-  // Deduplicate pairs to avoid redundant deletes.
-  const seen = new Set<string>();
-  let total = 0;
-  for (const { teacherId, sectionId } of hgAssignments) {
-    const key = `${teacherId}|${sectionId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const removed = await prisma.classAssignment.deleteMany({
-      where: { teacherId, sectionId, schoolYear, subjectId: { in: mathIds } },
-    });
-    total += removed.count;
-  }
-  return total;
-}
-
 // -- Core sync logic --------------------------------------------------------
 export async function runAtlasSync(): Promise<typeof lastSyncResult> {
   if (syncRunning) {
@@ -161,9 +140,19 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
     const allSections = await prisma.section.findMany({ where: { schoolYear: SCHOOL_YEAR } });
     const sectionByName = new Map(allSections.map(s => [s.name, s]));
 
+    // 3.1 Build EnrollPro sectionId → section details map for ATLAS assignments
+    let epSectionById = new Map<number, any>();
+    try {
+      const epSections = await getIntegrationV1Sections(SCHOOL_YEAR_ID);
+      epSectionById = new Map<number, any>(epSections.map((s: any) => [Number(s.id), s]));
+    } catch (err: any) {
+      errors.push(`EnrollPro sections lookup failed: ${err.message}`);
+    }
+
     // 4. Build subject code → SMART subject map
     const allSubjects = await prisma.subject.findMany();
     const subjectByCode = new Map(allSubjects.map(s => [s.code, s]));
+    const homeroomLabelUpdated = new Set<string>();
 
     // 5. Fetch teaching loads from ATLAS per faculty
     const loads: Array<{ smartTeacherId: string; subjectCode: string; sectionName: string }> = [];
@@ -174,20 +163,45 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
           `${ATLAS_BASE}/faculty-assignments/${af.id}?schoolYearId=${SCHOOL_YEAR_ID}`,
           authHeader,
         );
-        const assignments: any[] = detail.assignments ?? [];
+        const assignmentsPayload = detail?.assignments ?? detail?.data ?? detail ?? [];
+        const assignments: any[] = Array.isArray(assignmentsPayload) ? assignmentsPayload : [];
         if (assignments.length === 0) continue;
 
         const smartTeacherId = atlasIdToSmartTeacherId.get(af.id);
         if (!smartTeacherId) continue;
 
-        teachersWithLoads++;
-        for (const a of assignments) {
-          const subjectCode: string = a.subject?.code ?? '';
-          const sections: any[] = a.sections ?? [];
-          for (const sec of sections) {
-            loads.push({ smartTeacherId, subjectCode, sectionName: sec.name });
+        const flatAssignments = assignments.filter((a) => a && (a.subjectCode || a.sectionId));
+        const nestedAssignments = assignments.filter((a) => a && (a.subject?.code || a.sections));
+
+        const teacherLoads: Array<{ smartTeacherId: string; subjectCode: string; sectionName: string }> = [];
+        if (flatAssignments.length > 0) {
+          for (const a of flatAssignments) {
+            const subjectCode = normalizeAtlasSubjectCode(a?.subjectCode ?? a?.subject?.code);
+            if (!subjectCode) continue;
+            const sectionId = Number(a?.sectionId ?? a?.section?.id);
+            if (!Number.isFinite(sectionId)) continue;
+            const epSection = epSectionById.get(sectionId);
+            if (!epSection?.name) {
+              errors.push(`ATLAS sectionId=${sectionId} not found in EnrollPro sections`);
+              continue;
+            }
+            teacherLoads.push({ smartTeacherId, subjectCode, sectionName: epSection.name });
+          }
+        } else if (nestedAssignments.length > 0) {
+          for (const a of nestedAssignments) {
+            const subjectCode = normalizeAtlasSubjectCode(a.subject?.code ?? '');
+            if (!subjectCode) continue;
+            const sections: any[] = a.sections ?? [];
+            for (const sec of sections) {
+              if (!sec?.name) continue;
+              teacherLoads.push({ smartTeacherId, subjectCode, sectionName: sec.name });
+            }
           }
         }
+
+        if (teacherLoads.length === 0) continue;
+        teachersWithLoads++;
+        loads.push(...teacherLoads);
       } catch (err: any) {
         errors.push(`Faculty ${af.firstName} ${af.lastName}: ${err.message}`);
       }
@@ -229,6 +243,9 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
         continue;
       }
 
+      await ensureHomeroomGuidanceLabel(subject, homeroomLabelUpdated);
+      const teachingMinutes = subject.code.startsWith('HG') ? HOMEROOM_GUIDANCE_MINUTES : null;
+
       try {
         await prisma.classAssignment.upsert({
           where: {
@@ -239,12 +256,13 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
               schoolYear: SCHOOL_YEAR,
             },
           },
-          update: {},
+          update: { teachingMinutes },
           create: {
             teacherId: load.smartTeacherId,
             subjectId: subject.id,
             sectionId: section.id,
             schoolYear: SCHOOL_YEAR,
+            teachingMinutes,
           },
         });
         created++;
@@ -275,20 +293,16 @@ export async function runAtlasSync(): Promise<typeof lastSyncResult> {
         const sectionName = adviser.advisedSectionName ?? '';
         const tid = emailToTeacherIdForAdviser.get(email);
         const sec = sectionsByName.get(sectionName);
-        if (tid && sec && sec.adviserId !== tid) {
-          await prisma.section.update({ where: { id: sec.id }, data: { adviserId: tid } });
+        if (tid && sec) {
+          if (sec.adviserId !== tid) {
+            await prisma.section.update({ where: { id: sec.id }, data: { adviserId: tid } });
+          }
+          await syncAdvisoryWorkloadEntry({ teacherId: tid, sectionId: sec.id, schoolYear: SCHOOL_YEAR });
         }
       }
       console.log(`[AtlasSync] Advisers synced: ${atlasAdvisers.length} from ATLAS`);
     } catch (advErr: any) {
       console.warn('[AtlasSync] Adviser sync failed:', advErr.message);
-    }
-
-    // Global cleanup: remove stale MATH assignments from Homeroom Guidance sections
-    // so Admins and Registrars see correct data immediately after sync.
-    const cleanedUp = await cleanupHomeroomMathConflicts(SCHOOL_YEAR);
-    if (cleanedUp > 0) {
-      console.log(`[AtlasSync] Cleaned up ${cleanedUp} stale MATH→Homeroom Guidance conflict(s).`);
     }
 
     lastSyncResult = { matched, created, deleted, teachersWithLoads, errors };

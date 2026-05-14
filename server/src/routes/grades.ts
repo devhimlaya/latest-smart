@@ -72,6 +72,17 @@ function getBaseSubjectName(subjectName: string): string {
   return subjectName.replace(/\s+\d+$/, "").trim();
 }
 
+const HG_QUALITATIVE_DESCRIPTORS = [
+  'No Improvement',
+  'Needs Improvement',
+  'Developing',
+  'Sufficiently Developed',
+] as const;
+
+function isHomeroomGuidanceSubjectCode(subjectCode?: string | null): boolean {
+  return (subjectCode ?? '').toUpperCase().startsWith('HG');
+}
+
 async function resolveEffectiveWeightsForClassAssignment(classAssignmentId: string): Promise<EffectiveWeights> {
   const classAssignment = await prisma.classAssignment.findUnique({
     where: { id: classAssignmentId },
@@ -149,7 +160,10 @@ router.get(
       const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
 
       const classes = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id, schoolYear: currentSchoolYear },
+        where: {
+          teacherId: teacher.id,
+          schoolYear: currentSchoolYear,
+        },
         include: {
           subject: true,
           section: {
@@ -284,6 +298,7 @@ router.post(
         perfTaskScores,
         quarterlyAssessScore,
         quarterlyAssessMax,
+        qualitativeDescriptor,
       } = req.body;
 
       const teacher = await prisma.teacher.findUnique({
@@ -311,10 +326,26 @@ router.post(
         return;
       }
 
-      // Calculate percentage scores and grades
-      const effectiveWeights = await resolveEffectiveWeightsForClassAssignment(classAssignmentId);
-      const { writtenWorkPS, perfTaskPS, quarterlyAssessPS, initialGrade, quarterlyGrade } =
-        calculateGrades(
+      const isHG = isHomeroomGuidanceSubjectCode(classAssignment.subject.code);
+
+      if (isHG) {
+        if (!qualitativeDescriptor || !HG_QUALITATIVE_DESCRIPTORS.includes(qualitativeDescriptor)) {
+          res.status(400).json({
+            message: `Homeroom Guidance requires a qualitative descriptor: ${HG_QUALITATIVE_DESCRIPTORS.join(', ')}`,
+          });
+          return;
+        }
+      }
+
+      let writtenWorkPS: number | null = null;
+      let perfTaskPS: number | null = null;
+      let quarterlyAssessPS: number | null = null;
+      let initialGrade: number | null = null;
+      let quarterlyGrade: number | null = null;
+
+      if (!isHG) {
+        const effectiveWeights = await resolveEffectiveWeightsForClassAssignment(classAssignmentId);
+        const calculated = calculateGrades(
           writtenWorkScores,
           perfTaskScores,
           quarterlyAssessScore,
@@ -323,6 +354,38 @@ router.post(
           effectiveWeights.pt,
           effectiveWeights.qa
         );
+        writtenWorkPS = calculated.writtenWorkPS;
+        perfTaskPS = calculated.perfTaskPS;
+        quarterlyAssessPS = calculated.quarterlyAssessPS;
+        initialGrade = calculated.initialGrade;
+        quarterlyGrade = calculated.quarterlyGrade;
+      }
+
+      const gradePayload = isHG
+        ? {
+            writtenWorkScores: null,
+            perfTaskScores: null,
+            quarterlyAssessScore: null,
+            quarterlyAssessMax: null,
+            writtenWorkPS: null,
+            perfTaskPS: null,
+            quarterlyAssessPS: null,
+            initialGrade: null,
+            quarterlyGrade: null,
+            qualitativeDescriptor,
+          }
+        : {
+            writtenWorkScores,
+            perfTaskScores,
+            quarterlyAssessScore,
+            quarterlyAssessMax,
+            writtenWorkPS,
+            perfTaskPS,
+            quarterlyAssessPS,
+            initialGrade,
+            quarterlyGrade,
+            qualitativeDescriptor: null,
+          };
 
       // Check before upsert to determine create vs update
       const existingGrade = await prisma.grade.findFirst({ where: { studentId, classAssignmentId, quarter } });
@@ -336,30 +399,12 @@ router.post(
             quarter,
           },
         },
-        update: {
-          writtenWorkScores,
-          perfTaskScores,
-          quarterlyAssessScore,
-          quarterlyAssessMax,
-          writtenWorkPS,
-          perfTaskPS,
-          quarterlyAssessPS,
-          initialGrade,
-          quarterlyGrade,
-        },
+        update: gradePayload,
         create: {
           studentId,
           classAssignmentId,
           quarter,
-          writtenWorkScores,
-          perfTaskScores,
-          quarterlyAssessScore,
-          quarterlyAssessMax,
-          writtenWorkPS,
-          perfTaskPS,
-          quarterlyAssessPS,
-          initialGrade,
-          quarterlyGrade,
+          ...gradePayload,
         },
       });
 
@@ -373,7 +418,7 @@ router.post(
           { id: teacherUser.id, firstName: teacherUser.firstName, lastName: teacherUser.lastName, role: teacherUser.role },
           `Grade: ${student?.firstName || ""} ${student?.lastName || ""} — ${classAssignment.subject.name} (${quarter})`,
           "Grades",
-          `${isNew ? "Recorded" : "Updated"} grade for ${student?.firstName || ""} ${student?.lastName || ""} in ${classAssignment.subject.name} (${quarter}): ${quarterlyGrade}`,
+          `${isNew ? "Recorded" : "Updated"} grade for ${student?.firstName || ""} ${student?.lastName || ""} in ${classAssignment.subject.name} (${quarter}): ${isHG ? qualitativeDescriptor : quarterlyGrade}`,
           req.ip || req.socket?.remoteAddress,
           AuditSeverity.INFO,
           grade.id
@@ -410,7 +455,7 @@ router.delete(
       const grade = await prisma.grade.findUnique({
         where: { id: gradeId },
         include: {
-          classAssignment: { include: { subject: { select: { name: true } } } },
+          classAssignment: { include: { subject: { select: { name: true, code: true } } } },
           student: { select: { firstName: true, lastName: true } },
         },
       });
@@ -419,7 +464,6 @@ router.delete(
         res.status(403).json({ message: "Not authorized" });
         return;
       }
-
       await prisma.grade.delete({
         where: { id: gradeId },
       });
@@ -474,7 +518,10 @@ router.get(
       const currentSchoolYear = systemSettings?.currentSchoolYear ?? '2026-2027';
 
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id, schoolYear: currentSchoolYear },
+        where: {
+          teacherId: teacher.id,
+          schoolYear: currentSchoolYear,
+        },
         include: {
           subject: true,
           section: {
@@ -538,7 +585,10 @@ router.get(
       const currentSY = sysSettings?.currentSchoolYear ?? '2026-2027';
 
       const classAssignments = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id, schoolYear: currentSY },
+        where: {
+          teacherId: teacher.id,
+          schoolYear: currentSY,
+        },
         include: {
           subject: true,
           section: {
@@ -558,8 +608,11 @@ router.get(
 
       // Calculate stats for each class
       const classStats = classAssignments.map((ca: any) => {
+        const isHG = isHomeroomGuidanceSubjectCode(ca.subject.code);
         const totalStudents = ca.section.enrollments.length;
-        const gradesWithScore = ca.grades.filter((g: any) => g.quarterlyGrade !== null);
+        const gradesWithScore = isHG
+          ? []
+          : ca.grades.filter((g: any) => g.quarterlyGrade !== null);
         const gradedCount = gradesWithScore.length;
         
         // Calculate average grade
@@ -572,7 +625,7 @@ router.get(
         const passingRate = gradedCount > 0 ? Math.round((passingCount / gradedCount) * 100) : 0;
         
         // Find students needing attention (below 75)
-        const studentsAtRisk = ca.grades
+        const studentsAtRisk = isHG ? [] : ca.grades
           .filter((g: any) => g.quarterlyGrade !== null && g.quarterlyGrade < 75)
           .map((g: any) => {
             const enrollment = ca.section.enrollments.find((e: any) => e.student.id === g.studentId);
@@ -586,7 +639,7 @@ router.get(
           .filter(Boolean);
         
         // Find honors students (90+) and with honors (85-89)
-        const honorsStudents = ca.grades
+        const honorsStudents = isHG ? [] : ca.grades
           .filter((g: any) => g.quarterlyGrade !== null && g.quarterlyGrade >= 90)
           .map((g: any) => {
             const enrollment = ca.section.enrollments.find((e: any) => e.student.id === g.studentId);
@@ -599,7 +652,7 @@ router.get(
           })
           .filter(Boolean);
         
-        const withHonorsStudents = ca.grades
+        const withHonorsStudents = isHG ? [] : ca.grades
           .filter((g: any) => g.quarterlyGrade !== null && g.quarterlyGrade >= 85 && g.quarterlyGrade < 90)
           .map((g: any) => {
             const enrollment = ca.section.enrollments.find((e: any) => e.student.id === g.studentId);
@@ -809,9 +862,10 @@ router.get(
         : classAssignments;
 
       // Collect all quarterly grades
-      const allGrades = filteredAssignments.flatMap((ca: any) => 
-        ca.grades.filter((g: any) => g.quarterlyGrade !== null).map((g: any) => g.quarterlyGrade)
-      );
+      const allGrades = filteredAssignments.flatMap((ca: any) => {
+        if (isHomeroomGuidanceSubjectCode(ca.subject?.code)) return [];
+        return ca.grades.filter((g: any) => g.quarterlyGrade !== null).map((g: any) => g.quarterlyGrade);
+      });
 
       // Calculate mastery level distribution (DepEd categories)
       const distribution = {
@@ -824,8 +878,10 @@ router.get(
 
       // Get available filters (grade levels and sections for this teacher)
       const allSections = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id },
-        include: { section: true },
+        where: {
+          teacherId: teacher.id,
+        },
+        include: { section: true, subject: true },
         distinct: ['sectionId'],
       });
 
@@ -1168,7 +1224,10 @@ router.post(
 
       // Verify teacher owns this class assignment
       const classAssignment = await prisma.classAssignment.findFirst({
-        where: { id: classAssignmentId, teacherId: teacher.id },
+        where: {
+          id: classAssignmentId,
+          teacherId: teacher.id,
+        },
         include: {
           subject: true,
           section: {
@@ -1183,6 +1242,10 @@ router.post(
 
       if (!classAssignment) {
         res.status(403).json({ message: "Not authorized for this class" });
+        return;
+      }
+      if (isHomeroomGuidanceSubjectCode(classAssignment.subject.code)) {
+        res.status(400).json({ message: "ECR import is not available for Homeroom Guidance classes" });
         return;
       }
 
@@ -1279,7 +1342,10 @@ router.post(
 
       // Verify teacher owns this class assignment
       const classAssignment = await prisma.classAssignment.findFirst({
-        where: { id: classAssignmentId, teacherId: teacher.id },
+        where: {
+          id: classAssignmentId,
+          teacherId: teacher.id,
+        },
         include: {
           subject: true,
           section: {
@@ -1294,6 +1360,10 @@ router.post(
 
       if (!classAssignment) {
         res.status(403).json({ message: "Not authorized for this class" });
+        return;
+      }
+      if (isHomeroomGuidanceSubjectCode(classAssignment.subject.code)) {
+        res.status(400).json({ message: "ECR import is not available for Homeroom Guidance classes" });
         return;
       }
 
@@ -1458,9 +1528,13 @@ router.get(
       }
 
       const classAssignment = await prisma.classAssignment.findFirst({
-        where: { id: classAssignmentId, teacherId: teacher.id },
+        where: {
+          id: classAssignmentId,
+          teacherId: teacher.id,
+        },
         select: {
           id: true,
+          subject: { select: { code: true } },
           ecrLastSyncedAt: true,
           ecrFileName: true,
         },
@@ -1468,6 +1542,10 @@ router.get(
 
       if (!classAssignment) {
         res.status(404).json({ message: "Class assignment not found" });
+        return;
+      }
+      if (isHomeroomGuidanceSubjectCode(classAssignment.subject.code)) {
+        res.status(400).json({ message: "ECR status is not applicable to Homeroom Guidance classes" });
         return;
       }
 

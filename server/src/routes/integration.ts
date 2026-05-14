@@ -195,7 +195,10 @@ router.get(
       if (!teacher) return;
 
       const assignments = await prisma.classAssignment.findMany({
-        where: { teacherId: teacher.id, schoolYear: '2026-2027' },
+        where: {
+          teacherId: teacher.id,
+          schoolYear: '2026-2027',
+        },
         include: {
           subject: true,
           section: { include: { _count: { select: { enrollments: { where: { status: 'ENROLLED' } } } } } },

@@ -21,6 +21,10 @@ type ClassAssignmentWithDetails = ClassAssignment & {
   grades?: Grade[];
 };
 
+function isHomeroomGuidanceCode(subjectCode: string | null | undefined): boolean {
+  return (subjectCode ?? '').toUpperCase().startsWith('HG');
+}
+
 // Get teacher's advisory section
 router.get(
   "/my-advisory",
@@ -261,6 +265,7 @@ router.get(
           quarterlyAssessPS: number | null;
           initialGrade: number | null;
           quarterlyGrade: number | null;
+          qualitativeDescriptor: string | null;
         } | null> = {};
         
         quarters.forEach((q) => {
@@ -271,15 +276,18 @@ router.get(
             quarterlyAssessPS: grade.quarterlyAssessPS,
             initialGrade: grade.initialGrade,
             quarterlyGrade: grade.quarterlyGrade,
+            qualitativeDescriptor: grade.qualitativeDescriptor ?? null,
           } : null;
         });
+
+        const isHG = isHomeroomGuidanceCode(ca.subject.code);
 
         // Calculate final grade (average of available quarterly grades)
         const quarterlyGrades = Object.values(gradesByQuarter)
           .filter((g): g is NonNullable<typeof g> => g?.quarterlyGrade !== null && g?.quarterlyGrade !== undefined)
           .map((g) => g.quarterlyGrade as number);
         
-        const finalGrade = quarterlyGrades.length > 0 
+        const finalGrade = !isHG && quarterlyGrades.length > 0 
           ? Math.round(quarterlyGrades.reduce((a, b) => a + b, 0) / quarterlyGrades.length)
           : null;
 
@@ -291,14 +299,16 @@ router.get(
           teacher: `${ca.teacher.user.firstName} ${ca.teacher.user.lastName}`,
           grades: gradesByQuarter,
           finalGrade,
-          remarks: finalGrade ? (finalGrade >= 75 ? "PASSED" : "FAILED") : null,
+          remarks: isHG ? "QUALITATIVE" : (finalGrade ? (finalGrade >= 75 ? "PASSED" : "FAILED") : null),
         };
       });
 
       // Calculate General Average
       const finalGrades = subjectGrades
+        .filter((s) => !isHomeroomGuidanceCode(s.subjectCode))
         .filter((s) => s.finalGrade !== null)
         .map((s) => s.finalGrade as number);
+      const academicSubjects = subjectGrades.filter((s) => !isHomeroomGuidanceCode(s.subjectCode));
       
       const generalAverage = finalGrades.length > 0
         ? Math.round((finalGrades.reduce((a, b) => a + b, 0) / finalGrades.length) * 100) / 100
@@ -314,8 +324,8 @@ router.get(
 
       // Determine promotion status
       let promotionStatus: string | null = null;
-      if (finalGrades.length === subjectGrades.length && finalGrades.length > 0) {
-        const failedSubjects = subjectGrades.filter((s) => s.finalGrade !== null && s.finalGrade < 75);
+      if (finalGrades.length === academicSubjects.length && finalGrades.length > 0) {
+        const failedSubjects = academicSubjects.filter((s) => s.finalGrade !== null && s.finalGrade < 75);
         if (failedSubjects.length === 0) {
           promotionStatus = "PROMOTED";
         } else if (failedSubjects.length <= 2) {
@@ -350,7 +360,7 @@ router.get(
           generalAverage,
           honors,
           promotionStatus,
-          totalSubjects: subjectGrades.length,
+          totalSubjects: academicSubjects.length,
           completedSubjects: finalGrades.length,
         },
       });
@@ -401,11 +411,12 @@ router.get(
       const classAssignments = await prisma.classAssignment.findMany({
         where: { sectionId: advisorySection.id },
         include: {
+          subject: { select: { code: true } },
           grades: {
             where: { quarter: "Q1" }, // Current quarter
           },
         },
-      }) as (ClassAssignment & { grades: Grade[] })[];
+      }) as (ClassAssignment & { subject: { code: string }; grades: Grade[] })[];
 
       // Calculate rankings based on general average
       interface StudentAverage {
@@ -420,16 +431,20 @@ router.get(
 
       const studentAverages: StudentAverage[] = await Promise.all(
         advisorySection.enrollments.map(async (enrollment: EnrollmentWithStudent) => {
-          const studentGrades = classAssignments.flatMap((ca) =>
-            ca.grades.filter((g: Grade) => g.studentId === enrollment.studentId)
-          );
+          const academicSubjectCount = classAssignments.filter(
+            (ca) => !isHomeroomGuidanceCode(ca.subject.code),
+          ).length;
 
-          const quarterlyGrades = studentGrades
-            .map((g: Grade) => g.quarterlyGrade)
-            .filter((g): g is number => g !== null);
+          const academicQuarterlyGrades = classAssignments.flatMap((ca) => {
+            if (isHomeroomGuidanceCode(ca.subject.code)) return [] as number[];
+            return ca.grades
+              .filter((g: Grade) => g.studentId === enrollment.studentId)
+              .map((g: Grade) => g.quarterlyGrade)
+              .filter((g): g is number => g !== null);
+          });
 
-          const average = quarterlyGrades.length > 0
-            ? quarterlyGrades.reduce((a, b) => a + b, 0) / quarterlyGrades.length
+          const average = academicQuarterlyGrades.length > 0
+            ? academicQuarterlyGrades.reduce((a, b) => a + b, 0) / academicQuarterlyGrades.length
             : null;
 
           return {
@@ -438,8 +453,8 @@ router.get(
             lrn: enrollment.student.lrn,
             gender: enrollment.student.gender,
             average,
-            gradedSubjects: quarterlyGrades.length,
-            totalSubjects: classAssignments.length,
+            gradedSubjects: academicQuarterlyGrades.length,
+            totalSubjects: academicSubjectCount,
           };
         })
       );

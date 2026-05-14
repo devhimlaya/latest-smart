@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { Role, SubjectType, AuditAction, AuditSeverity, Quarter } from "@prisma/client";
+import { Role, SubjectType, AuditAction, AuditSeverity, Quarter, WorkloadType } from "@prisma/client";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import bcrypt from "bcryptjs";
 import multer from "multer";
@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 import { prisma } from "../lib/prisma";
 import { createAuditLog } from "../lib/audit";
 import { addSseClient, removeSseClient, addSettingsSseClient, removeSettingsSseClient, broadcastSettingsUpdate } from "../lib/sseManager";
-import { runAtlasSync, getSyncStatus, cleanupHomeroomMathConflicts } from "../lib/atlasSync";
+import { runAtlasSync, getSyncStatus } from "../lib/atlasSync";
 import { runEnrollProSync, getEnrollProSyncStatus } from "../lib/enrollproSync";
 import { syncEnrollProBranding } from "../lib/enrollproBrandingSync";
 
@@ -1140,19 +1140,6 @@ router.post("/atlas-sync/run", authenticateToken, async (req: AuthRequest, res: 
   res.json({ message: "Sync complete", result });
 });
 
-// POST /api/admin/atlas-sync/cleanup-homeroom — one-shot cleanup of stale MATH
-// assignments on Homeroom Guidance sections without running a full Atlas sync.
-router.post("/atlas-sync/cleanup-homeroom", authenticateToken, async (req: AuthRequest, res: Response) => {
-  if (req.user?.role !== "ADMIN") return res.status(403).json({ message: "Forbidden" });
-  const removed = await cleanupHomeroomMathConflicts();
-  res.json({
-    message: removed > 0
-      ? `Cleanup complete. Removed ${removed} stale MATH assignment(s) from Homeroom Guidance sections.`
-      : `No stale MATH assignments found on Homeroom Guidance sections.`,
-    removed,
-  });
-});
-
 // ── EnrollPro Advisory Sync endpoints ────────────────────────────────────────
 
 // GET /api/admin/enrollpro-sync/status
@@ -1369,7 +1356,97 @@ router.get("/class-assignments", authenticateToken, async (req: AuthRequest, res
       },
       orderBy: [{ section: { gradeLevel: "asc" } }, { section: { name: "asc" } }],
     });
-    res.json(assignments);
+
+    const advisoryEntries = await prisma.workloadEntry.findMany({
+      where: {
+        schoolYear,
+        type: WorkloadType.ADVISORY_ROLE,
+      },
+      include: {
+        teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
+        section: { select: { id: true, name: true, gradeLevel: true } },
+      },
+    });
+
+    type WorkloadBucket = {
+      teacherId: string;
+      teacherName: string;
+      sectionId: string;
+      sectionName: string;
+      gradeLevel: string;
+      hgMinutes: number;
+      advisoryRoleMinutes: number;
+      otherSubjectMinutes: number;
+      totalMinutes: number;
+    };
+
+    const summaryMap = new Map<string, WorkloadBucket>();
+    const ensureBucket = (
+      teacherId: string,
+      teacherName: string,
+      sectionId: string,
+      sectionName: string,
+      gradeLevel: string,
+    ) => {
+      const key = `${teacherId}|${sectionId}`;
+      const existing = summaryMap.get(key);
+      if (existing) return existing;
+      const bucket: WorkloadBucket = {
+        teacherId,
+        teacherName,
+        sectionId,
+        sectionName,
+        gradeLevel,
+        hgMinutes: 0,
+        advisoryRoleMinutes: 0,
+        otherSubjectMinutes: 0,
+        totalMinutes: 0,
+      };
+      summaryMap.set(key, bucket);
+      return bucket;
+    };
+
+    for (const assignment of assignments) {
+      const teacherName = `${assignment.teacher.user.lastName}, ${assignment.teacher.user.firstName}`;
+      const bucket = ensureBucket(
+        assignment.teacherId,
+        teacherName,
+        assignment.sectionId,
+        assignment.section.name,
+        assignment.section.gradeLevel,
+      );
+      if (assignment.subject.code.startsWith('HG')) {
+        bucket.hgMinutes += assignment.teachingMinutes ?? 60;
+      } else {
+        bucket.otherSubjectMinutes += assignment.teachingMinutes ?? 60;
+      }
+    }
+
+    for (const entry of advisoryEntries) {
+      if (!entry.section) continue;
+      const teacherName = `${entry.teacher.user.lastName}, ${entry.teacher.user.firstName}`;
+      const bucket = ensureBucket(
+        entry.teacherId,
+        teacherName,
+        entry.section.id,
+        entry.section.name,
+        entry.section.gradeLevel,
+      );
+      bucket.advisoryRoleMinutes += entry.minutes;
+    }
+
+    const workloadSummary = [...summaryMap.values()]
+      .map((item) => ({
+        ...item,
+        totalMinutes: item.hgMinutes + item.advisoryRoleMinutes + item.otherSubjectMinutes,
+      }))
+      .sort((a, b) => {
+        if (a.gradeLevel !== b.gradeLevel) return a.gradeLevel.localeCompare(b.gradeLevel);
+        if (a.sectionName !== b.sectionName) return a.sectionName.localeCompare(b.sectionName);
+        return a.teacherName.localeCompare(b.teacherName);
+      });
+
+    res.json({ assignments, workloadSummary });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -1384,8 +1461,23 @@ router.post("/class-assignments", authenticateToken, async (req: AuthRequest, re
       res.status(400).json({ message: "teacherId, subjectId, sectionId, and schoolYear are required" });
       return;
     }
+    const subject = await prisma.subject.findUnique({ where: { id: subjectId }, select: { code: true, name: true } });
+    if (!subject) {
+      res.status(404).json({ message: "Subject not found" });
+      return;
+    }
+    if (subject.code.startsWith('HG') && subject.name !== 'Homeroom Guidance') {
+      await prisma.subject.update({ where: { id: subjectId }, data: { name: 'Homeroom Guidance' } });
+    }
+
     const assignment = await prisma.classAssignment.create({
-      data: { teacherId, subjectId, sectionId, schoolYear },
+      data: {
+        teacherId,
+        subjectId,
+        sectionId,
+        schoolYear,
+        teachingMinutes: subject.code.startsWith('HG') ? 60 : null,
+      },
       include: {
         teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
         subject: true,

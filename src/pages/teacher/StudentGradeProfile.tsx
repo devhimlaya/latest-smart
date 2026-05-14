@@ -345,12 +345,18 @@ export default function StudentGradeProfilePage() {
                     </TableCell>
                     {(["Q1", "Q2", "Q3", "Q4"] as const).map((quarter) => {
                       const grade = subject.grades[quarter]?.quarterlyGrade;
+                      const descriptor = subject.grades[quarter]?.qualitativeDescriptor;
+                      const isHG = subject.subjectCode.startsWith("HG");
                       return (
                         <TableCell key={quarter} className="text-center">
                           {grade !== null && grade !== undefined ? (
                             <span className={`font-semibold ${grade >= 75 ? "text-gray-900" : "text-red-600"}`}>
                               {grade}
                             </span>
+                          ) : isHG && descriptor ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">
+                              {descriptor}
+                            </Badge>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
@@ -371,14 +377,18 @@ export default function StudentGradeProfilePage() {
                         <Badge className={`${
                           subject.remarks === "PASSED" 
                             ? "bg-emerald-100 text-emerald-700" 
+                            : subject.remarks === "QUALITATIVE"
+                            ? "bg-sky-100 text-sky-700"
                             : "bg-red-100 text-red-700"
                         }`}>
                           {subject.remarks === "PASSED" ? (
                             <CheckCircle2 className="w-3 h-3 mr-1" />
+                          ) : subject.remarks === "QUALITATIVE" ? (
+                            <BookOpen className="w-3 h-3 mr-1" />
                           ) : (
                             <XCircle className="w-3 h-3 mr-1" />
                           )}
-                          {subject.remarks}
+                          {subject.remarks === "QUALITATIVE" ? "Descriptor-Based" : subject.remarks}
                         </Badge>
                       ) : (
                         <Badge className="bg-gray-100 text-gray-500">

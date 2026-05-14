@@ -30,6 +30,7 @@ model Teacher {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   classAssignments ClassAssignment[]
+  workloadEntries  WorkloadEntry[]
   advisorySections Section[]         @relation("SectionAdviser")
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -65,6 +66,7 @@ model Section {
   updatedAt        DateTime          @updatedAt
   attendance       Attendance[]
   classAssignments ClassAssignment[]
+  workloadEntries  WorkloadEntry[]
   enrollments      Enrollment[]
   adviser          Teacher?          @relation("SectionAdviser", fields: [adviserId], references: [id])
 
@@ -92,6 +94,7 @@ model ClassAssignment {
   subjectId       String
   sectionId       String
   schoolYear      String
+  teachingMinutes Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   ecrFileName     String?
@@ -100,6 +103,7 @@ model ClassAssignment {
   subject         Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   grades          Grade[]
+  workloadEntries WorkloadEntry[]
 
   @@unique([teacherId, subjectId, sectionId, schoolYear])
   @@index([schoolYear])
@@ -137,6 +141,7 @@ model Grade {
   initialGrade         Float?
   quarterlyGrade       Float?
   remarks              String?
+  qualitativeDescriptor String?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   classAssignment      ClassAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
@@ -162,6 +167,25 @@ model Attendance {
   @@index([sectionId, date])
   @@index([studentId])
   @@index([date])
+}
+
+model WorkloadEntry {
+  id               String         @id @default(cuid())
+  teacherId        String
+  sectionId        String?
+  classAssignmentId String?
+  schoolYear       String
+  type             WorkloadType
+  minutes          Int
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  teacher          Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  section          Section?       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  classAssignment  ClassAssignment? @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, sectionId, schoolYear, type])
+  @@index([teacherId, schoolYear])
+  @@index([type, schoolYear])
 }
 
 model AuditLog {
@@ -300,6 +324,10 @@ enum SubjectType {
   MAPEH
   TLE
   MATH_SCIENCE
+}
+
+enum WorkloadType {
+  ADVISORY_ROLE
 }
 
 enum AttendanceStatus {
